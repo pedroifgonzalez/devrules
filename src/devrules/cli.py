@@ -253,6 +253,7 @@ def create_branch(
 
 @app.command()
 def commit(message: str, config_file: Optional[str] = typer.Option(None, "--config", "-c", help="Path to config file")):
+    """Validate and commit changes with a properly formatted message."""
     import subprocess
 
     config = load_config(config_file)
