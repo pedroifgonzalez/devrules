@@ -260,12 +260,12 @@ def commit(message: str, config_file: Optional[str] = typer.Option(None, "--conf
     # Validate commit
     validate_commit(message, config.commit)
 
-    try:
-        subprocess.run(["git", "commit", "-m", message], check=True)
-        typer.secho("\n✔ Committed changes!", fg=typer.colors.GREEN)
-    except subprocess.CalledProcessError as e:
-        typer.secho(f"\n✘ Failed to commit changes: {e}", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
+    # try:
+    #     subprocess.run(["git", "commit", "-m", message], check=True)
+    #     typer.secho("\n✔ Committed changes!", fg=typer.colors.GREEN)
+    # except subprocess.CalledProcessError as e:
+    #     typer.secho(f"\n✘ Failed to commit changes: {e}", fg=typer.colors.RED)
+        # raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":
