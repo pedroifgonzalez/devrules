@@ -1,50 +1,55 @@
 # DevRules
 
+[![PyPI version](https://badge.fury.io/py/devrules.svg)](https://badge.fury.io/py/devrules)
+[![Python Versions](https://img.shields.io/pypi/pyversions/devrules.svg)](https://pypi.org/project/devrules/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A flexible CLI tool for enforcing development guidelines across your projects.
 
-## Features
+## 🚀 Features
 
-- ✅ Branch naming validation
-- ✅ Commit message format checking
-- ✅ Pull Request size and title validation
-- ⚙️ Configurable via TOML files
-- 🔌 Easy Git hooks integration
+- ✅ **Branch naming validation** - Enforce consistent branch naming conventions
+- ✅ **Commit message format checking** - Validate commit message structure
+- ✅ **Pull Request validation** - Check PR size and title format
+- ⚙️ **Configurable via TOML** - Customize all rules to match your workflow
+- 🔌 **Git hooks integration** - Automatic validation in your Git workflow
+- 🎨 **Interactive branch creation** - User-friendly branch creation wizard
+- 🌐 **GitHub API integration** - Validate PRs directly from GitHub
 
-## Installation
+## 📦 Installation
 ```bash
 pip install devrules
 ```
 
-Or for development:
-```bash
-git clone https://github.com/pedroifgonzalez/devrules
-cd devrules
-pip install -e .
-```
+## 🎯 Quick Start
 
-## Quick Start
-
-1. Generate a configuration file:
+1. **Initialize configuration:**
 ```bash
 devrules init-config
 ```
 
-2. Customize `.devrules.toml` to your needs
-
-3. Use in your workflow:
+2. **Create a branch interactively:**
 ```bash
-# Check branch name
-devrules check-branch feature/123-login-page
+devrules create-branch
+```
 
-# Check commit message
+3. **Validate a branch name:**
+```bash
+devrules check-branch feature/123-new-feature
+```
+
+4. **Validate a commit message:**
+```bash
 devrules check-commit .git/COMMIT_EDITMSG
+```
 
-# Check pull request
+5. **Validate a Pull Request:**
+```bash
 export GH_TOKEN=your_github_token
 devrules check-pr owner repo 42
 ```
 
-## Configuration
+## ⚙️ Configuration
 
 Create a `.devrules.toml` file in your project root:
 ```toml
@@ -64,43 +69,40 @@ max_files = 20
 require_title_tag = true
 ```
 
-## Git Hooks Integration
+## 🔗 Git Hooks Integration
 
-Add to `.git/hooks/commit-msg`:
+**Commit message validation:**
 ```bash
+# .git/hooks/commit-msg
 #!/bin/bash
 devrules check-commit "$1" || exit 1
 ```
 
-Add to `.git/hooks/pre-push`:
+**Branch validation before push:**
 ```bash
+# .git/hooks/pre-push
 #!/bin/bash
 current_branch=$(git symbolic-ref --short HEAD)
 devrules check-branch "$current_branch" || exit 1
 ```
 
-## Commands
+## 📚 Documentation
 
-- `devrules check-branch <name>` - Validate branch name
-- `devrules check-commit <file>` - Validate commit message
-- `devrules check-pr <owner> <repo> <pr>` - Validate PR
-- `devrules init-config` - Generate config file
+For full documentation, visit [GitHub](https://github.com/pedroifgonzalez/devrules).
 
-## Development
-```bash
-# Install dev dependencies
-pip install -e ".[dev]"
+## 🤝 Contributing
 
-# Run tests
-pytest
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-# Format code
-black src/
+## 📄 License
 
-# Lint
-ruff check src/
-```
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## License
+## 🙏 Acknowledgments
 
-MIT
+Built with [Typer](https://typer.tiangolo.com/) for an amazing CLI experience.
+
+## 📧 Contact
+
+- GitHub: [@pedroifgonzalez](https://github.com/pedroifgonzalez)
+- Email: pedroifgonzalez@gmail.com
