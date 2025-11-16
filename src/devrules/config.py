@@ -1,0 +1,147 @@
+"""Configuration management for DevRules."""
+
+import toml
+from pathlib import Path
+from typing import Optional
+from dataclasses import dataclass, field
+
+
+@dataclass
+class BranchConfig:
+    """Branch validation configuration."""
+
+    pattern: str
+    prefixes: list
+    require_issue_number: bool = False
+
+
+@dataclass
+class CommitConfig:
+    """Commit message validation configuration."""
+
+    tags: list
+    pattern: str
+    min_length: int = 10
+    max_length: int = 100
+
+
+@dataclass
+class PRConfig:
+    """Pull Request validation configuration."""
+
+    max_loc: int = 400
+    max_files: int = 20
+    require_title_tag: bool = True
+    title_pattern: str = ""
+
+
+@dataclass
+class GitHubConfig:
+    """GitHub API configuration."""
+
+    api_url: str = "https://api.github.com"
+    timeout: int = 30
+
+
+@dataclass
+class Config:
+    """Main configuration container."""
+
+    branch: BranchConfig
+    commit: CommitConfig
+    pr: PRConfig
+    github: GitHubConfig = field(default_factory=GitHubConfig)
+
+
+DEFAULT_CONFIG = {
+    "branch": {
+        "pattern": r"^(feature|bugfix|hotfix|release|docs)/(\d+-)?[a-z0-9-]+",
+        "prefixes": ["feature", "bugfix", "hotfix", "release", "docs"],
+        "require_issue_number": False,
+    },
+    "commit": {
+        "tags": [
+            "WIP",
+            "FTR",
+            "SCR",
+            "CLP",
+            "CRO",
+            "TST",
+            "!!!",
+            "FIX",
+            "RFR",
+            "ADD",
+            "REM",
+            "REV",
+            "MOV",
+            "REL",
+            "IMP",
+            "MERGE",
+            "I18N",
+            "DOCS",
+        ],
+        "pattern": r"^\[({tags})\].+",
+        "min_length": 10,
+        "max_length": 100,
+    },
+    "pr": {
+        "max_loc": 400,
+        "max_files": 20,
+        "require_title_tag": True,
+        "title_pattern": r"^\[({tags})\].+",
+    },
+    "github": {"api_url": "https://api.github.com", "timeout": 30},
+}
+
+
+def find_config_file() -> Optional[Path]:
+    """Search for config file in current directory and parent directories."""
+    current = Path.cwd()
+
+    config_names = [".devrules.toml", "devrules.toml", ".devrules"]
+
+    for parent in [current] + list(current.parents):
+        for name in config_names:
+            config_path = parent / name
+            if config_path.exists():
+                return config_path
+
+    return None
+
+
+def load_config(config_path: Optional[str] = None) -> Config:
+    """Load configuration from TOML file or use defaults."""
+
+    if config_path:
+        path = Path(config_path)
+    else:
+        path = find_config_file()
+
+    if path and path.exists():
+        try:
+            user_config = toml.load(path)
+            config_data = {**DEFAULT_CONFIG}
+
+            # Deep merge
+            for section in user_config:
+                if section in config_data:
+                    config_data[section].update(user_config[section])
+                else:
+                    config_data[section] = user_config[section]
+        except Exception as e:
+            print(f"Warning: Error loading config file: {e}")
+            config_data = DEFAULT_CONFIG
+    else:
+        config_data = DEFAULT_CONFIG
+
+    # Build pattern with tags
+    tags_str = "|".join(config_data["commit"]["tags"])
+    commit_pattern = config_data["commit"]["pattern"].replace("{tags}", tags_str)
+    pr_pattern = config_data["pr"]["title_pattern"].replace("{tags}", tags_str)
+
+    return Config(
+        branch=BranchConfig(**config_data["branch"]),
+        commit=CommitConfig(**{**config_data["commit"], "pattern": commit_pattern}),
+        pr=PRConfig(**{**config_data["pr"], "title_pattern": pr_pattern}),
+        github=GitHubConfig(**config_data.get("github", {})),
+    )

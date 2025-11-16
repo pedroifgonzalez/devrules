@@ -1,0 +1,27 @@
+# DevRules Configuration File
+# Copy this to .devrules.toml and customize
+
+[branch]
+# Branch naming pattern (regex)
+pattern = "^(feature|bugfix|hotfix|release|docs)/(\\d+-)?[a-z0-9-]+"
+prefixes = ["feature", "bugfix", "hotfix", "release", "docs"]
+require_issue_number = false
+
+[commit]
+# Commit message tags
+tags = ["WIP", "FTR", "SCR", "CLP", "CRO", "TST", "!!!", "FIX", "RFR", "ADD", "REM", "REV", "MOV", "REL", "IMP", "MERGE", "I18N", "DOCS"]
+pattern = "^\\[({tags})\\].+"
+min_length = 10
+max_length = 100
+
+[pr]
+# Pull Request validation
+max_loc = 400
+max_files = 20
+require_title_tag = true
+title_pattern = "^\\[({tags})\\].+"
+
+[github]
+# GitHub API settings
+api_url = "https://api.github.com"
+timeout = 30
