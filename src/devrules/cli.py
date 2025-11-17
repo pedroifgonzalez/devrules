@@ -259,10 +259,17 @@ def commit(message: str, config_file: Optional[str] = typer.Option(None, "--conf
     config = load_config(config_file)
 
     # Validate commit
-    is_valid, error = validate_commit(message, config.commit)
+    is_valid, result_message = validate_commit(message, config.commit)
 
     if not is_valid:
-        typer.secho(f"\n✘ Invalid commit message: {error}", fg=typer.colors.RED)
+        typer.secho(f"\n✘ {result_message}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    # Check if in git repo
+    try:
+        subprocess.run(["git", "rev-parse", "--git-dir"], check=True, capture_output=True)
+    except subprocess.CalledProcessError:
+        typer.secho("✘ Not a git repository", fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
     try:
@@ -270,7 +277,7 @@ def commit(message: str, config_file: Optional[str] = typer.Option(None, "--conf
         typer.secho("\n✔ Committed changes!", fg=typer.colors.GREEN)
     except subprocess.CalledProcessError as e:
         typer.secho(f"\n✘ Failed to commit changes: {e}", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 if __name__ == "__main__":
