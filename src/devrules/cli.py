@@ -251,5 +251,27 @@ def create_branch(
         raise typer.Exit(code=1)
 
 
+@app.command()
+def commit(message: str, config_file: Optional[str] = typer.Option(None, "--config", "-c", help="Path to config file")):
+    """Validate and commit changes with a properly formatted message."""
+    import subprocess
+
+    config = load_config(config_file)
+
+    # Validate commit
+    is_valid, error = validate_commit(message, config.commit)
+
+    if not is_valid:
+        typer.secho(f"\n✘ Invalid commit message: {error}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    try:
+        subprocess.run(["git", "commit", "-m", message], check=True)
+        typer.secho("\n✔ Committed changes!", fg=typer.colors.GREEN)
+    except subprocess.CalledProcessError as e:
+        typer.secho(f"\n✘ Failed to commit changes: {e}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()

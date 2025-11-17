@@ -1,6 +1,6 @@
 [project]
 name = "devrules"
-version = "0.1.0"
+version = "0.1.2"
 description = "CLI tool for enforcing development guidelines"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -12,24 +12,42 @@ dependencies = [
 authors = [
     {name = "Pedro Iván Fernández González", email = "pedroifgonzalez@gmail.com"}
 ]
-keywords = ["git", "development", "rules", "cli", "validation"]
+keywords = [
+    "git",
+    "development",
+    "workflow",
+    "branch-naming",
+    "commit-validation",
+    "pull-request",
+    "code-quality",
+    "git-hooks",
+    "cli",
+    "developer-tools"
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "Topic :: Software Development :: Version Control :: Git",
+    "Topic :: Software Development :: Quality Assurance",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
 ]
 
 [dependency-groups]
 dev = [
     "black>=25.11.0",
+    "build>=1.3.0",
     "pytest>=9.0.1",
     "pytest-coverage>=0.0",
     "ruff>=0.14.5",
+    "twine>=6.2.0",
 ]
 
 
@@ -38,7 +56,11 @@ devrules = "devrules.cli:app"
 
 [project.urls]
 Homepage = "https://github.com/pedroifgonzalez/devrules"
+Documentation = "https://github.com/pedroifgonzalez/devrules/blob/main/README.md"
 Repository = "https://github.com/pedroifgonzalez/devrules"
+"Bug Tracker" = "https://github.com/pedroifgonzalez/devrules/issues"
+Changelog = "https://github.com/pedroifgonzalez/devrules/blob/main/CHANGELOG.md"
+
 
 [tool.setuptools.packages.find]
 where = ["src"]
