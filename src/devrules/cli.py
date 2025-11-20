@@ -273,23 +273,24 @@ def commit(message: str, config_file: Optional[str] = typer.Option(None, "--conf
         typer.secho("✘ Not a git repository", fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
-    # Check branch ownership to prevent committing on another developer's branch
-    try:
-        branch_result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        current_branch = branch_result.stdout.strip()
-    except subprocess.CalledProcessError:
-        typer.secho("✘ Unable to determine current branch", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
-
-    is_owner, ownership_message = validate_branch_ownership(current_branch)
-    if not is_owner:
-        typer.secho(f"✘ {ownership_message}", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
+    if config.commit.restrict_branch_to_owner:
+        # Check branch ownership to prevent committing on another developer's branch
+        try:
+            branch_result = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            current_branch = branch_result.stdout.strip()
+        except subprocess.CalledProcessError:
+            typer.secho("✘ Unable to determine current branch", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+    
+        is_owner, ownership_message = validate_branch_ownership(current_branch)
+        if not is_owner:
+            typer.secho(f"✘ {ownership_message}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
 
     try:
         subprocess.run(["git", "commit", "-m", message], check=True)
