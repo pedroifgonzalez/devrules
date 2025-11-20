@@ -107,6 +107,7 @@ tags = ["WIP", "FTR", "FIX", "DOCS", "TST", "REF"]
 pattern = "^\\\\[({tags})\\\\].+"
 min_length = 10
 max_length = 100
+restrict_branch_to_owner = true
 
 [pr]
 max_loc = 400
