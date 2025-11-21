@@ -13,6 +13,7 @@ class BranchConfig:
     pattern: str
     prefixes: list
     require_issue_number: bool = False
+    enforce_single_branch_per_issue_env: bool = True
 
 
 @dataclass
@@ -59,6 +60,7 @@ DEFAULT_CONFIG = {
         "pattern": r"^(feature|bugfix|hotfix|release|docs)/(\d+-)?[a-z0-9-]+",
         "prefixes": ["feature", "bugfix", "hotfix", "release", "docs"],
         "require_issue_number": False,
+        "enforce_single_branch_per_issue_env": False,
     },
     "commit": {
         "tags": [

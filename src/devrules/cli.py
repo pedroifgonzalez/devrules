@@ -101,6 +101,7 @@ def init_config(
 pattern = "^(feature|bugfix|hotfix|release|docs)/(\\\\d+-)?[a-z0-9-]+"
 prefixes = ["feature", "bugfix", "hotfix", "release", "docs"]
 require_issue_number = false
+enforce_single_branch_per_issue_env = true  # If true, only one branch per issue per environment (dev/staging)
 
 [commit]
 tags = ["WIP", "FTR", "FIX", "DOCS", "TST", "REF"]
@@ -210,25 +211,26 @@ def create_branch(
 
     typer.secho("✔ Branch name is valid!", fg=typer.colors.GREEN)
 
-    # Enforce one-branch-per-issue-per-environment rule
-    try:
-        existing_result = subprocess.run(
-            ["git", "for-each-ref", "--format=%(refname:short)", "refs/heads/"],
-            capture_output=True,
-            text=True,
-            check=True,
+    # Enforce one-branch-per-issue-per-environment rule when enabled
+    if config.branch.enforce_single_branch_per_issue_env:
+        try:
+            existing_result = subprocess.run(
+                ["git", "for-each-ref", "--format=%(refname:short)", "refs/heads/"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            existing_branches = existing_result.stdout.splitlines()
+        except subprocess.CalledProcessError:
+            existing_branches = []
+
+        is_unique, uniqueness_message = validate_single_branch_per_issue_env(
+            final_branch_name, existing_branches
         )
-        existing_branches = existing_result.stdout.splitlines()
-    except subprocess.CalledProcessError:
-        existing_branches = []
 
-    is_unique, uniqueness_message = validate_single_branch_per_issue_env(
-        final_branch_name, existing_branches
-    )
-
-    if not is_unique:
-        typer.secho(f"\n✘ {uniqueness_message}", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
+        if not is_unique:
+            typer.secho(f"\n✘ {uniqueness_message}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
 
     # Check if branch already exists
     try:
