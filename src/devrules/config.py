@@ -23,6 +23,7 @@ class CommitConfig:
     pattern: str
     min_length: int = 10
     max_length: int = 100
+    restrict_branch_to_owner: bool = False
 
 
 @dataclass

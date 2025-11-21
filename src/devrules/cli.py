@@ -8,6 +8,7 @@ from devrules.config import load_config
 from devrules.validators.branch import validate_branch
 from devrules.validators.commit import validate_commit
 from devrules.validators.pr import validate_pr, fetch_pr_info
+from devrules.validators.ownership import validate_branch_ownership
 
 app = typer.Typer(help="DevRules CLI — Enforce development guidelines.")
 
@@ -106,6 +107,7 @@ tags = ["WIP", "FTR", "FIX", "DOCS", "TST", "REF"]
 pattern = "^\\\\[({tags})\\\\].+"
 min_length = 10
 max_length = 100
+restrict_branch_to_owner = true
 
 [pr]
 max_loc = 400
@@ -271,6 +273,25 @@ def commit(message: str, config_file: Optional[str] = typer.Option(None, "--conf
     except subprocess.CalledProcessError:
         typer.secho("✘ Not a git repository", fg=typer.colors.RED)
         raise typer.Exit(code=1)
+
+    if config.commit.restrict_branch_to_owner:
+        # Check branch ownership to prevent committing on another developer's branch
+        try:
+            branch_result = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            current_branch = branch_result.stdout.strip()
+        except subprocess.CalledProcessError:
+            typer.secho("✘ Unable to determine current branch", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+    
+        is_owner, ownership_message = validate_branch_ownership(current_branch)
+        if not is_owner:
+            typer.secho(f"✘ {ownership_message}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
 
     try:
         subprocess.run(["git", "commit", "-m", message], check=True)

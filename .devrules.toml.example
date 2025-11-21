@@ -13,6 +13,7 @@ tags = ["WIP", "FTR", "SCR", "CLP", "CRO", "TST", "!!!", "FIX", "RFR", "ADD", "R
 pattern = "^\\[({tags})\\].+"
 min_length = 10
 max_length = 100
+restrict_branch_to_owner = true
 
 [pr]
 # Pull Request validation
