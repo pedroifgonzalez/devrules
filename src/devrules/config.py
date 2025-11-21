@@ -60,7 +60,7 @@ DEFAULT_CONFIG = {
         "pattern": r"^(feature|bugfix|hotfix|release|docs)/(\d+-)?[a-z0-9-]+",
         "prefixes": ["feature", "bugfix", "hotfix", "release", "docs"],
         "require_issue_number": False,
-        "enforce_single_branch_per_issue_env": False,
+        "enforce_single_branch_per_issue_env": True,
     },
     "commit": {
         "tags": [
