@@ -445,5 +445,63 @@ def delete_branch(
     raise typer.Exit(code=0)
 
 
+@app.command()
+def list_issues(
+    state: str = typer.Option(
+        "open",
+        "--state",
+        "-s",
+        help="Issue state: open, closed, or all",
+    ),
+    limit: int = typer.Option(
+        30,
+        "--limit",
+        "-L",
+        help="Maximum number of issues to list",
+    ),
+    assignee: Optional[str] = typer.Option(
+        None,
+        "--assignee",
+        "-a",
+        help="Filter by assignee (GitHub username)",
+    ),
+):
+    """List GitHub issues using the gh CLI."""
+    import subprocess
+    import shutil
+
+    # Ensure gh is installed
+    if shutil.which("gh") is None:
+        typer.secho(
+            "✘ GitHub CLI 'gh' is not installed or not in PATH. "
+            "Install it from https://cli.github.com/.",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+
+    cmd = ["gh", "issue", "list", "--state", state, "--limit", str(limit)]
+
+    if assignee:
+        cmd.extend(["--assignee", assignee])
+
+    try:
+        result = subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        typer.secho(
+            f"✘ Failed to list issues via gh: {e}",
+            fg=typer.colors.RED,
+        )
+        if e.stderr:
+            typer.echo(e.stderr)
+        raise typer.Exit(code=1)
+
+    typer.echo(result.stdout)
+
+
 if __name__ == "__main__":
     app()
