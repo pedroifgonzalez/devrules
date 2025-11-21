@@ -70,3 +70,87 @@ def validate_branch_ownership(current_branch: str) -> Tuple[bool, str]:
         )
 
     return True, "Current user matches branch owner"
+
+
+def _get_current_user() -> str:
+    """Return the current Git user.name or fall back to OS USER."""
+
+    user_result = subprocess.run(
+        ["git", "config", "user.name"], capture_output=True, text=True
+    )
+    current_user = user_result.stdout.strip() or os.environ.get("USER", "")
+    return current_user
+
+
+def _get_merge_base(branch: str, base: str = "develop") -> str:
+    """Return the merge-base commit hash between base and branch, or empty string."""
+
+    try:
+        result = subprocess.run(
+            ["git", "merge-base", base, branch],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+    except subprocess.CalledProcessError:
+        return ""
+
+
+def _get_branch_owner(branch: str, current_user: str) -> str:
+    """Determine the owner of a branch using the same logic as validate_branch_ownership.
+
+    Returns:
+        - "SHARED" for shared branches
+        - Git username of the owner
+    """
+
+    if branch in ("main", "master", "develop") or branch.startswith("release/"):
+        return "SHARED"
+
+    merge_base = _get_merge_base(branch)
+    log_range = f"{merge_base}..{branch}" if merge_base else branch
+
+    log_result = subprocess.run(
+        ["git", "log", log_range, "--format=%an", "--reverse"],
+        capture_output=True,
+        text=True,
+    )
+
+    authors = [line.strip() for line in log_result.stdout.splitlines() if line.strip()]
+
+    if not authors:
+        return current_user
+
+    return authors[0]
+
+
+def list_user_owned_branches() -> list:
+    """Return a list of local branches owned by the current user."""
+
+    current_user = _get_current_user()
+    if not current_user:
+        raise RuntimeError(
+            "Unable to determine current developer identity. "
+            "Set it via 'git config --global user.name \"Your Name\"'."
+        )
+
+    branches_result = subprocess.run(
+        ["git", "for-each-ref", "--format=%(refname:short)", "refs/heads/"],
+        capture_output=True,
+        text=True,
+    )
+
+    branches = branches_result.stdout.splitlines()
+    owned_branches = []
+
+    for branch in branches:
+        owner = _get_branch_owner(branch, current_user)
+
+        if owner == "SHARED":
+            continue
+
+        if owner == current_user:
+            owned_branches.append(branch)
+
+    return owned_branches
