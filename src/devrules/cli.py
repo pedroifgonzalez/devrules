@@ -513,6 +513,11 @@ def update_issue_status(
     project: str = typer.Option(
         ..., "--project", "-p", help="GitHub project number or key (uses 'gh project item-list')"
     ),
+    item_id: Optional[str] = typer.Option(
+        None,
+        "--item-id",
+        help="Direct GitHub Project item id (skips searching by issue number)",
+    ),
 ):
     """Update the Status field of a GitHub Project item for a given issue."""
 
@@ -549,12 +554,16 @@ def update_issue_status(
     # Resolve project owner and number using existing logic
     owner, project_number = _resolve_project_number(project)
 
-    # Find matching project item for the given issue number
-    item_id, item_title = _find_project_item_for_issue(owner, project_number, issue)
+    # Determine which project item to update: direct item id or lookup by issue
+    if item_id is not None:
+        item_title = _get_project_item_title_by_id(owner, project_number, item_id)
+    else:
+        item_id, item_title = _find_project_item_for_issue(owner, project_number, issue)
 
-    # Resolve project node id and Status field id
+    # Resolve project node id and Status field/option ids
     project_id = _get_project_id(owner, project_number)
     status_field_id = _get_status_field_id(owner, project_number)
+    status_option_id = _get_status_option_id(owner, project_number, status)
 
     cmd = [
         "gh",
@@ -566,8 +575,8 @@ def update_issue_status(
         status_field_id,
         "--project-id",
         project_id,
-        "--text",
-        status,
+        "--single-select-option-id",
+        status_option_id,
     ]
 
     try:
@@ -757,10 +766,15 @@ def _print_project_items(stdout: str, assignee: Optional[str]):
     # Load emoji mapping from config when available
     config = load_config(None)
     configured_emojis = getattr(config.github, "status_emojis", None)
+
+    # Helper to normalize status keys (for both config and runtime values)
+    def _norm_status_key(value: str) -> str:
+        return (value or "").strip().lower().replace(" ", "_")
+
     if configured_emojis:
-        status_emojis = dict(configured_emojis)
+        raw_emojis = dict(configured_emojis)
     else:
-        status_emojis = {
+        raw_emojis = {
             "Backlog": "📋",
             "Blocked": "⛔",
             "To Do": "📝",
@@ -773,10 +787,17 @@ def _print_project_items(stdout: str, assignee: Optional[str]):
             "Done": "🏁",
         }
 
+    # Build normalized emoji mapping
+    status_emojis = {
+        _norm_status_key(name): emoji for name, emoji in raw_emojis.items()
+    }
+
     # Optional: warn if some configured statuses do not have an emoji mapping
     configured_statuses = getattr(config.github, "valid_statuses", None)
     if configured_statuses:
-        missing_emoji_statuses = [s for s in configured_statuses if s not in status_emojis]
+        missing_emoji_statuses = [
+            s for s in configured_statuses if _norm_status_key(s) not in status_emojis
+        ]
         if missing_emoji_statuses:
             missing_str = ", ".join(missing_emoji_statuses)
             typer.secho(
@@ -785,13 +806,20 @@ def _print_project_items(stdout: str, assignee: Optional[str]):
             )
 
     for item in items:
-        title = item.get("title") or item.get("content", {}).get("title", "")
+        content = item.get("content", {}) or {}
+        title = item.get("title") or content.get("title", "")
         status = item.get("status", "")
         priority = item.get("priority", "")
+        number = content.get("number")
 
-        emoji = status_emojis.get(status, "•")
-        # Standardized, compact single-line output per item
-        typer.echo(f"{emoji} [{status or '-'}] ({priority or '-'}) {title}")
+        emoji = status_emojis.get(_norm_status_key(status), "•")
+
+        if number is not None:
+            # Include underlying issue number when available
+            typer.echo(f"{emoji} #{number} [{status or '-'}] ({priority or '-'}) {title}")
+        else:
+            # Fallback when no number is present
+            typer.echo(f"{emoji} [{status or '-'}] ({priority or '-'}) {title}")
 
 
 def _get_project_id(owner: str, project_number: str) -> str:
@@ -885,6 +913,63 @@ def _get_status_field_id(owner: str, project_number: str) -> str:
     raise typer.Exit(code=1)
 
 
+def _get_status_option_id(owner: str, project_number: str, status: str) -> str:
+    cmd = [
+        "gh",
+        "project",
+        "field-list",
+        project_number,
+        "--owner",
+        owner,
+        "--format",
+        "json",
+    ]
+
+    try:
+        result = subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        typer.secho(
+            f"✘ Failed to list project fields: {e}",
+            fg=typer.colors.RED,
+        )
+        if e.stderr:
+            typer.echo(e.stderr)
+        raise typer.Exit(code=1)
+
+    try:
+        data = json.loads(result.stdout or "[]")
+    except json.JSONDecodeError:
+        typer.echo(result.stdout)
+        raise typer.Exit(code=1)
+
+    if isinstance(data, dict) and "fields" in data:
+        fields = data.get("fields", [])
+    else:
+        fields = data
+
+    for field in fields:
+        if field.get("name") != "Status":
+            continue
+
+        options = field.get("options") or []
+        for opt in options:
+            if opt.get("name") == status:
+                option_id = opt.get("id")
+                if option_id:
+                    return option_id
+
+    typer.secho(
+        f"✘ Could not find a Status option named '{status}' in the project.",
+        fg=typer.colors.RED,
+    )
+    raise typer.Exit(code=1)
+
+
 def _find_project_item_for_issue(owner: str, project_number: str, issue: int):
     cmd = [
         "gh",
@@ -951,12 +1036,19 @@ def _select_single_item_for_issue(items, issue: int):
 
     matches = []
     for item in items:
-        title = item.get("title") or item.get("content", {}).get("title", "")
+        content = item.get("content", {}) or {}
+        title = item.get("title") or content.get("title", "")
         if not title:
             continue
 
         # Prefer a '#<issue>' match, but fall back to raw number in title if needed
         if needle_hash in title or (issue_str in title and needle_hash not in title):
+            matches.append(item)
+            continue
+
+        # As a more reliable fallback, also match by underlying content.number
+        number = content.get("number")
+        if number is not None and str(number) == issue_str:
             matches.append(item)
 
     if not matches:
@@ -977,6 +1069,46 @@ def _select_single_item_for_issue(items, issue: int):
         raise typer.Exit(code=1)
 
     return matches[0]
+
+
+def _get_project_item_title_by_id(owner: str, project_number: str, item_id: str) -> str:
+    cmd = [
+        "gh",
+        "project",
+        "item-list",
+        project_number,
+        "--owner",
+        owner,
+        "--format",
+        "json",
+    ]
+
+    try:
+        result = subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        typer.secho(
+            f"✘ Failed to list project items: {e}",
+            fg=typer.colors.RED,
+        )
+        if e.stderr:
+            typer.echo(e.stderr)
+        raise typer.Exit(code=1)
+
+    items = _parse_project_items(result.stdout)
+    for item in items:
+        if str(item.get("id")) == str(item_id):
+            return item.get("title") or item.get("content", {}).get("title", "")
+
+    typer.secho(
+        f"✘ Could not find a project item with id '{item_id}' in the project.",
+        fg=typer.colors.RED,
+    )
+    raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":
