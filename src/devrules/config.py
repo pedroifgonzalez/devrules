@@ -25,6 +25,7 @@ class CommitConfig:
     min_length: int = 10
     max_length: int = 100
     restrict_branch_to_owner: bool = False
+    append_issue_number: bool = True
 
 
 @dataclass
@@ -91,6 +92,7 @@ DEFAULT_CONFIG = {
         "pattern": r"^\[({tags})\].+",
         "min_length": 10,
         "max_length": 100,
+        "append_issue_number": True,
     },
     "pr": {
         "max_loc": 400,
