@@ -43,6 +43,11 @@ class GitHubConfig:
 
     api_url: str = "https://api.github.com"
     timeout: int = 30
+    owner: Optional[str] = None
+    repo: Optional[str] = None
+    projects: dict = field(default_factory=dict)
+    valid_statuses: list = field(default_factory=list)
+    status_emojis: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -93,7 +98,26 @@ DEFAULT_CONFIG = {
         "require_title_tag": True,
         "title_pattern": r"^\[({tags})\].+",
     },
-    "github": {"api_url": "https://api.github.com", "timeout": 30},
+    "github": {
+        "api_url": "https://api.github.com",
+        "timeout": 30,
+        "owner": None,
+        "repo": None,
+        "projects": {},
+        "valid_statuses": [
+            "Backlog",
+            "Blocked",
+            "To Do",
+            "In Progress",
+            "Waiting Integration",
+            "QA Testing",
+            "QA In Progress",
+            "QA Approved",
+            "Pending To Deploy",
+            "Done",
+        ],
+        "status_emojis": {},
+    },
 }
 
 
@@ -148,3 +172,4 @@ def load_config(config_path: Optional[str] = None) -> Config:
         pr=PRConfig(**{**config_data["pr"], "title_pattern": pr_pattern}),
         github=GitHubConfig(**config_data.get("github", {})),
     )
+
