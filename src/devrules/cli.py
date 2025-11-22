@@ -1322,5 +1322,31 @@ def _get_project_item_title_by_id(owner: str, project_number: str, item_id: str)
     raise typer.Exit(code=1)
 
 
+def _register_command_aliases() -> None:
+    alias_map = {
+        "check_branch": ["cb"],
+        "check_commit": ["cc"],
+        "check_pr": ["cpr"],
+        "init_config": ["init"],
+        "create_branch": ["nb"],
+        "commit": ["ci"],
+        "create_pr": ["pr"],
+        "list_owned_branches": ["lob"],
+        "delete_branch": ["db"],
+        "update_issue_status": ["uis"],
+        "list_issues": ["li"],
+    }
+
+    for func_name, aliases in alias_map.items():
+        func = globals().get(func_name)
+        if func is None:
+            continue
+        for alias in aliases:
+            app.command(name=alias)(func)
+
+
+_register_command_aliases()
+
+
 if __name__ == "__main__":
     app()

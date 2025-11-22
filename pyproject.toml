@@ -51,6 +51,7 @@ dev = [
 
 [project.scripts]
 devrules = "devrules.cli:app"
+devr = "devrules.cli:app"
 
 [project.urls]
 Homepage = "https://github.com/pedroifgonzalez/devrules"
