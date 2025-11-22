@@ -1,6 +1,10 @@
 """Command-line interface for DevRules."""
 
 import os
+import subprocess
+import json
+import shutil
+import re
 import typer
 from typing import Optional
 
@@ -57,16 +61,28 @@ def check_commit(
 
 @app.command()
 def check_pr(
-    owner: str,
-    repo: str,
     pr_number: int,
+    owner: Optional[str] = typer.Option(None, "--owner", "-o", help="GitHub repository owner"),
+    repo: Optional[str] = typer.Option(None, "--repo", "-r", help="GitHub repository name"),
     config_file: Optional[str] = typer.Option(None, "--config", "-c", help="Path to config file"),
 ):
     """Validate PR size and title format."""
     config = load_config(config_file)
 
+    # Use CLI arguments if provided, otherwise fall back to config
+    github_owner = owner or config.github.owner
+    github_repo = repo or config.github.repo
+
+    if not github_owner or not github_repo:
+        typer.secho(
+            "✘ GitHub owner and repo must be provided via CLI arguments (--owner, --repo) "
+            "or configured in the config file under [github] section.",
+            fg=typer.colors.RED
+        )
+        raise typer.Exit(code=1)
+
     try:
-        pr_info = fetch_pr_info(owner, repo, pr_number, config.github)
+        pr_info = fetch_pr_info(github_owner, github_repo, pr_number, config.github)
     except ValueError as e:
         typer.secho(f"✘ {str(e)}", fg=typer.colors.RED)
         raise typer.Exit(code=1)
@@ -95,6 +111,34 @@ def init_config(
     path: str = typer.Option(".devrules.toml", "--path", "-p", help="Config file path")
 ):
     """Generate example configuration file."""
+    github_owner = "your-github-username"
+    github_repo = "your-repo-name"
+    project = "Example Project (#6)"
+
+    try:
+        result = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        url = result.stdout.strip()
+
+        if "github.com" in url:
+            if url.startswith("git@"):
+                path_part = url.split(":", 1)[1]
+            else:
+                path_part = url.split("github.com", 1)[1].lstrip("/:")
+
+            path_part = path_part.replace(".git", "")
+            parts = path_part.split("/")
+
+            if len(parts) >= 2:
+                github_owner = parts[-2]
+                github_repo = parts[-1]
+    except Exception:
+        pass
+
     example_config = """# DevRules Configuration File
 
 [branch]
@@ -119,7 +163,24 @@ title_pattern = "^\\\\[({tags})\\\\].+"
 [github]
 api_url = "https://api.github.com"
 timeout = 30
-"""
+owner = "{github_owner}"  # GitHub repository owner
+repo = "{github_repo}"          # GitHub repository name
+valid_statuses = [
+  "Backlog",
+  "Blocked",
+  "To Do",
+  "In Progress",
+  "Waiting Integration",
+  "QA Testing",
+  "QA In Progress",
+  "QA Approved",
+  "Pending To Deploy",
+  "Done",
+]
+
+[github.projects]
+project = "{project}"
+""".format(github_owner=github_owner, github_repo=github_repo, project=project, tags="WIP|FTR|FIX|DOCS|TST|REF")
 
     if os.path.exists(path):
         overwrite = typer.confirm(f"{path} already exists. Overwrite?")
@@ -446,6 +507,92 @@ def delete_branch(
 
 
 @app.command()
+def update_issue_status(
+    issue: int = typer.Argument(..., help="Issue number (e.g. 123)"),
+    status: str = typer.Option(..., "--status", "-s", help="New project status value"),
+    project: str = typer.Option(
+        ..., "--project", "-p", help="GitHub project number or key (uses 'gh project item-list')"
+    ),
+):
+    """Update the Status field of a GitHub Project item for a given issue."""
+
+    _ensure_gh_installed()
+
+    # Load config to validate allowed statuses
+    config = load_config(None)
+    configured_statuses = getattr(config.github, "valid_statuses", None)
+    if configured_statuses:
+        valid_statuses = list(configured_statuses)
+    else:
+        # Fallback to built-in defaults if config key is missing
+        valid_statuses = [
+            "Backlog",
+            "Blocked",
+            "To Do",
+            "In Progress",
+            "Waiting Integration",
+            "QA Testing",
+            "QA In Progress",
+            "QA Approved",
+            "Pending To Deploy",
+            "Done",
+        ]
+
+    if status not in valid_statuses:
+        allowed = ", ".join(valid_statuses)
+        typer.secho(
+            f"✘ Invalid status '{status}'. Allowed values: {allowed}",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+
+    # Resolve project owner and number using existing logic
+    owner, project_number = _resolve_project_number(project)
+
+    # Find matching project item for the given issue number
+    item_id, item_title = _find_project_item_for_issue(owner, project_number, issue)
+
+    # Resolve project node id and Status field id
+    project_id = _get_project_id(owner, project_number)
+    status_field_id = _get_status_field_id(owner, project_number)
+
+    cmd = [
+        "gh",
+        "project",
+        "item-edit",
+        "--id",
+        item_id,
+        "--field-id",
+        status_field_id,
+        "--project-id",
+        project_id,
+        "--text",
+        status,
+    ]
+
+    try:
+        subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        typer.secho(
+            f"✘ Failed to update project item status: {e}",
+            fg=typer.colors.RED,
+        )
+        if e.stderr:
+            typer.echo(e.stderr)
+        raise typer.Exit(code=1)
+
+    typer.secho(
+        f"✔ Updated status of project item for issue #{issue} to '{status}' (title: {item_title})",
+        fg=typer.colors.GREEN,
+    )
+
+
+@app.command()
 def list_issues(
     state: str = typer.Option(
         "open",
@@ -465,24 +612,35 @@ def list_issues(
         "-a",
         help="Filter by assignee (GitHub username)",
     ),
+    project: Optional[str] = typer.Option(
+        None,
+        "--project",
+        "-p",
+        help="GitHub project number or key (uses 'gh project item-list')",
+    ),
 ):
     """List GitHub issues using the gh CLI."""
-    import subprocess
-    import shutil
+    _ensure_gh_installed()
 
-    # Ensure gh is installed
-    if shutil.which("gh") is None:
-        typer.secho(
-            "✘ GitHub CLI 'gh' is not installed or not in PATH. "
-            "Install it from https://cli.github.com/.",
-            fg=typer.colors.RED,
-        )
-        raise typer.Exit(code=1)
+    # When a project is provided, list project items instead of issues
+    if project is not None:
+        owner, project_number = _resolve_project_number(project)
 
-    cmd = ["gh", "issue", "list", "--state", state, "--limit", str(limit)]
+        cmd = [
+            "gh",
+            "project",
+            "item-list",
+            project_number,
+            "--owner",
+            owner,
+            "--format",
+            "json",
+        ]
+    else:
+        cmd = ["gh", "issue", "list", "--state", state, "--limit", str(limit)]
 
-    if assignee:
-        cmd.extend(["--assignee", assignee])
+        if assignee:
+            cmd.extend(["--assignee", assignee])
 
     try:
         result = subprocess.run(
@@ -493,14 +651,332 @@ def list_issues(
         )
     except subprocess.CalledProcessError as e:
         typer.secho(
-            f"✘ Failed to list issues via gh: {e}",
+            f"✘ Failed to run gh command: {e}",
             fg=typer.colors.RED,
         )
         if e.stderr:
             typer.echo(e.stderr)
         raise typer.Exit(code=1)
 
-    typer.echo(result.stdout)
+    # For project mode, parse JSON and show only title, status, and priority
+    if project is not None:
+        _print_project_items(result.stdout, assignee)
+    else:
+        # Default behavior for issues: print raw gh output
+        typer.echo(result.stdout)
+
+
+def _ensure_gh_installed() -> None:
+    # Ensure gh is installed
+    if shutil.which("gh") is None:
+        typer.secho(
+            "✘ GitHub CLI 'gh' is not installed or not in PATH. "
+            "Install it from https://cli.github.com/.",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+
+
+def _resolve_project_number(project: str):
+    config = load_config(None)
+    owner = getattr(config.github, "owner", None)
+
+    if not owner:
+        typer.secho(
+            "✘ GitHub owner must be configured in the config file under the [github] section to use --project.",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+
+    # Resolve project to a numeric ID: either directly numeric or via config.github.projects
+    project_str = str(project)
+    project_number = None
+
+    if project_str.isdigit():
+        project_number = project_str
+    else:
+        projects_map = getattr(config.github, "projects", {}) or {}
+        raw_value = projects_map.get(project_str)
+
+        if raw_value is None:
+            available = ", ".join(sorted(projects_map.keys())) or "<none>"
+            typer.secho(
+                f"✘ Unknown project key '{project_str}'. Available keys: {available}",
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(code=1)
+
+        # Support values like "Way Cloud SaaS (#4)" or "Project #4"
+        match = re.search(r"(\d+)", str(raw_value))
+        if match:
+            project_number = match.group(1)
+        else:
+            # Fallback: if the raw value itself is numeric, use it directly
+            raw_str = str(raw_value).strip()
+            if raw_str.isdigit():
+                project_number = raw_str
+
+    if project_number is None:
+        typer.secho(
+            f"✘ Unable to determine numeric project ID from '{project}'. Configure it as a number or include '#<id>' in the value.",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+
+    return owner, project_number
+
+
+def _print_project_items(stdout: str, assignee: Optional[str]):
+    try:
+        data = json.loads(stdout or "{}")
+    except json.JSONDecodeError:
+        typer.echo(stdout)
+        raise typer.Exit(code=1)
+
+    # gh project item-list may return an object with an "items" array or a raw array
+    if isinstance(data, dict) and "items" in data:
+        items = data.get("items", [])
+    elif isinstance(data, list):
+        items = data
+    else:
+        items = []
+
+    # Optional filter by assignee when available
+    if assignee:
+        filtered_items = []
+        for item in items:
+            item_assignees = item.get("assignees") or []
+            if assignee in item_assignees:
+                filtered_items.append(item)
+        items = filtered_items
+
+    if not items:
+        typer.echo("No project items found.")
+        return
+
+    # Load emoji mapping from config when available
+    config = load_config(None)
+    configured_emojis = getattr(config.github, "status_emojis", None)
+    if configured_emojis:
+        status_emojis = dict(configured_emojis)
+    else:
+        status_emojis = {
+            "Backlog": "📋",
+            "Blocked": "⛔",
+            "To Do": "📝",
+            "In Progress": "🚧",
+            "Waiting Integration": "🔄",
+            "QA Testing": "🧪",
+            "QA In Progress": "🔬",
+            "QA Approved": "✅",
+            "Pending To Deploy": "⏳",
+            "Done": "🏁",
+        }
+
+    # Optional: warn if some configured statuses do not have an emoji mapping
+    configured_statuses = getattr(config.github, "valid_statuses", None)
+    if configured_statuses:
+        missing_emoji_statuses = [s for s in configured_statuses if s not in status_emojis]
+        if missing_emoji_statuses:
+            missing_str = ", ".join(missing_emoji_statuses)
+            typer.secho(
+                f"⚠ Some statuses do not have emojis configured: {missing_str}",
+                fg=typer.colors.YELLOW,
+            )
+
+    for item in items:
+        title = item.get("title") or item.get("content", {}).get("title", "")
+        status = item.get("status", "")
+        priority = item.get("priority", "")
+
+        emoji = status_emojis.get(status, "•")
+        # Standardized, compact single-line output per item
+        typer.echo(f"{emoji} [{status or '-'}] ({priority or '-'}) {title}")
+
+
+def _get_project_id(owner: str, project_number: str) -> str:
+    cmd = [
+        "gh",
+        "project",
+        "view",
+        project_number,
+        "--owner",
+        owner,
+        "--format",
+        "json",
+    ]
+
+    try:
+        result = subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        typer.secho(
+            f"✘ Failed to get project info: {e}",
+            fg=typer.colors.RED,
+        )
+        if e.stderr:
+            typer.echo(e.stderr)
+        raise typer.Exit(code=1)
+
+    try:
+        data = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError:
+        typer.echo(result.stdout)
+        raise typer.Exit(code=1)
+
+    project_id = data.get("id")
+    if not project_id:
+        typer.secho("✘ Unable to determine project id from gh project view output.", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    return project_id
+
+
+def _get_status_field_id(owner: str, project_number: str) -> str:
+    cmd = [
+        "gh",
+        "project",
+        "field-list",
+        project_number,
+        "--owner",
+        owner,
+        "--format",
+        "json",
+    ]
+
+    try:
+        result = subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        typer.secho(
+            f"✘ Failed to list project fields: {e}",
+            fg=typer.colors.RED,
+        )
+        if e.stderr:
+            typer.echo(e.stderr)
+        raise typer.Exit(code=1)
+
+    try:
+        data = json.loads(result.stdout or "[]")
+    except json.JSONDecodeError:
+        typer.echo(result.stdout)
+        raise typer.Exit(code=1)
+
+    if isinstance(data, dict) and "fields" in data:
+        fields = data.get("fields", [])
+    else:
+        fields = data
+
+    for field in fields:
+        if field.get("name") == "Status":
+            field_id = field.get("id")
+            if field_id:
+                return field_id
+
+    typer.secho("✘ Could not find a 'Status' field in the project.", fg=typer.colors.RED)
+    raise typer.Exit(code=1)
+
+
+def _find_project_item_for_issue(owner: str, project_number: str, issue: int):
+    cmd = [
+        "gh",
+        "project",
+        "item-list",
+        project_number,
+        "--owner",
+        owner,
+        "--format",
+        "json",
+    ]
+
+    try:
+        result = subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        typer.secho(
+            f"✘ Failed to list project items: {e}",
+            fg=typer.colors.RED,
+        )
+        if e.stderr:
+            typer.echo(e.stderr)
+        raise typer.Exit(code=1)
+
+    items = _parse_project_items(result.stdout)
+    item = _select_single_item_for_issue(items, issue)
+
+    item_id = item.get("id")
+    title = item.get("title") or item.get("content", {}).get("title", "")
+
+    if not item_id:
+        typer.secho("✘ Matching project item does not have an 'id' field.", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    return item_id, title
+
+
+def _parse_project_items(stdout: str):
+    try:
+        data = json.loads(stdout or "[]")
+    except json.JSONDecodeError:
+        typer.echo(stdout)
+        raise typer.Exit(code=1)
+
+    if isinstance(data, dict) and "items" in data:
+        items = data.get("items", [])
+    else:
+        items = data
+
+    if not items:
+        typer.secho("✘ No project items found in the project.", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    return items
+
+
+def _select_single_item_for_issue(items, issue: int):
+    issue_str = str(issue)
+    needle_hash = f"#{issue_str}"
+
+    matches = []
+    for item in items:
+        title = item.get("title") or item.get("content", {}).get("title", "")
+        if not title:
+            continue
+
+        # Prefer a '#<issue>' match, but fall back to raw number in title if needed
+        if needle_hash in title or (issue_str in title and needle_hash not in title):
+            matches.append(item)
+
+    if not matches:
+        typer.secho(
+            f"✘ Could not find a project item with issue number #{issue} in the title.",
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(code=1)
+
+    if len(matches) > 1:
+        typer.secho(
+            f"✘ Multiple project items match issue number #{issue}. Please disambiguate.",
+            fg=typer.colors.RED,
+        )
+        for item in matches:
+            title = item.get("title") or item.get("content", {}).get("title", "")
+            typer.echo(f"- {title}")
+        raise typer.Exit(code=1)
+
+    return matches[0]
 
 
 if __name__ == "__main__":
