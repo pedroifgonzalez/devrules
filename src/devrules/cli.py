@@ -1150,24 +1150,33 @@ def _select_single_item_for_issue(items, issue: int):
 
     matches = []
     for item in items:
+        raw_type = item.get("type") or ""
         content = item.get("content", {}) or {}
+        content_url = content.get("url", "") or ""
+
+        # Determine whether this project item represents an *issue* (and not a PR)
+        # - gh project item-list typically uses upper-case types like "ISSUE" / "PULL_REQUEST"
+        # - content.url generally contains either "/issues/" or "/pull/"
+        norm_type = str(raw_type).strip().lower()
+        is_issue = "issues" in content_url or norm_type == "issue"
+
         title = item.get("title") or content.get("title", "")
         if not title:
             continue
 
         # Prefer a '#<issue>' match, but fall back to raw number in title if needed
-        if needle_hash in title or (issue_str in title and needle_hash not in title):
+        if (needle_hash in title or (issue_str in title and needle_hash not in title)) and is_issue:
             matches.append(item)
             continue
 
         # As a more reliable fallback, also match by underlying content.number
         number = content.get("number")
-        if number is not None and str(number) == issue_str:
+        if number is not None and str(number) == issue_str and is_issue:
             matches.append(item)
 
     if not matches:
         typer.secho(
-            f"✘ Could not find a project item with issue number #{issue} in the title.",
+            f" Could not find a project item with issue number #{issue} in the title.",
             fg=typer.colors.RED,
         )
         raise typer.Exit(code=1)
