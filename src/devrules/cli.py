@@ -633,6 +633,65 @@ def list_issues(
 
     # When a project is provided, list project items instead of issues
     if project is not None:
+        project_str = str(project)
+
+        # Special value 'all' -> list items for all configured projects in [github.projects]
+        if project_str.lower() == "all":
+            config = load_config(None)
+            owner = getattr(config.github, "owner", None)
+            projects_map = getattr(config.github, "projects", {}) or {}
+
+            if not owner:
+                typer.secho(
+                    "✘ GitHub owner must be configured in the config file under the [github] section to use --project all.",
+                    fg=typer.colors.RED,
+                )
+                raise typer.Exit(code=1)
+
+            if not projects_map:
+                typer.secho(
+                    "✘ No projects configured under [github.projects] to use with --project all.",
+                    fg=typer.colors.RED,
+                )
+                raise typer.Exit(code=1)
+
+            # Iterate all configured project keys and list items for each
+            for key in sorted(projects_map.keys()):
+                owner_for_key, project_number_for_key = _resolve_project_number(key)
+
+                cmd = [
+                    "gh",
+                    "project",
+                    "item-list",
+                    project_number_for_key,
+                    "--owner",
+                    owner_for_key,
+                    "--format",
+                    "json",
+                ]
+
+                try:
+                    result = subprocess.run(
+                        cmd,
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    )
+                except subprocess.CalledProcessError as e:
+                    typer.secho(
+                        f"✘ Failed to run gh command for project '{key}': {e}",
+                        fg=typer.colors.RED,
+                    )
+                    if e.stderr:
+                        typer.echo(e.stderr)
+                    raise typer.Exit(code=1)
+
+                _print_project_items(result.stdout, assignee)
+
+            # All projects processed; nothing else to do
+            return
+
+        # Single project path
         owner, project_number = _resolve_project_number(project)
 
         cmd = [
