@@ -46,6 +46,8 @@ class GitHubConfig:
     owner: Optional[str] = None
     repo: Optional[str] = None
     projects: dict = field(default_factory=dict)
+    valid_statuses: list = field(default_factory=list)
+    status_emojis: dict = field(default_factory=dict)
 
 
 @dataclass
