@@ -391,6 +391,94 @@ def commit(message: str, config_file: Optional[str] = typer.Option(None, "--conf
         typer.secho(f"\n✘ Failed to commit changes: {e}", fg=typer.colors.RED)
         raise typer.Exit(code=1) from e
 
+
+@app.command()
+def create_pr(
+    base: str = typer.Option("develop", "--base", "-b", help="Base branch for the pull request"),
+):
+    """Create a GitHub pull request for the current branch against the base branch."""
+    import subprocess
+
+    _ensure_gh_installed()
+
+    # Ensure we are in a git repo
+    try:
+        subprocess.run(["git", "rev-parse", "--git-dir"], check=True, capture_output=True)
+    except subprocess.CalledProcessError:
+        typer.secho("✘ Not a git repository", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    # Determine current branch
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        current_branch = result.stdout.strip()
+    except subprocess.CalledProcessError:
+        typer.secho("✘ Unable to determine current branch", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    if current_branch == base:
+        typer.secho("✘ Current branch is the same as the base branch; nothing to create a PR for.", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    # Derive PR title from branch name
+    # Example: feature/add-create-pr-command -> [FTR] Add create pr command
+    prefix = None
+    name_part = current_branch
+    if "/" in current_branch:
+        prefix, name_part = current_branch.split("/", 1)
+
+    # Map common prefixes to tags, falling back to FTR
+    prefix_to_tag = {
+        "feature": "FTR",
+        "bugfix": "FIX",
+        "hotfix": "FIX",
+        "docs": "DOCS",
+        "release": "REF",
+    }
+
+    tag = prefix_to_tag.get(prefix or "", "FTR")
+
+    # Strip a leading numeric issue and hyphen if present (e.g. 123-add-thing)
+    name_core = name_part
+    issue_match = re.match(r"^(\d+)-(.*)$", name_core)
+    if issue_match:
+        name_core = issue_match.group(2)
+
+    words = name_core.replace("_", "-").split("-")
+    words = [w for w in words if w]
+    humanized = " ".join(words).lower()
+    if humanized:
+        humanized = humanized[0].upper() + humanized[1:]
+
+    pr_title = f"[{tag}] {humanized}" if humanized else f"[{tag}] {current_branch}"
+
+    cmd = [
+        "gh",
+        "pr",
+        "create",
+        "--base",
+        base,
+        "--head",
+        current_branch,
+        "--title",
+        pr_title,
+        "--fill",
+    ]
+
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        typer.secho(f"✘ Failed to create pull request: {e}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    typer.secho(f"✔ Created pull request: {pr_title}", fg=typer.colors.GREEN)
+
+
 def get_current_issue_number():
     """Get issue number from current branch"""
     try:
