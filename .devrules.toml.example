@@ -14,6 +14,7 @@ pattern = "^\\[({tags})\\].+"
 min_length = 10
 max_length = 100
 restrict_branch_to_owner = true
+append_issue_number = true
 
 [pr]
 # Pull Request validation
