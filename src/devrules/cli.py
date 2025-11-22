@@ -666,6 +666,8 @@ def list_issues(
                     project_number_for_key,
                     "--owner",
                     owner_for_key,
+                    "--limit",
+                    str(limit),
                     "--format",
                     "json",
                 ]
@@ -701,6 +703,8 @@ def list_issues(
             project_number,
             "--owner",
             owner,
+            "--limit",
+            str(limit),
             "--format",
             "json",
         ]
@@ -811,11 +815,34 @@ def _print_project_items(stdout: str, assignee: Optional[str]):
 
     # Optional filter by assignee when available
     if assignee:
+        assignee_lower = assignee.lower()
         filtered_items = []
+        elements = [(item.get("title"),item.get("assignees")) for item in items]
         for item in items:
-            item_assignees = item.get("assignees") or []
-            if assignee in item_assignees:
+            content = item.get("content", {}) or {}
+
+            # Collect assignee usernames from both top-level and content
+            raw_assignees = []
+            top_level = item.get("assignees") or []
+            content_level = content.get("assignees") or []
+
+            if isinstance(top_level, list):
+                raw_assignees.extend(top_level)
+            if isinstance(content_level, list):
+                raw_assignees.extend(content_level)
+
+            usernames = []
+            for a in raw_assignees:
+                if isinstance(a, str):
+                    usernames.append(a)
+                elif isinstance(a, dict):
+                    login = a.get("login") or a.get("name")
+                    if login:
+                        usernames.append(login)
+
+            if any(u.lower() == assignee_lower for u in usernames):
                 filtered_items.append(item)
+
         items = filtered_items
 
     if not items:
