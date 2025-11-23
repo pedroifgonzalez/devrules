@@ -220,6 +220,151 @@ def _resolve_issue_branch(scope: str, project_item: ProjectItem, issue: int) -> 
     return branch_name
 
 
+def _ensure_git_repo() -> None:
+    """Ensure we are in a git repository."""
+    try:
+        subprocess.run(["git", "rev-parse", "--git-dir"], check=True, capture_output=True)
+    except subprocess.CalledProcessError:
+        typer.secho("✘ Not a git repository", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+
+def _sanitize_description(description: str) -> str:
+    """Clean and format branch description."""
+    description = description.lower().strip()
+    description = re.sub(r"[^a-z0-9-]", "-", description)
+    description = re.sub(r"-+", "-", description)  # Remove multiple hyphens
+    description = description.strip("-")  # Remove leading/trailing hyphens
+    return description
+
+
+def _get_branch_name_interactive(config: Config) -> str:
+    """Get branch name through interactive prompts."""
+    typer.secho("\n🌿 Create New Branch", fg=typer.colors.CYAN, bold=True)
+    typer.echo("=" * 50)
+
+    # Step 1: Select branch type
+    typer.echo("\n📋 Select branch type:")
+    for idx, prefix in enumerate(config.branch.prefixes, 1):
+        typer.echo(f"  {idx}. {prefix}")
+
+    type_choice = typer.prompt("\nEnter number", type=int, default=1)
+
+    if type_choice < 1 or type_choice > len(config.branch.prefixes):
+        typer.secho("✘ Invalid choice", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    branch_type = config.branch.prefixes[type_choice - 1]
+
+    # Step 2: Issue/ticket number (optional)
+    typer.echo("\n🔢 Issue/ticket number (optional):")
+    issue_number = typer.prompt(
+        "  Enter number or press Enter to skip", default="", show_default=False
+    )
+
+    # Step 3: Branch description
+    typer.echo("\n📝 Branch description:")
+    typer.echo("  Use lowercase and hyphens (e.g., 'fix-login-bug')")
+    description = typer.prompt("  Description")
+
+    # Clean and format description
+    description = _sanitize_description(description)
+
+    if not description:
+        typer.secho("✘ Description cannot be empty", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    # Build branch name
+    if issue_number:
+        return f"{branch_type}/{issue_number}-{description}"
+    else:
+        return f"{branch_type}/{description}"
+
+
+def _get_existing_branches() -> list[str]:
+    """Get list of existing local branches."""
+    try:
+        result = subprocess.run(
+            ["git", "for-each-ref", "--format=%(refname:short)", "refs/heads/"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.splitlines()
+    except subprocess.CalledProcessError:
+        return []
+
+
+def _handle_existing_branch(branch_name: str) -> None:
+    """Check if branch exists and offer to switch to it."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", f"refs/heads/{branch_name}"], 
+            capture_output=True
+        )
+        if result.returncode == 0:
+            typer.secho(f"\n✘ Branch '{branch_name}' already exists!", fg=typer.colors.RED)
+
+            if typer.confirm("\n  Switch to existing branch?", default=False):
+                subprocess.run(["git", "checkout", branch_name], check=True)
+                typer.secho(f"\n✔ Switched to '{branch_name}'", fg=typer.colors.GREEN)
+            raise typer.Exit(code=0)
+    except subprocess.CalledProcessError:
+        pass  # Branch doesn't exist, continue
+
+
+def _get_current_branch() -> str:
+    """Get the name of the current git branch."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip()
+    except subprocess.CalledProcessError:
+        typer.secho("✘ Unable to determine current branch", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+
+def _create_staging_branch_name(current_branch: str) -> str:
+    """Transform a branch name to its staging variant.
+    
+    Example: feature/23-do-something -> staging-23-do-something
+    """
+    # Remove the prefix (e.g., feature/, bugfix/, etc.) if present
+    if "/" in current_branch:
+        _, branch_suffix = current_branch.split("/", 1)
+    else:
+        branch_suffix = current_branch
+    
+    return f"staging-{branch_suffix}"
+
+
+def _create_and_checkout_branch(branch_name: str) -> None:
+    """Create and checkout the new branch, showing success message."""
+    try:
+        subprocess.run(["git", "checkout", "-b", branch_name], check=True)
+
+        typer.echo()
+        typer.secho("=" * 50, fg=typer.colors.GREEN)
+        typer.secho(f"✔ Branch '{branch_name}' created!", fg=typer.colors.GREEN, bold=True)
+        typer.secho("=" * 50, fg=typer.colors.GREEN)
+
+        # Show next steps
+        typer.echo("\n📚 Next steps:")
+        typer.echo("  1. Make your changes")
+        typer.echo("  2. Stage files:  git add .")
+        typer.echo("  3. Commit:       git commit -m '[TAG] Your message'")
+        typer.echo(f"  4. Push:         git push -u origin {branch_name}")
+        typer.echo()
+
+    except subprocess.CalledProcessError as e:
+        typer.secho(f"\n✘ Failed to create branch: {e}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+
 @app.command()
 def create_branch(
     config_file: Optional[str] = typer.Option(None, "--config", "-c", help="Path to config file"),
@@ -227,23 +372,19 @@ def create_branch(
         None, help="Branch name (if not provided, interactive mode)"
     ),
     project: Optional[str] = typer.Option(None, "--project", "-p", help="Project to extract the information from"),
-    issue: Optional[int] = typer.Option(None, "--issue", "-i", help="Issue to extract the information from")
+    issue: Optional[int] = typer.Option(None, "--issue", "-i", help="Issue to extract the information from"),
+    for_staging: bool = typer.Option(False, "--for-staging", "-fs", help="Create staging branch based on current branch")
 ):
     """Create a new Git branch with validation (interactive mode)."""
-    import subprocess
-    import re
-
     config = load_config(config_file)
+    _ensure_git_repo()
 
-    # Check if in git repo
-    try:
-        subprocess.run(["git", "rev-parse", "--git-dir"], check=True, capture_output=True)
-    except subprocess.CalledProcessError:
-        typer.secho("✘ Not a git repository", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
-
-    # If branch name provided, use it directly
-    if branch_name:
+    # Determine branch name from different sources
+    if for_staging:
+        current_branch = _get_current_branch()
+        final_branch_name = _create_staging_branch_name(current_branch)
+        typer.echo(f"\n🔄 Creating staging branch from: {current_branch}")
+    elif branch_name:
         final_branch_name = branch_name
     elif issue and project:
         owner, project_number = _resolve_project_number(project=project)
@@ -251,49 +392,7 @@ def create_branch(
         scope = _detect_scope(config=config, project_item=gh_project_item)
         final_branch_name = _resolve_issue_branch(scope=scope, project_item=gh_project_item, issue=issue)
     else:
-        # Interactive mode
-        typer.secho("\n🌿 Create New Branch", fg=typer.colors.CYAN, bold=True)
-        typer.echo("=" * 50)
-
-        # Step 1: Select branch type
-        typer.echo("\n📋 Select branch type:")
-        for idx, prefix in enumerate(config.branch.prefixes, 1):
-            typer.echo(f"  {idx}. {prefix}")
-
-        type_choice = typer.prompt("\nEnter number", type=int, default=1)
-
-        if type_choice < 1 or type_choice > len(config.branch.prefixes):
-            typer.secho("✘ Invalid choice", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
-
-        branch_type = config.branch.prefixes[type_choice - 1]
-
-        # Step 2: Issue/ticket number (optional)
-        typer.echo("\n🔢 Issue/ticket number (optional):")
-        issue_number = typer.prompt(
-            "  Enter number or press Enter to skip", default="", show_default=False
-        )
-
-        # Step 3: Branch description
-        typer.echo("\n📝 Branch description:")
-        typer.echo("  Use lowercase and hyphens (e.g., 'fix-login-bug')")
-        description = typer.prompt("  Description")
-
-        # Clean and format description
-        description = description.lower().strip()
-        description = re.sub(r"[^a-z0-9-]", "-", description)
-        description = re.sub(r"-+", "-", description)  # Remove multiple hyphens
-        description = description.strip("-")  # Remove leading/trailing hyphens
-
-        if not description:
-            typer.secho("✘ Description cannot be empty", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
-
-        # Build branch name
-        if issue_number:
-            final_branch_name = f"{branch_type}/{issue_number}-{description}"
-        else:
-            final_branch_name = f"{branch_type}/{description}"
+        final_branch_name = _get_branch_name_interactive(config)
 
     # Validate branch name
     typer.echo(f"\n🔍 Validating branch name: {final_branch_name}")
@@ -307,17 +406,7 @@ def create_branch(
 
     # Enforce one-branch-per-issue-per-environment rule when enabled
     if config.branch.enforce_single_branch_per_issue_env:
-        try:
-            existing_result = subprocess.run(
-                ["git", "for-each-ref", "--format=%(refname:short)", "refs/heads/"],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            existing_branches = existing_result.stdout.splitlines()
-        except subprocess.CalledProcessError:
-            existing_branches = []
-
+        existing_branches = _get_existing_branches()
         is_unique, uniqueness_message = validate_single_branch_per_issue_env(
             final_branch_name, existing_branches
         )
@@ -326,20 +415,8 @@ def create_branch(
             typer.secho(f"\n✘ {uniqueness_message}", fg=typer.colors.RED)
             raise typer.Exit(code=1)
 
-    # Check if branch already exists
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--verify", f"refs/heads/{final_branch_name}"], capture_output=True
-        )
-        if result.returncode == 0:
-            typer.secho(f"\n✘ Branch '{final_branch_name}' already exists!", fg=typer.colors.RED)
-
-            if typer.confirm("\n  Switch to existing branch?", default=False):
-                subprocess.run(["git", "checkout", final_branch_name], check=True)
-                typer.secho(f"\n✔ Switched to '{final_branch_name}'", fg=typer.colors.GREEN)
-            raise typer.Exit(code=0)
-    except subprocess.CalledProcessError:
-        pass  # Branch doesn't exist, continue
+    # Check if branch already exists and handle it
+    _handle_existing_branch(final_branch_name)
 
     # Confirm creation
     typer.echo(f"\n📌 Ready to create branch: {final_branch_name}")
@@ -348,25 +425,7 @@ def create_branch(
         raise typer.Exit(code=0)
 
     # Create and checkout branch
-    try:
-        subprocess.run(["git", "checkout", "-b", final_branch_name], check=True)
-
-        typer.echo()
-        typer.secho("=" * 50, fg=typer.colors.GREEN)
-        typer.secho(f"✔ Branch '{final_branch_name}' created!", fg=typer.colors.GREEN, bold=True)
-        typer.secho("=" * 50, fg=typer.colors.GREEN)
-
-        # Show next steps
-        typer.echo("\n📚 Next steps:")
-        typer.echo("  1. Make your changes")
-        typer.echo("  2. Stage files:  git add .")
-        typer.echo("  3. Commit:       git commit -m '[TAG] Your message'")
-        typer.echo(f"  4. Push:         git push -u origin {final_branch_name}")
-        typer.echo()
-
-    except subprocess.CalledProcessError as e:
-        typer.secho(f"\n✘ Failed to create branch: {e}", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
+    _create_and_checkout_branch(final_branch_name)
 
 
 @app.command()
@@ -383,12 +442,7 @@ def commit(message: str, config_file: Optional[str] = typer.Option(None, "--conf
         typer.secho(f"\n✘ {result_message}", fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
-    # Check if in git repo
-    try:
-        subprocess.run(["git", "rev-parse", "--git-dir"], check=True, capture_output=True)
-    except subprocess.CalledProcessError:
-        typer.secho("✘ Not a git repository", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
+    _ensure_git_repo()
 
     if config.commit.restrict_branch_to_owner:
         # Check branch ownership to prevent committing on another developer's branch
@@ -431,13 +485,7 @@ def create_pr(
     import subprocess
 
     _ensure_gh_installed()
-
-    # Ensure we are in a git repo
-    try:
-        subprocess.run(["git", "rev-parse", "--git-dir"], check=True, capture_output=True)
-    except subprocess.CalledProcessError:
-        typer.secho("✘ Not a git repository", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
+    _ensure_git_repo()
 
     # Determine current branch
     try:
@@ -563,12 +611,7 @@ def delete_branch(
 
     import subprocess
 
-    # Ensure we are in a git repo
-    try:
-        subprocess.run(["git", "rev-parse", "--git-dir"], check=True, capture_output=True)
-    except subprocess.CalledProcessError:
-        typer.secho("✘ Not a git repository", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
+    _ensure_git_repo()
 
     # Load owned branches first (used for interactive and validation)
     try:
