@@ -14,6 +14,7 @@ class BranchConfig:
     prefixes: list
     require_issue_number: bool = False
     enforce_single_branch_per_issue_env: bool = True
+    labels_mapping: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -67,6 +68,11 @@ DEFAULT_CONFIG = {
         "prefixes": ["feature", "bugfix", "hotfix", "release", "docs"],
         "require_issue_number": False,
         "enforce_single_branch_per_issue_env": True,
+        "labels_mapping": {
+            "enhancement": "feature",
+            "bug": "bugfix",
+            "documentation": "docs"
+        }
     },
     "commit": {
         "tags": [

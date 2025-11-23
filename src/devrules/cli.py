@@ -5,6 +5,8 @@ import subprocess
 import json
 import shutil
 import re
+from devrules.dtos.github import ProjectItem
+from devrules.config import Config
 import typer
 from typing import Optional
 
@@ -147,6 +149,11 @@ prefixes = ["feature", "bugfix", "hotfix", "release", "docs"]
 require_issue_number = false
 enforce_single_branch_per_issue_env = true  # If true, only one branch per issue per environment (dev/staging)
 
+[branch.labels_mapping]
+enhancement = "feature"
+bug = "bugfix"
+documentation = "docs"
+
 [commit]
 tags = ["WIP", "FTR", "FIX", "DOCS", "TST", "REF"]
 pattern = "^\\\\[({tags})\\\\].+"
@@ -195,6 +202,23 @@ project = "{project}"
 
     typer.secho(f"✔ Configuration file created: {path}", fg=typer.colors.GREEN)
 
+def _detect_scope(config: Config, project_item: ProjectItem) -> str:
+    # Detect the scope based on the project item
+    scope = config.branch.prefixes[0]
+    labels_mappping = config.branch.labels_mapping
+    for label in project_item.labels:
+        if label in labels_mappping:
+            scope = labels_mappping[label]
+            break
+    breakpoint()
+    return scope
+
+def _resolve_issue_branch(scope: str, project_item: ProjectItem, issue: int) -> str:
+    # Resolve the branch name based on the project item
+    words = project_item.title.lower().split()
+    branch_name = f"{scope}/{issue}-{'-'.join(words)}"
+    return branch_name
+
 
 @app.command()
 def create_branch(
@@ -202,6 +226,8 @@ def create_branch(
     branch_name: Optional[str] = typer.Argument(
         None, help="Branch name (if not provided, interactive mode)"
     ),
+    project: Optional[str] = typer.Option(None, "--project", "-p", help="Project to extract the information from"),
+    issue: Optional[int] = typer.Option(None, "--issue", "-i", help="Issue to extract the information from")
 ):
     """Create a new Git branch with validation (interactive mode)."""
     import subprocess
@@ -219,6 +245,11 @@ def create_branch(
     # If branch name provided, use it directly
     if branch_name:
         final_branch_name = branch_name
+    elif issue and project:
+        owner, project_number = _resolve_project_number(project=project)
+        gh_project_item = _find_project_item_for_issue(owner=owner, project_number=project_number, issue=issue) 
+        scope = _detect_scope(config=config, project_item=gh_project_item)
+        final_branch_name = _resolve_issue_branch(scope=scope, project_item=gh_project_item, issue=issue)
     else:
         # Interactive mode
         typer.secho("\n🌿 Create New Branch", fg=typer.colors.CYAN, bold=True)
@@ -675,7 +706,8 @@ def update_issue_status(
     if item_id is not None:
         item_title = _get_project_item_title_by_id(owner, project_number, item_id)
     else:
-        item_id, item_title = _find_project_item_for_issue(owner, project_number, issue)
+        project_item = _find_project_item_for_issue(owner, project_number, issue)
+        item_id, item_title = project_item.id, project_item.title
 
     # Resolve project node id and Status field/option ids
     project_id = _get_project_id(owner, project_number)
@@ -1203,14 +1235,13 @@ def _find_project_item_for_issue(owner: str, project_number: str, issue: int):
     items = _parse_project_items(result.stdout)
     item = _select_single_item_for_issue(items, issue)
 
-    item_id = item.get("id")
-    title = item.get("title") or item.get("content", {}).get("title", "")
+    project_item = ProjectItem(**item)
 
-    if not item_id:
+    if not project_item.id:
         typer.secho("✘ Matching project item does not have an 'id' field.", fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
-    return item_id, title
+    return project_item
 
 
 def _parse_project_items(stdout: str):
