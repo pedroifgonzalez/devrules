@@ -15,6 +15,7 @@ class BranchConfig:
     require_issue_number: bool = False
     enforce_single_branch_per_issue_env: bool = True
     labels_mapping: dict = field(default_factory=dict)
+    labels_hierarchy: list = field(default_factory=list)
 
 
 @dataclass
@@ -72,7 +73,8 @@ DEFAULT_CONFIG = {
             "enhancement": "feature",
             "bug": "bugfix",
             "documentation": "docs"
-        }
+        },
+        "labels_hierarchy": ["docs", "feature", "bugfix", "hotfix"]
     },
     "commit": {
         "tags": [

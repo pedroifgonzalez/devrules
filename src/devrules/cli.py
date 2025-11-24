@@ -148,6 +148,7 @@ pattern = "^(feature|bugfix|hotfix|release|docs)/(\\\\d+-)?[a-z0-9-]+"
 prefixes = ["feature", "bugfix", "hotfix", "release", "docs"]
 require_issue_number = false
 enforce_single_branch_per_issue_env = true  # If true, only one branch per issue per environment (dev/staging)
+labels_hierarchy = ["docs", "feature", "bugfix", "hotfix"]
 
 [branch.labels_mapping]
 enhancement = "feature"
@@ -203,15 +204,33 @@ project = "{project}"
     typer.secho(f"✔ Configuration file created: {path}", fg=typer.colors.GREEN)
 
 def _detect_scope(config: Config, project_item: ProjectItem) -> str:
-    # Detect the scope based on the project item
+    # Detect the scope based on the project item with hierarchy
     scope = config.branch.prefixes[0]
     labels_mappping = config.branch.labels_mapping
     if not project_item.labels:
         return scope
+    
+    # Build scope priority from config (higher index = higher priority)
+    scope_priority = {}
+    if config.branch.labels_hierarchy:
+        for idx, scope_name in enumerate(config.branch.labels_hierarchy, start=1):
+            scope_priority[scope_name] = idx
+    
+    # Find the highest priority scope among matching labels
+    best_scope = None
+    best_priority = 0
+    
     for label in project_item.labels:
         if label in labels_mappping:
-            scope = labels_mappping[label]
-            break
+            mapped_scope = labels_mappping[label]
+            priority = scope_priority.get(mapped_scope, 0)
+            if priority > best_priority:
+                best_priority = priority
+                best_scope = mapped_scope
+    
+    if best_scope:
+        scope = best_scope
+    
     return scope
 
 def _resolve_issue_branch(scope: str, project_item: ProjectItem, issue: int) -> str:
@@ -1356,13 +1375,26 @@ def _select_single_item_for_issue(items, issue: int):
 
     if len(matches) > 1:
         typer.secho(
-            f"✘ Multiple project items match issue number #{issue}. Please disambiguate.",
-            fg=typer.colors.RED,
+            f"⚠ Multiple project items match issue number #{issue}. Please select one:",
+            fg=typer.colors.YELLOW,
         )
-        for item in matches:
+        for idx, item in enumerate(matches, 1):
             title = item.get("title") or item.get("content", {}).get("title", "")
-            typer.echo(f"- {title}")
-        raise typer.Exit(code=1)
+            typer.echo(f"{idx}. {title}")
+        
+        while True:
+            try:
+                choice = typer.prompt("Enter your choice", type=int)
+                if 1 <= choice <= len(matches):
+                    return matches[choice - 1]
+                else:
+                    typer.secho(
+                        f"✘ Invalid choice. Please enter a number between 1 and {len(matches)}.",
+                        fg=typer.colors.RED,
+                    )
+            except (ValueError, typer.Abort):
+                typer.secho("✘ Selection cancelled.", fg=typer.colors.RED)
+                raise typer.Exit(code=1)
 
     return matches[0]
 
