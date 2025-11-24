@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 
 # {
 #     "assignees": ["pedroifgonzalez"],
@@ -20,10 +21,10 @@ from dataclasses import dataclass
 
 @dataclass
 class ProjectItem:
-    assignees: list[str] = None
-    content: dict = None
-    id: str = None
-    labels: list[str] = None
-    repository: str = None
-    status: str = None
-    title: str = None
+    assignees: Optional[list[str]] = None
+    content: Optional[dict] = None
+    id: Optional[str] = None
+    labels: Optional[list[str]] = None
+    repository: Optional[str] = None
+    status: Optional[str] = None
+    title: Optional[str] = None

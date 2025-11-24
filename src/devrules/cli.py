@@ -206,11 +206,12 @@ def _detect_scope(config: Config, project_item: ProjectItem) -> str:
     # Detect the scope based on the project item
     scope = config.branch.prefixes[0]
     labels_mappping = config.branch.labels_mapping
+    if not project_item.labels:
+        return scope
     for label in project_item.labels:
         if label in labels_mappping:
             scope = labels_mappping[label]
             break
-    breakpoint()
     return scope
 
 def _resolve_issue_branch(scope: str, project_item: ProjectItem, issue: int) -> str:
@@ -1258,6 +1259,8 @@ def _find_project_item_for_issue(owner: str, project_number: str, issue: int):
         owner,
         "--format",
         "json",
+        "--limit",
+        "200"
     ]
 
     try:
@@ -1279,7 +1282,14 @@ def _find_project_item_for_issue(owner: str, project_number: str, issue: int):
     items = _parse_project_items(result.stdout)
     item = _select_single_item_for_issue(items, issue)
 
-    project_item = ProjectItem(**item)
+    project_item = ProjectItem(
+        assignees=item.get("assignees", []),
+        id=item.get("id"),
+        labels=item.get("labels"),
+        repository=item.get("repository"),
+        status=item.get("status"),
+        title=item.get("title"),
+    )
 
     if not project_item.id:
         typer.secho("✘ Matching project item does not have an 'id' field.", fg=typer.colors.RED)
