@@ -848,7 +848,7 @@ def list_issues(
                 raise typer.Exit(code=1)
 
             # Iterate all configured project keys and list items for each
-            for key in sorted(projects_map.keys()):
+            for key, label in sorted(projects_map.items()):
                 owner_for_key, project_number_for_key = _resolve_project_number(key)
 
                 cmd = [
@@ -880,7 +880,7 @@ def list_issues(
                         typer.echo(e.stderr)
                     raise typer.Exit(code=1)
 
-                _print_project_items(result.stdout, assignee)
+                _print_project_items(result.stdout, assignee, label)
 
             # All projects processed; nothing else to do
             return
@@ -924,7 +924,7 @@ def list_issues(
 
     # For project mode, parse JSON and show only title, status, and priority
     if project is not None:
-        _print_project_items(result.stdout, assignee)
+        _print_project_items(result.stdout, assignee, project)
     else:
         # Default behavior for issues: print raw gh output
         typer.echo(result.stdout)
@@ -990,7 +990,7 @@ def _resolve_project_number(project: str):
     return owner, project_number
 
 
-def _print_project_items(stdout: str, assignee: Optional[str]):
+def _print_project_items(stdout: str, assignee: Optional[str], project_str: str):
     try:
         data = json.loads(stdout or "{}")
     except json.JSONDecodeError:
@@ -1082,6 +1082,7 @@ def _print_project_items(stdout: str, assignee: Optional[str]):
                 fg=typer.colors.YELLOW,
             )
 
+    typer.echo(f"Project {project_str}:")
     for item in items:
         content = item.get("content", {}) or {}
         title = item.get("title") or content.get("title", "")
