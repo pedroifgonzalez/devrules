@@ -72,14 +72,17 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             if issue_number and f"#{issue_number}" not in message:
                 message = f"#{issue_number} {message}"
 
+        options = []
+        if config.commit.allow_hook_bypass:
+            options.append("-n")
+        options.append("-m")
+        options.append(message)
         try:
             subprocess.run(
                 [
                     "git",
                     "commit",
-                    "-n" if config.commit.allow_hook_bypass else "",
-                    "-m",
-                    message,
+                    *options,
                 ],
                 check=True,
             )
