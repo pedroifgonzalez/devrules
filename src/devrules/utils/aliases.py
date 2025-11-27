@@ -1,6 +1,5 @@
 import typer
 
-
 ALIAS_MAP = {
     "check_branch": ["cb"],
     "check_commit": ["cc"],

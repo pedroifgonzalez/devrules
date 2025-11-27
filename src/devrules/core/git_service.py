@@ -1,7 +1,8 @@
+import re
 import subprocess
 
 import typer
-import re
+
 from devrules.config import Config
 from devrules.dtos.github import ProjectItem
 

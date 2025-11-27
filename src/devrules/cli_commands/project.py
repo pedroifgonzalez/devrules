@@ -1,19 +1,19 @@
 import subprocess
-from typing import Dict, Callable, Any, Optional
+from typing import Any, Callable, Dict, Optional
 
 import typer
 
 from devrules.config import load_config
 from devrules.core.github_service import ensure_gh_installed
 from devrules.core.project_service import (
-    resolve_project_number,
+    add_issue_comment,
     find_project_item_for_issue,
     get_project_id,
+    get_project_item_title_by_id,
     get_status_field_id,
     get_status_option_id,
-    get_project_item_title_by_id,
-    add_issue_comment,
     print_project_items,
+    resolve_project_number,
 )
 
 

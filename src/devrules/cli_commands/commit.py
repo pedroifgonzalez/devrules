@@ -1,12 +1,12 @@
 import os
-from typing import Optional, Dict, Callable, Any
-from devrules.config import load_config
-from devrules.validators.commit import validate_commit
-from devrules.core.git_service import ensure_git_repo
-from devrules.core.git_service import get_current_branch
-from devrules.validators.ownership import validate_branch_ownership
-from devrules.core.git_service import get_current_issue_number
+from typing import Any, Callable, Dict, Optional
+
 import typer
+
+from devrules.config import load_config
+from devrules.core.git_service import ensure_git_repo, get_current_branch, get_current_issue_number
+from devrules.validators.commit import validate_commit
+from devrules.validators.ownership import validate_branch_ownership
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:

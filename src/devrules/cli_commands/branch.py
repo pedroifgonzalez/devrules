@@ -1,18 +1,20 @@
+from typing import Any, Callable, Dict, Optional
+
 import typer
-from typing import Dict, Callable, Any, Optional
+
 from devrules.config import load_config
 from devrules.core.git_service import (
+    create_and_checkout_branch,
+    create_staging_branch_name,
+    detect_scope,
     ensure_git_repo,
+    get_branch_name_interactive,
     get_current_branch,
     get_existing_branches,
-    create_and_checkout_branch,
     handle_existing_branch,
-    get_branch_name_interactive,
-    detect_scope,
-    create_staging_branch_name,
     resolve_issue_branch,
 )
-from devrules.core.project_service import resolve_project_number, find_project_item_for_issue
+from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
 from devrules.validators.branch import validate_branch, validate_single_branch_per_issue_env
 from devrules.validators.ownership import list_user_owned_branches
 

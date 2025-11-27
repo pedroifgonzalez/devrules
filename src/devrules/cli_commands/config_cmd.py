@@ -1,6 +1,6 @@
 import os
 import subprocess
-from typing import Dict, Callable, Any
+from typing import Any, Callable, Dict
 
 import typer
 
@@ -8,7 +8,7 @@ import typer
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command()
     def init_config(
-        path: str = typer.Option(".devrules.toml", "--path", "-p", help="Config file path")
+        path: str = typer.Option(".devrules.toml", "--path", "-p", help="Config file path"),
     ):
         """Generate example configuration file."""
 

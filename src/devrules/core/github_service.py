@@ -1,7 +1,9 @@
-import shutil
-import requests
 import os
+import shutil
+
+import requests
 import typer
+
 from devrules.config import GitHubConfig
 from devrules.dtos.github import PRInfo
 

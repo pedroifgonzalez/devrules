@@ -8,9 +8,8 @@ compatibility.
 
 import typer
 
-from devrules.cli_commands import branch, commit, pr, project, config_cmd
+from devrules.cli_commands import branch, commit, config_cmd, pr, project
 from devrules.utils.aliases import register_command_aliases
-
 
 app = typer.Typer(help="DevRules CLI — Enforce development guidelines.")
 

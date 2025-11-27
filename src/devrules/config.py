@@ -1,9 +1,10 @@
 """Configuration management for DevRules."""
 
-import toml
-from pathlib import Path
-from typing import Optional
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+import toml
 
 
 @dataclass
@@ -147,12 +148,14 @@ def find_config_file() -> Optional[Path]:
 def load_config(config_path: Optional[str] = None) -> Config:
     """Load configuration from TOML file or use defaults."""
 
+    path: Optional[Path]
     if config_path:
         path = Path(config_path)
     else:
         path = find_config_file()
 
-    if path and path.exists():
+    config_data: Dict[str, Any]
+    if path is not None and path.exists():
         try:
             user_config = toml.load(path)
             config_data = {**DEFAULT_CONFIG}
@@ -170,9 +173,15 @@ def load_config(config_path: Optional[str] = None) -> Config:
         config_data = DEFAULT_CONFIG
 
     # Build pattern with tags
-    tags_str = "|".join(config_data["commit"]["tags"])
-    commit_pattern = config_data["commit"]["pattern"].replace("{tags}", tags_str)
-    pr_pattern = config_data["pr"]["title_pattern"].replace("{tags}", tags_str)
+    raw_tags = config_data["commit"]["tags"]
+    tags_list = [str(tag) for tag in raw_tags]
+    tags_str = "|".join(tags_list)
+
+    commit_pattern_base = str(config_data["commit"]["pattern"])
+    commit_pattern = commit_pattern_base.replace("{tags}", tags_str)
+
+    pr_pattern_base = str(config_data["pr"]["title_pattern"])
+    pr_pattern = pr_pattern_base.replace("{tags}", tags_str)
 
     return Config(
         branch=BranchConfig(**config_data["branch"]),

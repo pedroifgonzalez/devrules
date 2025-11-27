@@ -1,7 +1,7 @@
 import json
+import subprocess
 from typing import Optional, Tuple
 
-import subprocess
 import typer
 
 from devrules.config import load_config

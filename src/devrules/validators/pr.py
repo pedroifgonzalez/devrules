@@ -1,6 +1,7 @@
 """Pull request validation."""
 
 import re
+
 from devrules.config import PRConfig
 from devrules.dtos.github import PRInfo
 

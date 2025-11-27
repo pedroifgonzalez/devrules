@@ -1,10 +1,11 @@
-from devrules.core.git_service import ensure_git_repo, get_current_branch
-from devrules.core.github_service import ensure_gh_installed
-from typing import Dict, Callable, Any, Optional
-import typer
 import re
+from typing import Any, Callable, Dict, Optional
+
+import typer
+
 from devrules.config import load_config
-from devrules.core.github_service import fetch_pr_info
+from devrules.core.git_service import ensure_git_repo, get_current_branch
+from devrules.core.github_service import ensure_gh_installed, fetch_pr_info
 from devrules.validators.pr import validate_pr
 
 
