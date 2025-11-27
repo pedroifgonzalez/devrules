@@ -29,6 +29,7 @@ class ProjectItem:
     status: Optional[str] = None
     title: Optional[str] = None
 
+
 @dataclass
 class PRInfo:
     """Pull request information."""

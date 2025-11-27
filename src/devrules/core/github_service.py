@@ -3,7 +3,7 @@ import requests
 import os
 import typer
 from devrules.config import GitHubConfig
-from devrules.dtos import PRInfo
+from devrules.dtos.github import PRInfo
 
 
 def ensure_gh_installed() -> None:
@@ -15,6 +15,7 @@ def ensure_gh_installed() -> None:
             fg=typer.colors.RED,
         )
         raise typer.Exit(code=1)
+
 
 def fetch_pr_info(owner: str, repo: str, pr_number: int, github_config: GitHubConfig) -> PRInfo:
     """Fetch PR information from GitHub API."""
