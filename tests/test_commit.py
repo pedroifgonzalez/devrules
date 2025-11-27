@@ -7,10 +7,7 @@ from src.devrules.validators.commit import validate_commit
 def test_valid_commit_messages():
     """Test that valid commit messages pass validation."""
     config = CommitConfig(
-        tags=["FTR", "FIX", "DOCS"],
-        pattern=r"^\[(FTR|FIX|DOCS)\].+",
-        min_length=10,
-        max_length=100
+        tags=["FTR", "FIX", "DOCS"], pattern=r"^\[(FTR|FIX|DOCS)\].+", min_length=10, max_length=100
     )
 
     valid_messages = [
@@ -27,10 +24,7 @@ def test_valid_commit_messages():
 def test_invalid_commit_messages():
     """Test that invalid commit messages fail validation."""
     config = CommitConfig(
-        tags=["FTR", "FIX"],
-        pattern=r"^\[(FTR|FIX)\].+",
-        min_length=10,
-        max_length=100
+        tags=["FTR", "FIX"], pattern=r"^\[(FTR|FIX)\].+", min_length=10, max_length=100
     )
 
     invalid_messages = [

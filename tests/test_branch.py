@@ -2,9 +2,9 @@
 
 from src.devrules.config import BranchConfig
 from src.devrules.validators.branch import (
-    validate_branch,
     _extract_issue_number,
     _get_environment,
+    validate_branch,
     validate_single_branch_per_issue_env,
 )
 
@@ -12,8 +12,7 @@ from src.devrules.validators.branch import (
 def test_valid_branch_names():
     """Test that valid branch names pass validation."""
     config = BranchConfig(
-        pattern=r"^(feature|bugfix)/(\d+-)?[a-z0-9-]+",
-        prefixes=["feature", "bugfix"]
+        pattern=r"^(feature|bugfix)/(\d+-)?[a-z0-9-]+", prefixes=["feature", "bugfix"]
     )
 
     valid_branches = [
@@ -30,8 +29,7 @@ def test_valid_branch_names():
 def test_invalid_branch_names():
     """Test that invalid branch names fail validation."""
     config = BranchConfig(
-        pattern=r"^(feature|bugfix)/(\d+-)?[a-z0-9-]+",
-        prefixes=["feature", "bugfix"]
+        pattern=r"^(feature|bugfix)/(\d+-)?[a-z0-9-]+", prefixes=["feature", "bugfix"]
     )
 
     invalid_branches = [
@@ -72,9 +70,7 @@ def test_single_branch_per_issue_per_environment():
     ]
 
     # New dev branch for same issue should be rejected
-    is_valid, _ = validate_single_branch_per_issue_env(
-        "feature/123-new-description", existing
-    )
+    is_valid, _ = validate_single_branch_per_issue_env("feature/123-new-description", existing)
     assert not is_valid
 
     # New staging branch for same issue should be rejected
@@ -84,9 +80,7 @@ def test_single_branch_per_issue_per_environment():
     assert not is_valid
 
     # Different issue should be allowed
-    is_valid, _ = validate_single_branch_per_issue_env(
-        "feature/456-another-thing", existing
-    )
+    is_valid, _ = validate_single_branch_per_issue_env("feature/456-another-thing", existing)
     assert is_valid
 
     # Branches without issue number should not trigger the rule
