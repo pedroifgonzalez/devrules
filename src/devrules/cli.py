@@ -79,7 +79,7 @@ def check_pr(
         typer.secho(
             "✘ GitHub owner and repo must be provided via CLI arguments (--owner, --repo) "
             "or configured in the config file under [github] section.",
-            fg=typer.colors.RED
+            fg=typer.colors.RED,
         )
         raise typer.Exit(code=1)
 
@@ -162,6 +162,7 @@ min_length = 10
 max_length = 100
 restrict_branch_to_owner = true
 append_issue_number = true
+allow_hook_bypass = false  # If true, allows commits with --no-verify flag
 
 
 [pr]
@@ -190,7 +191,12 @@ valid_statuses = [
 
 [github.projects]
 project = "{project}"
-""".format(github_owner=github_owner, github_repo=github_repo, project=project, tags="WIP|FTR|FIX|DOCS|TST|REF")
+""".format(
+        github_owner=github_owner,
+        github_repo=github_repo,
+        project=project,
+        tags="WIP|FTR|FIX|DOCS|TST|REF",
+    )
 
     if os.path.exists(path):
         overwrite = typer.confirm(f"{path} already exists. Overwrite?")
@@ -203,23 +209,24 @@ project = "{project}"
 
     typer.secho(f"✔ Configuration file created: {path}", fg=typer.colors.GREEN)
 
+
 def _detect_scope(config: Config, project_item: ProjectItem) -> str:
     # Detect the scope based on the project item with hierarchy
     scope = config.branch.prefixes[0]
     labels_mappping = config.branch.labels_mapping
     if not project_item.labels:
         return scope
-    
+
     # Build scope priority from config (higher index = higher priority)
     scope_priority = {}
     if config.branch.labels_hierarchy:
         for idx, scope_name in enumerate(config.branch.labels_hierarchy, start=1):
             scope_priority[scope_name] = idx
-    
+
     # Find the highest priority scope among matching labels
     best_scope = None
     best_priority = 0
-    
+
     for label in project_item.labels:
         if label in labels_mappping:
             mapped_scope = labels_mappping[label]
@@ -227,11 +234,12 @@ def _detect_scope(config: Config, project_item: ProjectItem) -> str:
             if priority > best_priority:
                 best_priority = priority
                 best_scope = mapped_scope
-    
+
     if best_scope:
         scope = best_scope
-    
+
     return scope
+
 
 def _resolve_issue_branch(scope: str, project_item: ProjectItem, issue: int) -> str:
     # Resolve the branch name based on the project item
@@ -319,8 +327,7 @@ def _handle_existing_branch(branch_name: str) -> None:
     """Check if branch exists and offer to switch to it."""
     try:
         result = subprocess.run(
-            ["git", "rev-parse", "--verify", f"refs/heads/{branch_name}"], 
-            capture_output=True
+            ["git", "rev-parse", "--verify", f"refs/heads/{branch_name}"], capture_output=True
         )
         if result.returncode == 0:
             typer.secho(f"\n✘ Branch '{branch_name}' already exists!", fg=typer.colors.RED)
@@ -350,7 +357,7 @@ def _get_current_branch() -> str:
 
 def _create_staging_branch_name(current_branch: str) -> str:
     """Transform a branch name to its staging variant.
-    
+
     Example: feature/23-do-something -> staging-23-do-something
     """
     # Remove the prefix (e.g., feature/, bugfix/, etc.) if present
@@ -358,7 +365,7 @@ def _create_staging_branch_name(current_branch: str) -> str:
         _, branch_suffix = current_branch.split("/", 1)
     else:
         branch_suffix = current_branch
-    
+
     return f"staging-{branch_suffix}"
 
 
@@ -391,9 +398,15 @@ def create_branch(
     branch_name: Optional[str] = typer.Argument(
         None, help="Branch name (if not provided, interactive mode)"
     ),
-    project: Optional[str] = typer.Option(None, "--project", "-p", help="Project to extract the information from"),
-    issue: Optional[int] = typer.Option(None, "--issue", "-i", help="Issue to extract the information from"),
-    for_staging: bool = typer.Option(False, "--for-staging", "-fs", help="Create staging branch based on current branch")
+    project: Optional[str] = typer.Option(
+        None, "--project", "-p", help="Project to extract the information from"
+    ),
+    issue: Optional[int] = typer.Option(
+        None, "--issue", "-i", help="Issue to extract the information from"
+    ),
+    for_staging: bool = typer.Option(
+        False, "--for-staging", "-fs", help="Create staging branch based on current branch"
+    ),
 ):
     """Create a new Git branch with validation (interactive mode)."""
     config = load_config(config_file)
@@ -408,9 +421,13 @@ def create_branch(
         final_branch_name = branch_name
     elif issue and project:
         owner, project_number = _resolve_project_number(project=project)
-        gh_project_item = _find_project_item_for_issue(owner=owner, project_number=project_number, issue=issue) 
+        gh_project_item = _find_project_item_for_issue(
+            owner=owner, project_number=project_number, issue=issue
+        )
         scope = _detect_scope(config=config, project_item=gh_project_item)
-        final_branch_name = _resolve_issue_branch(scope=scope, project_item=gh_project_item, issue=issue)
+        final_branch_name = _resolve_issue_branch(
+            scope=scope, project_item=gh_project_item, issue=issue
+        )
     else:
         final_branch_name = _get_branch_name_interactive(config)
 
@@ -449,7 +466,10 @@ def create_branch(
 
 
 @app.command()
-def commit(message: str, config_file: Optional[str] = typer.Option(None, "--config", "-c", help="Path to config file")):
+def commit(
+    message: str,
+    config_file: Optional[str] = typer.Option(None, "--config", "-c", help="Path to config file"),
+):
     """Validate and commit changes with a properly formatted message."""
     import subprocess
 
@@ -477,7 +497,7 @@ def commit(message: str, config_file: Optional[str] = typer.Option(None, "--conf
         except subprocess.CalledProcessError:
             typer.secho("✘ Unable to determine current branch", fg=typer.colors.RED)
             raise typer.Exit(code=1)
-    
+
         is_owner, ownership_message = validate_branch_ownership(current_branch)
         if not is_owner:
             typer.secho(f"✘ {ownership_message}", fg=typer.colors.RED)
@@ -490,7 +510,16 @@ def commit(message: str, config_file: Optional[str] = typer.Option(None, "--conf
             message = f"#{issue_number} {message}"
 
     try:
-        subprocess.run(["git", "commit", "-m", message], check=True)
+        subprocess.run(
+            [
+                "git",
+                "commit",
+                "-n" if config.commit.allow_hook_bypass else "",
+                "-m",
+                message,
+            ],
+            check=True,
+        )
         typer.secho("\n✔ Committed changes!", fg=typer.colors.GREEN)
     except subprocess.CalledProcessError as e:
         typer.secho(f"\n✘ Failed to commit changes: {e}", fg=typer.colors.RED)
@@ -521,7 +550,10 @@ def create_pr(
         raise typer.Exit(code=1)
 
     if current_branch == base:
-        typer.secho("✘ Current branch is the same as the base branch; nothing to create a PR for.", fg=typer.colors.RED)
+        typer.secho(
+            "✘ Current branch is the same as the base branch; nothing to create a PR for.",
+            fg=typer.colors.RED,
+        )
         raise typer.Exit(code=1)
 
     # Derive PR title from branch name
@@ -588,16 +620,16 @@ def get_current_issue_number():
             text=True,
         )
         branch = result.stdout.strip()
-        
+
         # Extract issue number from branch name (e.g., feature/ABC-123_description -> 123)
         import re
-        match = re.search(r'(\d+)', branch)
+
+        match = re.search(r"(\d+)", branch)
         if match:
             return match.group(0)
     except subprocess.CalledProcessError:
         pass
     return None
-
 
 
 @app.command()
@@ -623,7 +655,9 @@ def list_owned_branches():
 
 @app.command()
 def delete_branch(
-    branch: Optional[str] = typer.Argument(None, help="Name of the branch to delete (omit for interactive mode)"),
+    branch: Optional[str] = typer.Argument(
+        None, help="Name of the branch to delete (omit for interactive mode)"
+    ),
     remote: str = typer.Option("origin", "--remote", "-r", help="Remote name"),
     force: bool = typer.Option(False, "--force", "-f", help="Force delete even if not merged"),
 ):
@@ -711,7 +745,9 @@ def delete_branch(
         subprocess.run(["git", "push", remote, "--delete", branch], check=True)
         typer.secho(f"✔ Deleted remote branch '{branch}' from '{remote}'", fg=typer.colors.GREEN)
     except subprocess.CalledProcessError as e:
-        typer.secho(f"✘ Failed to delete remote branch '{branch}' from '{remote}': {e}", fg=typer.colors.RED)
+        typer.secho(
+            f"✘ Failed to delete remote branch '{branch}' from '{remote}': {e}", fg=typer.colors.RED
+        )
         raise typer.Exit(code=1)
 
     raise typer.Exit(code=0)
@@ -784,21 +820,32 @@ def update_issue_status(
         typer.echo("   1. Type a simple comment directly")
         typer.echo("   2. Press Enter to open your editor for multi-line markdown")
         typer.echo("")
-        
-        simple_comment = typer.prompt("Comment (or press Enter for editor)", default="", show_default=False).strip()
-        
+
+        simple_comment = typer.prompt(
+            "Comment (or press Enter for editor)", default="", show_default=False
+        ).strip()
+
         if simple_comment:
             integration_comment = simple_comment
         else:
             # Open editor for multi-line input
-            integration_comment = typer.edit("\n# Add integration details below (markdown supported)\n# Lines starting with # will be ignored\n\n")
+            integration_comment = typer.edit(
+                "\n# Add integration details below (markdown supported)\n# Lines starting with # will be ignored\n\n"
+            )
             if integration_comment:
                 # Remove comment lines
-                lines = [line for line in integration_comment.split("\n") if not line.strip().startswith("#")]
+                lines = [
+                    line
+                    for line in integration_comment.split("\n")
+                    if not line.strip().startswith("#")
+                ]
                 integration_comment = "\n".join(lines).strip()
-        
+
         if not integration_comment:
-            typer.secho("⚠ Warning: No comment provided for Waiting Integration status", fg=typer.colors.YELLOW)
+            typer.secho(
+                "⚠ Warning: No comment provided for Waiting Integration status",
+                fg=typer.colors.YELLOW,
+            )
             confirm = typer.confirm("Continue without a comment?", default=False)
             if not confirm:
                 typer.echo("Cancelled.")
@@ -848,7 +895,7 @@ def update_issue_status(
     if integration_comment:
         # Use the repository from the project item if available, otherwise fall back to config
         repo_to_use = issue_repo if issue_repo else config.github.repo
-        
+
         # Extract owner/repo from various formats:
         # - "https://github.com/owner/repo" -> "owner/repo"
         # - "owner/repo" -> "owner/repo"
@@ -867,7 +914,7 @@ def update_issue_status(
         else:
             # Just repo name
             repo_owner, repo_name = owner, repo_to_use
-        
+
         _add_issue_comment(repo_owner, repo_name, issue, integration_comment)
         typer.secho(
             f"✔ Added integration comment to issue #{issue}",
@@ -1147,9 +1194,7 @@ def _print_project_items(stdout: str, assignee: Optional[str], project_str: str)
         }
 
     # Build normalized emoji mapping
-    status_emojis = {
-        _norm_status_key(name): emoji for name, emoji in raw_emojis.items()
-    }
+    status_emojis = {_norm_status_key(name): emoji for name, emoji in raw_emojis.items()}
 
     # Optional: warn if some configured statuses do not have an emoji mapping
     configured_statuses = getattr(config.github, "valid_statuses", None)
@@ -1218,7 +1263,9 @@ def _get_project_id(owner: str, project_number: str) -> str:
 
     project_id = data.get("id")
     if not project_id:
-        typer.secho("✘ Unable to determine project id from gh project view output.", fg=typer.colors.RED)
+        typer.secho(
+            "✘ Unable to determine project id from gh project view output.", fg=typer.colors.RED
+        )
         raise typer.Exit(code=1)
 
     return project_id
@@ -1341,7 +1388,7 @@ def _find_project_item_for_issue(owner: str, project_number: str, issue: int):
         "--format",
         "json",
         "--limit",
-        "200"
+        "200",
     ]
 
     try:
@@ -1443,7 +1490,7 @@ def _select_single_item_for_issue(items, issue: int):
         for idx, item in enumerate(matches, 1):
             title = item.get("title") or item.get("content", {}).get("title", "")
             typer.echo(f"{idx}. {title}")
-        
+
         while True:
             try:
                 choice = typer.prompt("Enter your choice", type=int)
@@ -1508,9 +1555,9 @@ def _add_issue_comment(owner: str, repo: str, issue: int, comment: str) -> None:
         body = comment
     else:
         body = f"## 🔄 Integration Details\n\n{comment}"
-    
+
     repo_full = f"{owner}/{repo}"
-    
+
     cmd = [
         "gh",
         "issue",
@@ -1536,7 +1583,7 @@ def _add_issue_comment(owner: str, repo: str, issue: int, comment: str) -> None:
         )
         if e.stderr:
             typer.echo(e.stderr)
-        
+
         # Check if it's an issue not found error
         if "Could not resolve to an issue" in str(e.stderr):
             typer.secho(
@@ -1547,7 +1594,7 @@ def _add_issue_comment(owner: str, repo: str, issue: int, comment: str) -> None:
                 "  Make sure the issue number matches the repository in your config",
                 fg=typer.colors.YELLOW,
             )
-        
+
         # Don't exit, just warn - the status update already succeeded
         typer.secho(
             "⚠ Status was updated but comment failed to post",

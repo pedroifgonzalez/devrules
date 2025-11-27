@@ -31,7 +31,7 @@ def validate_branch_ownership(current_branch: str) -> Tuple[bool, str]:
         return (
             False,
             "Unable to determine current developer identity. Configure it with 'git config --global user.name "
-            "\"Your Name\"' or set the USER environment variable.",
+            '"Your Name"\' or set the USER environment variable.',
         )
 
     # Determine the base point with develop and only inspect commits after it
@@ -75,9 +75,7 @@ def validate_branch_ownership(current_branch: str) -> Tuple[bool, str]:
 def _get_current_user() -> str:
     """Return the current Git user.name or fall back to OS USER."""
 
-    user_result = subprocess.run(
-        ["git", "config", "user.name"], capture_output=True, text=True
-    )
+    user_result = subprocess.run(["git", "config", "user.name"], capture_output=True, text=True)
     current_user = user_result.stdout.strip() or os.environ.get("USER", "")
     return current_user
 

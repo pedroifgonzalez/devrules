@@ -28,6 +28,7 @@ class CommitConfig:
     max_length: int = 100
     restrict_branch_to_owner: bool = False
     append_issue_number: bool = True
+    allow_hook_bypass: bool = False
 
 
 @dataclass
@@ -69,12 +70,8 @@ DEFAULT_CONFIG = {
         "prefixes": ["feature", "bugfix", "hotfix", "release", "docs"],
         "require_issue_number": False,
         "enforce_single_branch_per_issue_env": True,
-        "labels_mapping": {
-            "enhancement": "feature",
-            "bug": "bugfix",
-            "documentation": "docs"
-        },
-        "labels_hierarchy": ["docs", "feature", "bugfix", "hotfix"]
+        "labels_mapping": {"enhancement": "feature", "bug": "bugfix", "documentation": "docs"},
+        "labels_hierarchy": ["docs", "feature", "bugfix", "hotfix"],
     },
     "commit": {
         "tags": [
@@ -101,6 +98,7 @@ DEFAULT_CONFIG = {
         "min_length": 10,
         "max_length": 100,
         "append_issue_number": True,
+        "allow_hook_bypass": False,
     },
     "pr": {
         "max_loc": 400,
@@ -182,4 +180,3 @@ def load_config(config_path: Optional[str] = None) -> Config:
         pr=PRConfig(**{**config_data["pr"], "title_pattern": pr_pattern}),
         github=GitHubConfig(**config_data.get("github", {})),
     )
-
