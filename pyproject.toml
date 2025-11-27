@@ -38,6 +38,13 @@ classifiers = [
     "Environment :: Console",
 ]
 
+[project.optional-dependencies]
+tui = [
+    "textual>=1.0,<2.0",
+    "plotext>=5.0,<6.0",
+    "rich>=13.0,<14.0",
+]
+
 [dependency-groups]
 dev = [
     "black>=25.11.0",

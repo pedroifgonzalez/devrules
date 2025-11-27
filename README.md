@@ -15,6 +15,7 @@ A flexible CLI tool for enforcing development guidelines across your projects.
 - 🔌 **Git hooks integration** - Automatic validation in your Git workflow
 - 🎨 **Interactive branch creation** - User-friendly branch creation wizard
 - 🌐 **GitHub API integration** - Validate PRs directly from GitHub
+- 📊 **TUI Dashboard** - Interactive terminal dashboard for metrics and issue tracking
 
 ## 📦 Installation
 ```bash
@@ -47,6 +48,15 @@ devrules check-commit .git/COMMIT_EDITMSG
 ```bash
 export GH_TOKEN=your_github_token
 devrules check-pr owner repo 42
+```
+
+6. **Launch the TUI Dashboard:**
+```bash
+# Install with TUI support first
+pip install "devrules[tui]"
+
+# Run the dashboard
+devrules dashboard
 ```
 
 ## ⚙️ Configuration
