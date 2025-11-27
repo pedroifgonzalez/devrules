@@ -766,11 +766,43 @@ def update_issue_status(
     owner, project_number = _resolve_project_number(project)
 
     # Determine which project item to update: direct item id or lookup by issue
+    issue_repo = None
     if item_id is not None:
         item_title = _get_project_item_title_by_id(owner, project_number, item_id)
     else:
         project_item = _find_project_item_for_issue(owner, project_number, issue)
         item_id, item_title = project_item.id, project_item.title
+        # Extract repository from project item
+        if project_item.repository:
+            issue_repo = project_item.repository
+
+    # Prompt for comment if status is "Waiting Integration"
+    integration_comment = None
+    if status == "Waiting Integration":
+        typer.echo("\n📝 Please provide integration details for frontend colleagues:")
+        typer.echo("   Options:")
+        typer.echo("   1. Type a simple comment directly")
+        typer.echo("   2. Press Enter to open your editor for multi-line markdown")
+        typer.echo("")
+        
+        simple_comment = typer.prompt("Comment (or press Enter for editor)", default="", show_default=False).strip()
+        
+        if simple_comment:
+            integration_comment = simple_comment
+        else:
+            # Open editor for multi-line input
+            integration_comment = typer.edit("\n# Add integration details below (markdown supported)\n# Lines starting with # will be ignored\n\n")
+            if integration_comment:
+                # Remove comment lines
+                lines = [line for line in integration_comment.split("\n") if not line.strip().startswith("#")]
+                integration_comment = "\n".join(lines).strip()
+        
+        if not integration_comment:
+            typer.secho("⚠ Warning: No comment provided for Waiting Integration status", fg=typer.colors.YELLOW)
+            confirm = typer.confirm("Continue without a comment?", default=False)
+            if not confirm:
+                typer.echo("Cancelled.")
+                raise typer.Exit(code=0)
 
     # Resolve project node id and Status field/option ids
     project_id = _get_project_id(owner, project_number)
@@ -811,6 +843,36 @@ def update_issue_status(
         f"✔ Updated status of project item for issue #{issue} to '{status}' (title: {item_title})",
         fg=typer.colors.GREEN,
     )
+
+    # Add comment to the issue if integration_comment was provided
+    if integration_comment:
+        # Use the repository from the project item if available, otherwise fall back to config
+        repo_to_use = issue_repo if issue_repo else config.github.repo
+        
+        # Extract owner/repo from various formats:
+        # - "https://github.com/owner/repo" -> "owner/repo"
+        # - "owner/repo" -> "owner/repo"
+        # - "repo" -> use owner from config
+        if "github.com/" in repo_to_use:
+            # Extract from URL
+            parts = repo_to_use.split("github.com/")[-1].strip("/")
+            owner_repo = parts.split("/")[:2]
+            if len(owner_repo) == 2:
+                repo_owner, repo_name = owner_repo
+            else:
+                repo_owner, repo_name = owner, config.github.repo
+        elif "/" in repo_to_use:
+            # Already in "owner/repo" format
+            repo_owner, repo_name = repo_to_use.split("/", 1)
+        else:
+            # Just repo name
+            repo_owner, repo_name = owner, repo_to_use
+        
+        _add_issue_comment(repo_owner, repo_name, issue, integration_comment)
+        typer.secho(
+            f"✔ Added integration comment to issue #{issue}",
+            fg=typer.colors.GREEN,
+        )
 
 
 @app.command()
@@ -1437,6 +1499,60 @@ def _get_project_item_title_by_id(owner: str, project_number: str, item_id: str)
         fg=typer.colors.RED,
     )
     raise typer.Exit(code=1)
+
+
+def _add_issue_comment(owner: str, repo: str, issue: int, comment: str) -> None:
+    """Add a comment to a GitHub issue using gh CLI."""
+    # Check if comment already has markdown headers, if not add a default header
+    if comment.strip().startswith("#"):
+        body = comment
+    else:
+        body = f"## 🔄 Integration Details\n\n{comment}"
+    
+    repo_full = f"{owner}/{repo}"
+    
+    cmd = [
+        "gh",
+        "issue",
+        "comment",
+        str(issue),
+        "--repo",
+        repo_full,
+        "--body",
+        body,
+    ]
+
+    try:
+        subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        typer.secho(
+            f"✘ Failed to add comment to issue #{issue} in {repo_full}",
+            fg=typer.colors.RED,
+        )
+        if e.stderr:
+            typer.echo(e.stderr)
+        
+        # Check if it's an issue not found error
+        if "Could not resolve to an issue" in str(e.stderr):
+            typer.secho(
+                f"⚠ Issue #{issue} does not exist in repository {repo_full}",
+                fg=typer.colors.YELLOW,
+            )
+            typer.secho(
+                "  Make sure the issue number matches the repository in your config",
+                fg=typer.colors.YELLOW,
+            )
+        
+        # Don't exit, just warn - the status update already succeeded
+        typer.secho(
+            "⚠ Status was updated but comment failed to post",
+            fg=typer.colors.YELLOW,
+        )
 
 
 def _register_command_aliases() -> None:
