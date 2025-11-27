@@ -28,3 +28,12 @@ class ProjectItem:
     repository: Optional[str] = None
     status: Optional[str] = None
     title: Optional[str] = None
+
+@dataclass
+class PRInfo:
+    """Pull request information."""
+
+    additions: int
+    deletions: int
+    changed_files: int
+    title: str
