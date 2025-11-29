@@ -18,6 +18,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config_file: Optional[str] = typer.Option(
             None, "--config", "-c", help="Path to config file"
         ),
+        project: Optional[str] = typer.Option(
+            None,
+            "--project",
+            "-p",
+            help="Project to check issue status against (faster than checking all)",
+        ),
     ):
         """Create a GitHub pull request for the current branch against the base branch."""
         import subprocess
@@ -75,7 +81,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             from devrules.validators.pr import validate_pr_issue_status
 
             typer.echo("\n🔍 Checking issue status...")
-            is_valid, messages = validate_pr_issue_status(current_branch, config.pr, config.github)
+
+            # Use CLI project option if provided, otherwise use config
+            project_override = [project] if project else None
+            is_valid, messages = validate_pr_issue_status(
+                current_branch, config.pr, config.github, project_override=project_override
+            )
 
             for msg in messages:
                 if "✔" in msg or "ℹ" in msg:

@@ -11,6 +11,7 @@ def validate_pr_issue_status(
     current_branch: str,
     config: PRConfig,
     github_config: GitHubConfig,
+    project_override: Optional[list[str]] = None,
 ) -> tuple[bool, list[str]]:
     """Validate that the branch's associated issue has an allowed status.
 
@@ -18,6 +19,7 @@ def validate_pr_issue_status(
         current_branch: Name of the current branch
         config: PR configuration
         github_config: GitHub configuration
+        project_override: Optional list of project keys to check (overrides config)
 
     Returns:
         Tuple of (is_valid, messages)
@@ -35,7 +37,11 @@ def validate_pr_issue_status(
         return True, messages
 
     # Determine which projects to check
-    projects_to_check = config.project_for_status_check
+    # CLI override takes precedence over config
+    projects_to_check = (
+        project_override if project_override is not None else config.project_for_status_check
+    )
+
     if not projects_to_check:
         # If empty, check all configured projects
         if github_config.projects:
