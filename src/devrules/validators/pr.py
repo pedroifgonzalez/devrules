@@ -34,28 +34,35 @@ def validate_pr_issue_status(
         messages.append("ℹ No issue number found in branch name - status check skipped")
         return True, messages
 
-    # Determine which project to check
-    project_key = config.project_for_status_check
-    if not project_key:
-        # Use first configured project if available
+    # Determine which projects to check
+    projects_to_check = config.project_for_status_check
+    if not projects_to_check:
+        # If empty, check all configured projects
         if github_config.projects:
-            project_key = next(iter(github_config.projects.keys()))
+            projects_to_check = list(github_config.projects.keys())
         else:
-            messages.append("✘ No project configured for status check")
+            messages.append("✘ No projects configured for status check")
             return False, messages
 
-    # Resolve project number
-    try:
-        owner, project_number = resolve_project_number(project_key)
-    except Exception as e:
-        messages.append(f"✘ Failed to resolve project '{project_key}': {e}")
-        return False, messages
+    # Try to find the issue in the specified projects
+    project_item = None
+    checked_projects = []
 
-    # Fetch project item for issue
-    try:
-        project_item = find_project_item_for_issue(owner, project_number, int(issue_number))
-    except Exception as e:
-        messages.append(f"✘ Failed to fetch project item for issue #{issue_number}: {e}")
+    for project_key in projects_to_check:
+        try:
+            owner, project_number = resolve_project_number(project_key)
+            checked_projects.append(project_key)
+
+            # Try to fetch project item for issue
+            project_item = find_project_item_for_issue(owner, project_number, int(issue_number))
+            break  # Found it, stop searching
+        except Exception:
+            # Issue not in this project, try next one
+            continue
+
+    if project_item is None:
+        projects_str = ", ".join(checked_projects)
+        messages.append(f"✘ Issue #{issue_number} not found in projects: {projects_str}")
         return False, messages
 
     # Check if status is allowed

@@ -73,9 +73,9 @@ title_pattern = "^\\\[({tags})\\\].+"
 require_issue_status_check = false
 # List of statuses that allow PR creation (e.g., ["In review", "Ready"])
 allowed_pr_statuses = []
-# Optional: project key from [github.projects] to check status against
-# If not specified, uses the first configured project
-project_for_status_check = ""
+# List of project keys from [github.projects] to check status against
+# If empty, checks all configured projects
+project_for_status_check = []
 
 [github]
 api_url = "https://api.github.com"

@@ -42,7 +42,7 @@ class PRConfig:
     title_pattern: str = ""
     require_issue_status_check: bool = False
     allowed_pr_statuses: list = field(default_factory=list)
-    project_for_status_check: Optional[str] = None
+    project_for_status_check: list = field(default_factory=list)
 
 
 @dataclass
@@ -111,7 +111,7 @@ DEFAULT_CONFIG = {
         "title_pattern": r"^\\[({tags})\\].+",
         "require_issue_status_check": False,
         "allowed_pr_statuses": [],
-        "project_for_status_check": None,
+        "project_for_status_check": [],
     },
     "github": {
         "api_url": "https://api.github.com",
