@@ -118,7 +118,43 @@ def _get_branch_owner(branch: str, current_user: str) -> str:
     authors = [line.strip() for line in log_result.stdout.splitlines() if line.strip()]
 
     if not authors:
-        return current_user
+        # If no unique commits (merged), check if branch tip is same as base tip
+        # If same, assume new branch (owned by current user)
+        # If different, assume old merged branch (check tip author)
+
+        # Get base tip (develop)
+        try:
+            base_tip_result = subprocess.run(
+                ["git", "rev-parse", "develop"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            base_tip = base_tip_result.stdout.strip()
+
+            branch_tip_result = subprocess.run(
+                ["git", "rev-parse", branch],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            branch_tip = branch_tip_result.stdout.strip()
+
+            if base_tip == branch_tip:
+                return current_user
+
+            # Different tips, check author of branch tip
+            tip_log_result = subprocess.run(
+                ["git", "log", "-1", "--format=%an", branch],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            tip_author = tip_log_result.stdout.strip()
+            return tip_author
+
+        except subprocess.CalledProcessError:
+            return current_user
 
     return authors[0]
 
