@@ -40,6 +40,9 @@ class PRConfig:
     max_files: int = 20
     require_title_tag: bool = True
     title_pattern: str = ""
+    require_issue_status_check: bool = False
+    allowed_pr_statuses: list = field(default_factory=list)
+    project_for_status_check: Optional[str] = None
 
 
 @dataclass
@@ -105,7 +108,10 @@ DEFAULT_CONFIG = {
         "max_loc": 400,
         "max_files": 20,
         "require_title_tag": True,
-        "title_pattern": r"^\[({tags})\].+",
+        "title_pattern": r"^\\[({tags})\\].+",
+        "require_issue_status_check": False,
+        "allowed_pr_statuses": [],
+        "project_for_status_check": None,
     },
     "github": {
         "api_url": "https://api.github.com",

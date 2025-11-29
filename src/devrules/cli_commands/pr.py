@@ -15,6 +15,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         base: str = typer.Option(
             "develop", "--base", "-b", help="Base branch for the pull request"
         ),
+        config_file: Optional[str] = typer.Option(
+            None, "--config", "-c", help="Path to config file"
+        ),
     ):
         """Create a GitHub pull request for the current branch against the base branch."""
         import subprocess
@@ -63,6 +66,34 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             humanized = humanized[0].upper() + humanized[1:]
 
         pr_title = f"[{tag}] {humanized}" if humanized else f"[{tag}] {current_branch}"
+
+        # Load config and check if status validation is required
+        config = load_config(config_file)
+
+        # Validate issue status if enabled
+        if config.pr.require_issue_status_check:
+            from devrules.validators.pr import validate_pr_issue_status
+
+            typer.echo("\n🔍 Checking issue status...")
+            is_valid, messages = validate_pr_issue_status(current_branch, config.pr, config.github)
+
+            for msg in messages:
+                if "✔" in msg or "ℹ" in msg:
+                    typer.secho(msg, fg=typer.colors.GREEN)
+                elif "⚠" in msg:
+                    typer.secho(msg, fg=typer.colors.YELLOW)
+                else:
+                    typer.secho(msg, fg=typer.colors.RED)
+
+            if not is_valid:
+                typer.echo()
+                typer.secho(
+                    "✘ Cannot create PR: Issue status check failed",
+                    fg=typer.colors.RED,
+                )
+                raise typer.Exit(code=1)
+
+            typer.echo()
 
         cmd = [
             "gh",
@@ -123,11 +154,24 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         typer.echo(f"Files changed: {pr_info.changed_files}")
         typer.echo("")
 
-        is_valid, messages = validate_pr(pr_info, config.pr)
+        # Get current branch for status validation
+        current_branch = None
+        if config.pr.require_issue_status_check:
+            try:
+                current_branch = get_current_branch()
+            except Exception:
+                # If we can't get current branch, validation will skip status check
+                pass
+
+        is_valid, messages = validate_pr(
+            pr_info, config.pr, current_branch=current_branch, github_config=config.github
+        )
 
         for msg in messages:
-            if "✔" in msg:
+            if "✔" in msg or "ℹ" in msg:
                 typer.secho(msg, fg=typer.colors.GREEN)
+            elif "⚠" in msg:
+                typer.secho(msg, fg=typer.colors.YELLOW)
             else:
                 typer.secho(msg, fg=typer.colors.RED)
 

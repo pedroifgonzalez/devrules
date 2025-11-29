@@ -69,6 +69,13 @@ max_loc = 400
 max_files = 20
 require_title_tag = true
 title_pattern = "^\\\[({tags})\\\].+"
+# Enable issue status validation before PR creation (default: false)
+require_issue_status_check = false
+# List of statuses that allow PR creation (e.g., ["In review", "Ready"])
+allowed_pr_statuses = []
+# Optional: project key from [github.projects] to check status against
+# If not specified, uses the first configured project
+project_for_status_check = ""
 
 [github]
 api_url = "https://api.github.com"
