@@ -209,3 +209,19 @@ def get_current_issue_number():
     except subprocess.CalledProcessError:
         pass
     return None
+
+
+def get_merged_branches(base_branch: str = "develop") -> list[str]:
+    """Get list of branches merged into the base branch."""
+    try:
+        result = subprocess.run(
+            ["git", "branch", "--merged", base_branch],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        # Filter out '*' (current branch marker) and whitespace
+        branches = [b.strip().lstrip("* ") for b in result.stdout.splitlines() if b.strip()]
+        return branches
+    except subprocess.CalledProcessError:
+        return []

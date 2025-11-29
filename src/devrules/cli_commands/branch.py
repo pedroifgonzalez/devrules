@@ -11,6 +11,7 @@ from devrules.core.git_service import (
     get_branch_name_interactive,
     get_current_branch,
     get_existing_branches,
+    get_merged_branches,
     handle_existing_branch,
     resolve_issue_branch,
 )
@@ -236,9 +237,94 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         raise typer.Exit(code=0)
 
+    @app.command()
+    def delete_merged(
+        remote: str = typer.Option("origin", "--remote", "-r", help="Remote name"),
+    ):
+        """Delete branches that have been merged into develop (interactive)."""
+        import subprocess
+
+        ensure_git_repo()
+
+        # 1. Get branches merged into develop
+        merged_branches = set(get_merged_branches(base_branch="develop"))
+
+        if not merged_branches:
+            typer.secho("No branches found that are merged into develop.", fg=typer.colors.YELLOW)
+            raise typer.Exit(code=0)
+
+        # 2. Get owned branches
+        try:
+            owned_branches = set(list_user_owned_branches())
+        except RuntimeError as e:
+            typer.secho(f"✘ {e}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+
+        # 3. Intersect: Only delete merged branches that are owned by the user
+        candidates = sorted(list(merged_branches.intersection(owned_branches)))
+
+        # 4. Filter out protected branches and current branch
+        current_branch = get_current_branch()
+        final_candidates = []
+
+        for b in candidates:
+            if b in ("main", "master", "develop") or b.startswith("release/"):
+                continue
+            if b == current_branch:
+                continue
+            final_candidates.append(b)
+
+        if not final_candidates:
+            typer.secho(
+                "No owned merged branches available to delete (filtered protected/current).",
+                fg=typer.colors.YELLOW,
+            )
+            raise typer.Exit(code=0)
+
+        # 5. Show candidates
+        typer.secho("\n🗑 Delete Merged Branches", fg=typer.colors.CYAN, bold=True)
+        typer.echo("=" * 50)
+        typer.echo(
+            f"\nThe following branches are merged into 'develop' and owned by you.\nThey will be deleted locally and from remote '{remote}':\n"
+        )
+
+        for b in final_candidates:
+            typer.echo(f"  - {b}")
+
+        # 6. Confirm
+        if not typer.confirm("\n  Delete these branches?", default=False):
+            typer.echo("Cancelled.")
+            raise typer.Exit(code=0)
+
+        # 7. Delete
+        typer.echo()
+        for b in final_candidates:
+            # Local delete
+            try:
+                subprocess.run(["git", "branch", "-d", b], check=True, capture_output=True)
+                typer.secho(f"✔ Deleted local branch '{b}'", fg=typer.colors.GREEN)
+            except subprocess.CalledProcessError as e:
+                typer.secho(f"✘ Failed to delete local branch '{b}': {e}", fg=typer.colors.RED)
+
+            # Remote delete
+            try:
+                subprocess.run(
+                    ["git", "push", remote, "--delete", b], check=True, capture_output=True
+                )
+                typer.secho(f"✔ Deleted remote branch '{b}' from '{remote}'", fg=typer.colors.GREEN)
+            except subprocess.CalledProcessError:
+                # It's possible the remote branch doesn't exist or was already deleted
+                typer.secho(
+                    f"⚠ Could not delete remote branch '{b}' (maybe it doesn't exist?)",
+                    fg=typer.colors.YELLOW,
+                )
+
+        raise typer.Exit(code=0)
+
     return {
         "check_branch": check_branch,
         "create_branch": create_branch,
         "list_owned_branches": list_owned_branches,
         "delete_branch": delete_branch,
+        "delete_merged": delete_merged,
     }
