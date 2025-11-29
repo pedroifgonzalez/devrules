@@ -209,3 +209,54 @@ def get_current_issue_number():
     except subprocess.CalledProcessError:
         pass
     return None
+
+
+def get_merged_branches(base_branch: str = "develop") -> list[str]:
+    """Get list of branches merged into the base branch."""
+    try:
+        result = subprocess.run(
+            ["git", "branch", "--merged", base_branch],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        # Filter out '*' (current branch marker) and whitespace
+        branches = [b.strip().lstrip("* ") for b in result.stdout.splitlines() if b.strip()]
+        return branches
+    except subprocess.CalledProcessError:
+        return []
+
+
+def delete_branch_local_and_remote(
+    branch: str, remote: str = "origin", force: bool = False, ignore_remote_error: bool = False
+) -> None:
+    """Delete a branch locally and on the remote."""
+    # Delete local branch
+    delete_flag = "-D" if force else "-d"
+    try:
+        subprocess.run(["git", "branch", delete_flag, branch], check=True, capture_output=True)
+        typer.secho(f"✔ Deleted local branch '{branch}'", fg=typer.colors.GREEN)
+    except subprocess.CalledProcessError as e:
+        typer.secho(
+            f"✘ Failed to delete local branch '{branch}': {e.stderr.decode().strip()}",
+            fg=typer.colors.RED,
+        )
+        if not ignore_remote_error:
+            raise typer.Exit(code=1)
+
+    # Delete remote branch
+    try:
+        subprocess.run(["git", "push", remote, "--delete", branch], check=True, capture_output=True)
+        typer.secho(f"✔ Deleted remote branch '{branch}' from '{remote}'", fg=typer.colors.GREEN)
+    except subprocess.CalledProcessError as e:
+        if ignore_remote_error:
+            typer.secho(
+                f"⚠ Could not delete remote branch '{branch}' (maybe it doesn't exist?)",
+                fg=typer.colors.YELLOW,
+            )
+        else:
+            typer.secho(
+                f"✘ Failed to delete remote branch '{branch}' from '{remote}': {e.stderr.decode().strip()}",
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(code=1)
