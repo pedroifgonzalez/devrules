@@ -6,6 +6,7 @@ from devrules.config import load_config
 from devrules.core.git_service import (
     create_and_checkout_branch,
     create_staging_branch_name,
+    delete_branch_local_and_remote,
     detect_scope,
     ensure_git_repo,
     get_branch_name_interactive,
@@ -213,27 +214,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             typer.echo("Cancelled.")
             raise typer.Exit(code=0)
 
-        # Delete local branch
-        delete_flag = "-D" if force else "-d"
-        try:
-            subprocess.run(["git", "branch", delete_flag, branch], check=True)
-            typer.secho(f"✔ Deleted local branch '{branch}'", fg=typer.colors.GREEN)
-        except subprocess.CalledProcessError as e:
-            typer.secho(f"✘ Failed to delete local branch '{branch}': {e}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
-
-        # Delete remote branch
-        try:
-            subprocess.run(["git", "push", remote, "--delete", branch], check=True)
-            typer.secho(
-                f"✔ Deleted remote branch '{branch}' from '{remote}'", fg=typer.colors.GREEN
-            )
-        except subprocess.CalledProcessError as e:
-            typer.secho(
-                f"✘ Failed to delete remote branch '{branch}' from '{remote}': {e}",
-                fg=typer.colors.RED,
-            )
-            raise typer.Exit(code=1)
+        # Delete branch using service
+        delete_branch_local_and_remote(branch, remote, force)
 
         raise typer.Exit(code=0)
 
@@ -242,7 +224,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         remote: str = typer.Option("origin", "--remote", "-r", help="Remote name"),
     ):
         """Delete branches that have been merged into develop (interactive)."""
-        import subprocess
 
         ensure_git_repo()
 
@@ -299,25 +280,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         # 7. Delete
         typer.echo()
         for b in final_candidates:
-            # Local delete
-            try:
-                subprocess.run(["git", "branch", "-d", b], check=True, capture_output=True)
-                typer.secho(f"✔ Deleted local branch '{b}'", fg=typer.colors.GREEN)
-            except subprocess.CalledProcessError as e:
-                typer.secho(f"✘ Failed to delete local branch '{b}': {e}", fg=typer.colors.RED)
-
-            # Remote delete
-            try:
-                subprocess.run(
-                    ["git", "push", remote, "--delete", b], check=True, capture_output=True
-                )
-                typer.secho(f"✔ Deleted remote branch '{b}' from '{remote}'", fg=typer.colors.GREEN)
-            except subprocess.CalledProcessError:
-                # It's possible the remote branch doesn't exist or was already deleted
-                typer.secho(
-                    f"⚠ Could not delete remote branch '{b}' (maybe it doesn't exist?)",
-                    fg=typer.colors.YELLOW,
-                )
+            delete_branch_local_and_remote(b, remote, force=False, ignore_remote_error=True)
 
         raise typer.Exit(code=0)
 
