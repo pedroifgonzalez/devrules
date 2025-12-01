@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+import requests
 import typer
 
 from devrules.config import Config
@@ -120,7 +121,18 @@ def get_deployed_branch(environment: str, config: Config) -> Optional[str]:
         return None
 
     jenkins_url = config.deployment.jenkins_url
+
+    # Use jenkins_job_name if set, otherwise use repo name
     job_name = env_config.jenkins_job_name
+    if not job_name:
+        job_name = config.github.repo
+        if not job_name:
+            typer.secho(
+                "✘ jenkins_job_name not set and github.repo not configured",
+                fg=typer.colors.RED,
+            )
+            return None
+
     user, token = get_jenkins_auth(config)
 
     if not jenkins_url:
@@ -130,26 +142,40 @@ def get_deployed_branch(environment: str, config: Config) -> Optional[str]:
         )
         return None
 
-    # Build Jenkins API URL
-    api_url = f"{jenkins_url}/job/{job_name}/lastSuccessfulBuild/api/json"
+    # Build Jenkins API URL based on multibranch_pipeline setting
+    default_branch = env_config.default_branch
+
+    if config.deployment.multibranch_pipeline:
+        # Multibranch pipeline: /job/{job_name}/job/{branch}/lastSuccessfulBuild/api/json
+        import urllib.parse
+
+        encoded_branch = urllib.parse.quote(default_branch, safe="")
+        api_url = f"{jenkins_url}/job/{job_name}/job/{encoded_branch}/lastSuccessfulBuild/api/json"
+    else:
+        # Regular job: /job/{job_name}/lastSuccessfulBuild/api/json
+        api_url = f"{jenkins_url}/job/{job_name}/lastSuccessfulBuild/api/json"
 
     try:
-        # Use curl to fetch Jenkins build info
-        cmd = ["curl", "-s"]
+        # Use requests to fetch Jenkins build info
+        auth = (user, token) if user and token else None
 
-        if user and token:
-            cmd.extend(["-u", f"{user}:{token}"])
+        # Debug: Show if auth is being used
+        if auth:
+            typer.secho(
+                f"🔑 Using authentication for user: {user}",
+                fg=typer.colors.CYAN,
+                dim=True,
+            )
+        else:
+            typer.secho(
+                "⚠ No authentication credentials found",
+                fg=typer.colors.YELLOW,
+            )
 
-        cmd.append(api_url)
+        response = requests.get(api_url, auth=auth, timeout=30)
+        response.raise_for_status()
 
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-
-        build_info = json.loads(result.stdout)
+        build_info = response.json()
 
         # Extract branch parameter from build actions
         for action in build_info.get("actions", []):
@@ -178,7 +204,60 @@ def get_deployed_branch(environment: str, config: Config) -> Optional[str]:
         )
         return env_config.default_branch
 
-    except subprocess.CalledProcessError as e:
+    except requests.HTTPError as e:
+        if e.response.status_code == 401:
+            typer.secho(
+                "✘ Authentication failed (401 Unauthorized)",
+                fg=typer.colors.RED,
+            )
+            typer.secho(
+                "  Please check your Jenkins credentials in .devrules.toml or environment variables:",
+                fg=typer.colors.YELLOW,
+            )
+            typer.secho(
+                "  - JENKINS_USER or deployment.jenkins_user",
+                fg=typer.colors.YELLOW,
+            )
+            typer.secho(
+                "  - JENKINS_TOKEN or deployment.jenkins_token",
+                fg=typer.colors.YELLOW,
+            )
+        elif e.response.status_code == 404:
+            typer.secho(
+                "✘ Jenkins job not found (404)",
+                fg=typer.colors.RED,
+            )
+            typer.secho(
+                f"  Job name: '{job_name}'",
+                fg=typer.colors.YELLOW,
+            )
+            typer.secho(
+                f"  URL: {api_url}",
+                fg=typer.colors.YELLOW,
+            )
+            typer.secho(
+                "  Possible issues:",
+                fg=typer.colors.YELLOW,
+            )
+            typer.secho(
+                "  1. Job name is incorrect in .devrules.toml",
+                fg=typer.colors.WHITE,
+            )
+            typer.secho(
+                "  2. Job is in a folder (use 'folder/job-name' format)",
+                fg=typer.colors.WHITE,
+            )
+            typer.secho(
+                "  3. Job has no successful builds yet",
+                fg=typer.colors.WHITE,
+            )
+        else:
+            typer.secho(
+                f"✘ HTTP error fetching Jenkins build info: {e}",
+                fg=typer.colors.RED,
+            )
+        return None
+    except requests.RequestException as e:
         typer.secho(
             f"✘ Failed to fetch Jenkins build info: {e}",
             fg=typer.colors.RED,
@@ -247,29 +326,40 @@ def execute_deployment(branch: str, environment: str, config: Config) -> Tuple[b
         return False, f"Environment '{environment}' not configured"
 
     jenkins_url = config.deployment.jenkins_url
+
+    # Use jenkins_job_name if set, otherwise use repo name
     job_name = env_config.jenkins_job_name
+    if not job_name:
+        job_name = config.github.repo
+        if not job_name:
+            return False, "jenkins_job_name not set and github.repo not configured"
+
     user, token = get_jenkins_auth(config)
 
     # Build Jenkins API URL for triggering build
-    api_url = f"{jenkins_url}/job/{job_name}/buildWithParameters"
+    if config.deployment.multibranch_pipeline:
+        # Multibranch pipeline: /job/{job_name}/job/{branch}/build
+        import urllib.parse
+
+        encoded_branch = urllib.parse.quote(branch, safe="")
+        api_url = f"{jenkins_url}/job/{job_name}/job/{encoded_branch}/build"
+    else:
+        # Regular job: /job/{job_name}/buildWithParameters
+        api_url = f"{jenkins_url}/job/{job_name}/buildWithParameters"
 
     try:
-        # Trigger Jenkins build
-        cmd = ["curl", "-X", "POST", "-s"]
+        # Trigger Jenkins build using requests
+        auth = (user, token) if user and token else None
 
-        if user and token:
-            cmd.extend(["-u", f"{user}:{token}"])
+        # For regular jobs, send branch as parameter
+        # For multibranch, the branch is in the URL
+        if config.deployment.multibranch_pipeline:
+            response = requests.post(api_url, auth=auth, timeout=30)
+        else:
+            # Send branch parameter for regular jobs
+            response = requests.post(api_url, auth=auth, data={"BRANCH": branch}, timeout=30)
 
-        # Add branch parameter (will be customizable later)
-        cmd.extend(["-d", f"BRANCH={branch}"])
-        cmd.append(api_url)
-
-        subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        response.raise_for_status()
 
         typer.secho(
             f"✔ Deployment job triggered successfully for {environment}",
@@ -278,11 +368,13 @@ def execute_deployment(branch: str, environment: str, config: Config) -> Tuple[b
 
         return True, f"Deployment job '{job_name}' triggered for branch '{branch}'"
 
-    except subprocess.CalledProcessError as e:
+    except requests.HTTPError as e:
         error_msg = f"Failed to trigger Jenkins job: {e}"
-        if e.stderr:
-            error_msg += f"\n{e.stderr}"
+        if e.response.status_code == 404:
+            error_msg += f"\nJob or branch not found. URL: {api_url}"
         return False, error_msg
+    except requests.RequestException as e:
+        return False, f"Failed to trigger Jenkins job: {e}"
 
 
 def rollback_deployment(environment: str, target_branch: str, config: Config) -> Tuple[bool, str]:

@@ -64,7 +64,7 @@ class EnvironmentConfig:
 
     name: str
     default_branch: str
-    jenkins_job_name: str
+    jenkins_job_name: Optional[str] = None  # If None, uses repo name from github.repo
 
 
 @dataclass
@@ -74,6 +74,7 @@ class DeploymentConfig:
     jenkins_url: str = ""
     jenkins_user: Optional[str] = None
     jenkins_token: Optional[str] = None
+    multibranch_pipeline: bool = False  # If True, uses /job/{name}/job/{branch} URL format
     environments: dict = field(default_factory=dict)
     migration_detection_enabled: bool = True
     migration_paths: list = field(default_factory=lambda: ["migrations/", "alembic/versions/"])
@@ -161,6 +162,7 @@ DEFAULT_CONFIG = {
         "jenkins_url": "",
         "jenkins_user": None,
         "jenkins_token": None,
+        "multibranch_pipeline": False,
         "environments": {},
         "migration_detection_enabled": True,
         "migration_paths": ["migrations/", "alembic/versions/"],

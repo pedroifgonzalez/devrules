@@ -41,6 +41,10 @@ jenkins_url = "https://jenkins.yourcompany.com"
 jenkins_user = "your-username"  # Optional: can use env var JENKINS_USER
 jenkins_token = "your-api-token"  # Optional: can use env var JENKINS_TOKEN
 
+# Set to true if using Jenkins multibranch pipelines
+# This changes the URL format from /job/{name}/build to /job/{name}/job/{branch}/build
+multibranch_pipeline = false
+
 # Migration detection (Alembic)
 migration_detection_enabled = true
 migration_paths = ["migrations/", "alembic/versions/"]
@@ -53,6 +57,7 @@ require_confirmation = true
 [deployment.environments.dev]
 name = "dev"
 default_branch = "develop"
+# jenkins_job_name is optional - if not set, uses github.repo name
 jenkins_job_name = "deploy-backend-dev"
 
 [deployment.environments.staging]
