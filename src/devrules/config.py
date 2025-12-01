@@ -59,6 +59,29 @@ class GitHubConfig:
 
 
 @dataclass
+class EnvironmentConfig:
+    """Configuration for a deployment environment."""
+
+    name: str
+    default_branch: str
+    jenkins_job_name: str
+
+
+@dataclass
+class DeploymentConfig:
+    """Deployment workflow configuration."""
+
+    jenkins_url: str = ""
+    jenkins_user: Optional[str] = None
+    jenkins_token: Optional[str] = None
+    environments: dict = field(default_factory=dict)
+    migration_detection_enabled: bool = True
+    migration_paths: list = field(default_factory=lambda: ["migrations/", "alembic/versions/"])
+    auto_rollback_on_failure: bool = True
+    require_confirmation: bool = True
+
+
+@dataclass
 class Config:
     """Main configuration container."""
 
@@ -66,6 +89,7 @@ class Config:
     commit: CommitConfig
     pr: PRConfig
     github: GitHubConfig = field(default_factory=GitHubConfig)
+    deployment: DeploymentConfig = field(default_factory=DeploymentConfig)
 
 
 DEFAULT_CONFIG = {
@@ -133,6 +157,16 @@ DEFAULT_CONFIG = {
         ],
         "status_emojis": {},
     },
+    "deployment": {
+        "jenkins_url": "",
+        "jenkins_user": None,
+        "jenkins_token": None,
+        "environments": {},
+        "migration_detection_enabled": True,
+        "migration_paths": ["migrations/", "alembic/versions/"],
+        "auto_rollback_on_failure": True,
+        "require_confirmation": True,
+    },
 }
 
 
@@ -189,9 +223,24 @@ def load_config(config_path: Optional[str] = None) -> Config:
     pr_pattern_base = str(config_data["pr"]["title_pattern"])
     pr_pattern = pr_pattern_base.replace("{tags}", tags_str)
 
+    # Parse deployment environments
+    deployment_data = config_data.get("deployment", {})
+    environments_dict = {}
+    for env_key, env_data in deployment_data.get("environments", {}).items():
+        if isinstance(env_data, dict):
+            environments_dict[env_key] = EnvironmentConfig(**env_data)
+
+    deployment_config = DeploymentConfig(
+        **{
+            **deployment_data,
+            "environments": environments_dict,
+        }
+    )
+
     return Config(
         branch=BranchConfig(**config_data["branch"]),
         commit=CommitConfig(**{**config_data["commit"], "pattern": commit_pattern}),
         pr=PRConfig(**{**config_data["pr"], "title_pattern": pr_pattern}),
         github=GitHubConfig(**config_data.get("github", {})),
+        deployment=deployment_config,
     )
