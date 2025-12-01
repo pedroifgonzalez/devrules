@@ -3,6 +3,7 @@
 import json
 import os
 import subprocess
+import urllib.parse
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -95,8 +96,25 @@ def check_migration_conflicts(
         return False, conflicting_files
 
     except subprocess.CalledProcessError as e:
+        stderr = getattr(e, "stderr", "") or ""
+        message = str(e)
+
+        # If the error is due to a missing or unknown revision (e.g. the deployed
+        # branch does not exist locally), treat it as "cannot check" but do not
+        # block deployment.
+        lowered_stderr = stderr.lower()
+        if any(
+            phrase in lowered_stderr
+            for phrase in ["bad revision", "unknown revision", "ambiguous argument"]
+        ):
+            typer.secho(
+                "⚠ Skipping migration conflict check: deployed branch not found in git history",
+                fg=typer.colors.YELLOW,
+            )
+            return False, []
+
         typer.secho(
-            f"⚠ Warning: Could not check migration conflicts: {e}",
+            f"⚠ Warning: Could not check migration conflicts: {message}",
             fg=typer.colors.YELLOW,
         )
         return False, []
@@ -143,20 +161,11 @@ def get_deployed_branch(environment: str, config: Config) -> Optional[str]:
         return None
 
     # Build Jenkins API URL based on multibranch_pipeline setting
-    default_branch = env_config.default_branch
-
-    if config.deployment.multibranch_pipeline:
-        # Multibranch pipeline: /job/{job_name}/job/{branch}/lastSuccessfulBuild/api/json
-        import urllib.parse
-
-        encoded_branch = urllib.parse.quote(default_branch, safe="")
-        api_url = f"{jenkins_url}/job/{job_name}/job/{encoded_branch}/lastSuccessfulBuild/api/json"
-    else:
-        # Regular job: /job/{job_name}/lastSuccessfulBuild/api/json
-        api_url = f"{jenkins_url}/job/{job_name}/lastSuccessfulBuild/api/json"
+    # For multibranch pipelines, we want the last successful build of the *job*,
+    # regardless of which branch it was for. The branch is then inferred from
+    # the build parameters/SCM info below.
 
     try:
-        # Use requests to fetch Jenkins build info
         auth = (user, token) if user and token else None
 
         # Debug: Show if auth is being used
@@ -172,37 +181,80 @@ def get_deployed_branch(environment: str, config: Config) -> Optional[str]:
                 fg=typer.colors.YELLOW,
             )
 
-        response = requests.get(api_url, auth=auth, timeout=30)
-        response.raise_for_status()
+        if config.deployment.multibranch_pipeline:
+            api_url = (
+                f"{jenkins_url}/job/{job_name}/api/json?"
+                "tree=jobs[name,lastSuccessfulBuild[number,result,timestamp]]"
+            )
 
-        build_info = response.json()
+            response = requests.get(api_url, auth=auth, timeout=30)
+            response.raise_for_status()
 
-        # Extract branch parameter from build actions
-        for action in build_info.get("actions", []):
-            if action.get("_class") == "hudson.model.ParametersAction":
-                for param in action.get("parameters", []):
-                    if param.get("name") in ["BRANCH", "BRANCH_NAME", "GIT_BRANCH"]:
-                        branch = param.get("value", "")
-                        # Clean up branch name (remove origin/ prefix if present)
+            job_info = response.json()
+
+            def classify_env(branch_name: str) -> str:
+                if branch_name == "main":
+                    return "prod"
+                if "staging" in branch_name:
+                    return "staging"
+                return "dev"
+
+            target_env = environment
+            if target_env == "production":
+                target_env = "prod"
+
+            candidate_jobs = []
+            for job in job_info.get("jobs", []):
+                raw_name = job.get("name") or ""
+                name = urllib.parse.unquote(raw_name)
+                env_for_branch = classify_env(name)
+                last_build = job.get("lastSuccessfulBuild") or {}
+                if env_for_branch == target_env and last_build.get("result") == "SUCCESS":
+                    candidate_jobs.append(last_build | {"branch_name": name})
+
+            if candidate_jobs:
+                selected = max(candidate_jobs, key=lambda j: j.get("timestamp", 0))
+                return selected["branch_name"]
+
+            typer.secho(
+                "⚠ Could not determine deployed branch from multibranch jobs",
+                fg=typer.colors.YELLOW,
+            )
+            return env_config.default_branch
+        else:
+            api_url = f"{jenkins_url}/job/{job_name}/lastSuccessfulBuild/api/json"
+
+            response = requests.get(api_url, auth=auth, timeout=30)
+            response.raise_for_status()
+
+            build_info = response.json()
+
+            # Extract branch parameter from build actions
+            for action in build_info.get("actions", []):
+                if action.get("_class") == "hudson.model.ParametersAction":
+                    for param in action.get("parameters", []):
+                        if param.get("name") in ["BRANCH", "BRANCH_NAME", "GIT_BRANCH"]:
+                            branch = param.get("value", "")
+                            # Clean up branch name (remove origin/ prefix if present)
+                            if branch.startswith("origin/"):
+                                branch = branch[7:]
+                            return branch
+
+            # Fallback: try to get from git info
+            for action in build_info.get("actions", []):
+                if "lastBuiltRevision" in action:
+                    branch_info = action.get("lastBuiltRevision", {}).get("branch", [])
+                    if branch_info:
+                        branch = branch_info[0].get("name", "")
                         if branch.startswith("origin/"):
                             branch = branch[7:]
                         return branch
 
-        # Fallback: try to get from git info
-        for action in build_info.get("actions", []):
-            if "lastBuiltRevision" in action:
-                branch_info = action.get("lastBuiltRevision", {}).get("branch", [])
-                if branch_info:
-                    branch = branch_info[0].get("name", "")
-                    if branch.startswith("origin/"):
-                        branch = branch[7:]
-                    return branch
-
-        typer.secho(
-            "⚠ Could not determine deployed branch from Jenkins build info",
-            fg=typer.colors.YELLOW,
-        )
-        return env_config.default_branch
+            typer.secho(
+                "⚠ Could not determine deployed branch from Jenkins build info",
+                fg=typer.colors.YELLOW,
+            )
+            return env_config.default_branch
 
     except requests.HTTPError as e:
         if e.response.status_code == 401:
