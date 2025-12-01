@@ -9,6 +9,7 @@ dependencies = [
     "requests>=2.32.5",
     "toml>=0.10.2",
     "typer>=0.20.0",
+    "cryptography>=41.0.0",
 ]
 authors = [
     {name = "Pedro Iván Fernández González", email = "pedroifgonzalez@gmail.com"}
@@ -44,6 +45,11 @@ tui = [
     "plotext>=5.0,<6.0",
     "rich>=13.0,<14.0",
 ]
+enterprise = [
+    "build>=1.0.0",
+    "twine>=4.0.0",
+]
+
 
 [dependency-groups]
 dev = [

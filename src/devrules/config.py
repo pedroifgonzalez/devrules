@@ -152,31 +152,73 @@ def find_config_file() -> Optional[Path]:
 
 
 def load_config(config_path: Optional[str] = None) -> Config:
-    """Load configuration from TOML file or use defaults."""
+    """Load configuration from TOML file or use defaults.
 
+    Configuration priority (highest to lowest):
+    1. ENTERPRISE - Embedded enterprise config (if present and locked)
+    2. USER - User's .devrules.toml file
+    3. DEFAULT - Built-in defaults
+    """
+    # Check for enterprise mode first
+    enterprise_config_data: Optional[Dict[str, Any]] = None
+    is_locked = False
+
+    try:
+        from devrules.enterprise.config import EnterpriseConfig, verify_enterprise_integrity
+
+        enterprise_mgr = EnterpriseConfig()
+        if enterprise_mgr.is_enterprise_mode():
+            # Verify integrity
+            if not verify_enterprise_integrity():
+                print("⚠️  Warning: Enterprise configuration integrity check failed!")
+                print("   The configuration may have been tampered with.")
+
+            # Load enterprise config
+            enterprise_config_data = enterprise_mgr.load_enterprise_config()
+            is_locked = enterprise_mgr.is_locked()
+
+            if enterprise_config_data and is_locked:
+                print("🔒 Enterprise mode: Using locked corporate configuration")
+    except ImportError:
+        # Enterprise module not available
+        pass
+    except Exception as e:
+        print(f"Warning: Error loading enterprise config: {e}")
+
+    # Load user configuration
     path: Optional[Path]
     if config_path:
         path = Path(config_path)
     else:
         path = find_config_file()
 
-    config_data: Dict[str, Any]
+    user_config_data: Optional[Dict[str, Any]] = None
     if path is not None and path.exists():
         try:
-            user_config = toml.load(path)
-            config_data = {**DEFAULT_CONFIG}
-
-            # Deep merge
-            for section in user_config:
-                if section in config_data:
-                    config_data[section].update(user_config[section])
-                else:
-                    config_data[section] = user_config[section]
+            user_config_data = toml.load(path)
         except Exception as e:
-            print(f"Warning: Error loading config file: {e}")
-            config_data = DEFAULT_CONFIG
-    else:
-        config_data = DEFAULT_CONFIG
+            print(f"Warning: Error loading user config file: {e}")
+
+    # Merge configurations with priority
+    config_data: Dict[str, Any] = {**DEFAULT_CONFIG}
+
+    # Apply user config if not locked by enterprise
+    if user_config_data and not is_locked:
+        for section in user_config_data:
+            if section in config_data:
+                config_data[section].update(user_config_data[section])
+            else:
+                config_data[section] = user_config_data[section]
+
+    # Apply enterprise config (highest priority)
+    if enterprise_config_data:
+        # Remove enterprise metadata section before merging
+        enterprise_data = {k: v for k, v in enterprise_config_data.items() if k != "enterprise"}
+        for section in enterprise_data:
+            if section in config_data:
+                config_data[section].update(enterprise_data[section])
+            else:
+                config_data[section] = enterprise_data[section]
 
     # Build pattern with tags
     raw_tags = config_data["commit"]["tags"]
