@@ -451,8 +451,13 @@ def add_issue_comment(owner: str, repo: str, issue: int, comment: str) -> None:
         )
 
 
-def print_project_items(stdout: str, assignee: Optional[str], project_str: str) -> None:
-    """Pretty-print project items with optional assignee filter.
+def print_project_items(
+    stdout: str,
+    assignee: Optional[str],
+    project_str: str,
+    status: Optional[str] = None,
+) -> None:
+    """Pretty-print project items with optional assignee and status filters.
 
     Mirrors cli._print_project_items behavior.
     """
@@ -469,6 +474,16 @@ def print_project_items(stdout: str, assignee: Optional[str], project_str: str) 
         items = data
     else:
         items = []
+
+    if status:
+        status_lower = status.lower()
+        filtered_by_status = []
+        for item in items:
+            item_status = (item.get("status") or "").lower()
+            if item_status == status_lower:
+                filtered_by_status.append(item)
+
+        items = filtered_by_status
 
     if assignee:
         assignee_lower = assignee.lower()
@@ -506,7 +521,7 @@ def print_project_items(stdout: str, assignee: Optional[str], project_str: str) 
     config = load_config(None)
     configured_emojis = getattr(config.github, "status_emojis", None)
 
-    def _norm_status_key(value: str) -> str:
+    def _norm_status_key(value: Optional[str] = None) -> str:
         return (value or "").strip().lower().replace(" ", "_")
 
     if configured_emojis:
