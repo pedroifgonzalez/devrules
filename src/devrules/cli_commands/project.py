@@ -333,7 +333,66 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         else:
             typer.echo(result.stdout)
 
+    @app.command()
+    def describe_issue(
+        issue: int = typer.Argument(..., help="Issue number (e.g. 123)"),
+        repo: Optional[str] = typer.Option(
+            None,
+            "--repo",
+            "-r",
+            help="Repository in format owner/repo (defaults to config)",
+        ),
+    ):
+        """Show the description (body) of a GitHub issue."""
+
+        ensure_gh_installed()
+
+        config = load_config(None)
+
+        # Determine repository
+        if repo:
+            repo_arg = repo
+        else:
+            github_owner = getattr(config.github, "owner", None)
+            github_repo = getattr(config.github, "repo", None)
+            if github_owner and github_repo:
+                repo_arg = f"{github_owner}/{github_repo}"
+            else:
+                typer.secho(
+                    "✘ Repository must be provided via --repo or configured in the config file under [github] section.",
+                    fg=typer.colors.RED,
+                )
+                raise typer.Exit(code=1)
+
+        cmd = [
+            "gh",
+            "issue",
+            "view",
+            str(issue),
+            "--repo",
+            repo_arg,
+        ]
+
+        try:
+            result = subprocess.run(
+                cmd,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            typer.secho(
+                f"✘ Failed to fetch issue #{issue}: {e}",
+                fg=typer.colors.RED,
+            )
+            if e.stderr:
+                typer.echo(e.stderr)
+            raise typer.Exit(code=1)
+
+        typer.echo(result.stdout)
+
     return {
         "update_issue_status": update_issue_status,
         "list_issues": list_issues,
+        "describe_issue": describe_issue,
     }
