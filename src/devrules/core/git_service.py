@@ -1,4 +1,5 @@
 import re
+import string
 import subprocess
 
 import typer
@@ -183,10 +184,13 @@ def create_staging_branch_name(current_branch: str) -> str:
 
 
 def resolve_issue_branch(scope: str, project_item: ProjectItem, issue: int) -> str:
-    # Resolve the branch name based on the project item
-    words = project_item.title.lower().split()
-    branch_name = f"{scope}/{issue}-{'-'.join(words)}"
-    return branch_name
+    """Resolve branch name from project item title.
+
+    Sanitizes the title by removing punctuation and joining words with hyphens.
+    """
+    translator = str.maketrans("", "", string.punctuation)
+    sanitized = project_item.title.lower().translate(translator).split()
+    return f"{scope}/{issue}-{'-'.join(sanitized)}"
 
 
 def get_current_issue_number():
