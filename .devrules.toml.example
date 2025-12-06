@@ -17,6 +17,9 @@ restrict_branch_to_owner = true
 append_issue_number = true
 # GPG sign commits (requires git config user.signingkey to be set)
 gpg_sign = false
+# Protected branches that should not receive direct commits (merge-only)
+# Useful for staging branches that combine multiple features for testing
+protected_branch_prefixes = ["staging-"]
 
 [pr]
 # Pull Request validation

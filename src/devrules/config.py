@@ -31,6 +31,7 @@ class CommitConfig:
     append_issue_number: bool = True
     allow_hook_bypass: bool = False
     gpg_sign: bool = False
+    protected_branch_prefixes: list = field(default_factory=list)
 
 
 @dataclass

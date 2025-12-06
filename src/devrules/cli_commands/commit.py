@@ -56,11 +56,21 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(code=1)
 
         ensure_git_repo()
+        current_branch = get_current_branch()
+
+        # Check if current branch is protected (e.g., staging branches for merging)
+        if config.commit.protected_branch_prefixes:
+            for prefix in config.commit.protected_branch_prefixes:
+                if current_branch.count(prefix):
+                    typer.secho(
+                        f"✘ Cannot commit directly to '{current_branch}'. "
+                        f"Branches containing '{prefix}' are protected (merge-only).",
+                        fg=typer.colors.RED,
+                    )
+                    raise typer.Exit(code=1)
 
         if config.commit.restrict_branch_to_owner:
             # Check branch ownership to prevent committing on another developer's branch
-            current_branch = get_current_branch()
-
             is_owner, ownership_message = validate_branch_ownership(current_branch)
             if not is_owner:
                 typer.secho(f"✘ {ownership_message}", fg=typer.colors.RED)
