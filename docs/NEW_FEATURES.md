@@ -540,10 +540,10 @@ Creating pull request...
 **Scenario 3: Protected Branch**
 
 ```bash
-$ git checkout staging-2024-01
+$ git checkout staging-2025-01
 $ devrules create-pr --base develop
 
-✘ Cannot create PR from protected branch 'staging-2024-01'.
+✘ Cannot create PR from protected branch 'staging-2025-01'.
 Protected branches (starting with 'staging-') should not be used as PR sources.
 They are meant for merging multiple features for testing.
 ```

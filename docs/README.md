@@ -223,15 +223,15 @@ A: Use `--skip-checks` flag. See [Troubleshooting](NEW_FEATURES.md#troubleshooti
 
 | Document | Status | Last Updated | Audience |
 |----------|--------|--------------|----------|
-| [one-pager.md](one-pager.md) | ✅ Current | Dec 2024 | Business |
-| [comparison.md](comparison.md) | ✅ Current | Dec 2024 | Technical |
-| [NEW_FEATURES.md](NEW_FEATURES.md) | ✅ Current | Dec 2024 | Developers |
-| [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | ✅ Current | Dec 2024 | Developers |
-| [feature-gaps.md](feature-gaps.md) | ✅ Current | Dec 2024 | Technical |
-| [implementation-summary.md](implementation-summary.md) | ✅ Current | Dec 2024 | Technical |
-| [IMPLEMENTATION_COMPLETE.md](IMPLEMENTATION_COMPLETE.md) | ✅ Current | Dec 2024 | Leadership |
-| [CONTEXT_AWARE_DOCS_BENEFITS.md](CONTEXT_AWARE_DOCS_BENEFITS.md) | ✅ Current | Dec 2024 | All |
-| [SCENARIO_CONTEXT_AWARE_DOCS.md](SCENARIO_CONTEXT_AWARE_DOCS.md) | ✅ Current | Dec 2024 | All |
+| [one-pager.md](one-pager.md) | ✅ Current | Dec 2025 | Business |
+| [comparison.md](comparison.md) | ✅ Current | Dec 2025 | Technical |
+| [NEW_FEATURES.md](NEW_FEATURES.md) | ✅ Current | Dec 2025 | Developers |
+| [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | ✅ Current | Dec 2025 | Developers |
+| [feature-gaps.md](feature-gaps.md) | ✅ Current | Dec 2025 | Technical |
+| [implementation-summary.md](implementation-summary.md) | ✅ Current | Dec 2025 | Technical |
+| [IMPLEMENTATION_COMPLETE.md](IMPLEMENTATION_COMPLETE.md) | ✅ Current | Dec 2025 | Leadership |
+| [CONTEXT_AWARE_DOCS_BENEFITS.md](CONTEXT_AWARE_DOCS_BENEFITS.md) | ✅ Current | Dec 2025 | All |
+| [SCENARIO_CONTEXT_AWARE_DOCS.md](SCENARIO_CONTEXT_AWARE_DOCS.md) | ✅ Current | Dec 2025 | All |
 
 ---
 
@@ -241,4 +241,4 @@ A: Use `--skip-checks` flag. See [Troubleshooting](NEW_FEATURES.md#troubleshooti
 
 ---
 
-*Last Updated: December 2024*
+*Last Updated: December 2025*

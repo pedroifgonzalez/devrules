@@ -227,7 +227,7 @@ Documentation URLs stored in `.devrules.toml` (version controlled).
 [[documentation.rules]]
 file_pattern = "migrations/**"
 docs_url = "https://wiki.company.com/migrations-v2"  # Update once
-message = "Using new migration process as of Q4 2024"
+message = "Using new migration process as of Q4 2025"
 checklist = [...]
 ```
 
