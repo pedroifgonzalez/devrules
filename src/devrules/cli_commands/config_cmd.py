@@ -64,6 +64,10 @@ append_issue_number = true
 allow_hook_bypass = false  # If true, allows commits with --no-verify flag
 gpg_sign = false  # If true, signs commits with GPG (requires git config user.signingkey)
 protected_branch_prefixes = ["staging-"]  # Branches that should not receive direct commits (merge-only)
+# Forbidden file patterns (glob patterns)
+forbidden_patterns = ["*.dump", "*.sql", ".env.local", "*.log", "*.swp", "*~"]
+# Forbidden paths (directories that should not be committed)
+forbidden_paths = ["tmp/", "cache/", "local/"]
 
 [pr]
 max_loc = 400
@@ -77,6 +81,8 @@ allowed_pr_statuses = []
 # List of project keys from [github.projects] to check status against
 # If empty, checks all configured projects
 project_for_status_check = []
+# Allowed target branches for PRs (if empty, no restriction)
+allowed_targets = ["develop", "main", "staging"]
 
 [github]
 api_url = "https://api.github.com"
@@ -128,6 +134,46 @@ default_branch = "staging"
 [deployment.environments.prod]
 name = "prod"
 default_branch = "main"
+
+[validation]
+# Check for uncommitted changes before branch creation
+check_uncommitted = true
+# Check if local branch is behind remote before branch creation
+check_behind_remote = true
+# If true, show warnings but don't block operations
+warn_only = false
+# Allowed base branches for creating new branches (empty = no restriction)
+allowed_base_branches = []
+# Forbidden base branch patterns (regex patterns)
+forbidden_base_patterns = []
+
+[documentation]
+# Show context-aware documentation during commits
+show_on_commit = true
+# Show context-aware documentation during PR creation
+show_on_pr = true
+
+# Documentation rules - show relevant docs based on files changed
+# Uncomment and customize these examples:
+# [[documentation.rules]]
+# file_pattern = "migrations/**"
+# docs_url = "https://wiki.company.com/database-migrations"
+# message = "You're modifying migrations. Please review the migration guidelines."
+# checklist = [
+#   "Update the entrypoint if adding new tables",
+#   "Test the migration rollback",
+#   "Update the database schema documentation"
+# ]
+
+# [[documentation.rules]]
+# file_pattern = "api/**/*.py"
+# docs_url = "https://wiki.company.com/api-guidelines"
+# message = "API changes detected"
+# checklist = [
+#   "Update API documentation",
+#   "Add/update tests",
+#   "Consider backward compatibility"
+# ]
 """.format(
             github_owner=github_owner,
             github_repo=github_repo,

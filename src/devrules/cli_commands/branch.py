@@ -19,6 +19,7 @@ from devrules.core.git_service import (
 from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
 from devrules.validators.branch import validate_branch, validate_single_branch_per_issue_env
 from devrules.validators.ownership import list_user_owned_branches
+from devrules.validators.repo_state import display_repo_state_issues, validate_repo_state
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
@@ -57,10 +58,35 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         for_staging: bool = typer.Option(
             False, "--for-staging", "-fs", help="Create staging branch based on current branch"
         ),
+        skip_checks: bool = typer.Option(
+            False, "--skip-checks", help="Skip repository state validation"
+        ),
     ):
         """Create a new Git branch with validation (interactive mode)."""
         config = load_config(config_file)
         ensure_git_repo()
+
+        # Validate repository state before creating branch
+        if not skip_checks and (
+            config.validation.check_uncommitted or config.validation.check_behind_remote
+        ):
+            typer.echo("\n🔍 Checking repository state...")
+            is_valid, messages = validate_repo_state(
+                check_uncommitted=config.validation.check_uncommitted,
+                check_behind=config.validation.check_behind_remote,
+                warn_only=config.validation.warn_only,
+            )
+
+            if not is_valid:
+                display_repo_state_issues(messages, warn_only=False)
+                typer.echo()
+                raise typer.Exit(code=1)
+            elif messages and not all("✅" in msg for msg in messages):
+                # Show warnings but continue
+                display_repo_state_issues(messages, warn_only=True)
+                if not typer.confirm("\n  Continue anyway?", default=False):
+                    typer.echo("Cancelled.")
+                    raise typer.Exit(code=0)
 
         # Determine branch name from different sources
         if for_staging:
@@ -177,7 +203,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             branch = owned_branches[choice - 1]
 
         # Basic safety: don't delete main shared branches through this command
-        if branch in ("main", "master", "develop") or branch.startswith("release/"):
+        if branch in ("main", "master", "develop") or (branch and branch.startswith("release/")):
             typer.secho(
                 f"✘ Refusing to delete shared branch '{branch}' via CLI.", fg=typer.colors.RED
             )
@@ -215,7 +241,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(code=0)
 
         # Delete branch using service
-        delete_branch_local_and_remote(branch, remote, force)
+        if branch:
+            delete_branch_local_and_remote(branch, remote, force)
 
         raise typer.Exit(code=0)
 

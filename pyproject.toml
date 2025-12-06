@@ -1,8 +1,9 @@
 [project]
 name = "devrules"
-version = "0.1.4"
+version = "0.1.5"
 description = "CLI tool for enforcing development guidelines"
 readme = "README.md"
+license = {text = "Business Source License 1.1"}
 requires-python = ">=3.11"
 dependencies = [
     "python-jenkins>=1.8.3",
@@ -31,7 +32,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Version Control :: Git",
     "Topic :: Software Development :: Quality Assurance",
-    "License :: OSI Approved :: MIT License",
+    "License :: Other/Proprietary License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
