@@ -109,12 +109,12 @@ def test_check_migration_conflicts_both_branches_have_migrations(mock_run, mock_
     assert len(files) == 1
 
 
-@patch("subprocess.run")
-@patch("json.loads")
-def test_get_deployed_branch_success(mock_json, mock_run):
+@patch("src.devrules.core.deployment_service.requests.get")
+def test_get_deployed_branch_success(mock_get):
     """Test getting deployed branch from Jenkins."""
     # Mock Jenkins API response
-    mock_json.return_value = {
+    mock_response = MagicMock()
+    mock_response.json.return_value = {
         "actions": [
             {
                 "_class": "hudson.model.ParametersAction",
@@ -122,7 +122,8 @@ def test_get_deployed_branch_success(mock_json, mock_run):
             }
         ]
     }
-    mock_run.return_value = MagicMock(stdout='{"actions": []}', returncode=0)
+    mock_response.raise_for_status = MagicMock()
+    mock_get.return_value = mock_response
 
     env_config = EnvironmentConfig(
         name="dev",

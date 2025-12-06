@@ -216,8 +216,11 @@ class TestTamperingDetection:
         from devrules.enterprise.config import EnterpriseConfig
         from devrules.enterprise.integrity import IntegrityVerifier
 
-        # Create enterprise config
-        config = {"test": "value"}
+        # Create enterprise config with integrity_check enabled
+        config = {
+            "enterprise": {"integrity_check": True},
+            "test": "value",
+        }
         config_path = tmp_path / ".devrules.enterprise.toml"
         with open(config_path, "w") as f:
             toml.dump(config, f)
@@ -235,5 +238,6 @@ class TestTamperingDetection:
         with open(config_path, "w") as f:
             toml.dump(config, f)
 
-        # Verify integrity fails
+        # Verify integrity fails (need new instance to reload config)
+        config_mgr = EnterpriseConfig(tmp_path)
         assert not config_mgr.verify_integrity()
