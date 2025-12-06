@@ -18,6 +18,8 @@ ALIAS_MAP = {
     "deploy": ["dep"],
     "check_deployment": ["cd"],
     "build_enterprise": ["be"],
+    "install_hooks": ["ih"],
+    "uninstall_hooks": ["uh"],
 }
 
 

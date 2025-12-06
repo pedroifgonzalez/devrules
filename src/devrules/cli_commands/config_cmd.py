@@ -146,4 +146,83 @@ default_branch = "main"
 
         typer.secho(f"✔ Configuration file created: {path}", fg=typer.colors.GREEN)
 
-    return {"init_config": init_config}
+    @app.command()
+    def install_hooks():
+        """Install git hooks to enforce devrules validation on commits."""
+        hooks_dir = ".git/hooks"
+
+        if not os.path.exists(".git"):
+            typer.secho("✘ Not a git repository. Run 'git init' first.", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+
+        os.makedirs(hooks_dir, exist_ok=True)
+
+        # commit-msg hook to validate commit messages
+        commit_msg_hook = os.path.join(hooks_dir, "commit-msg")
+
+        # Get the path to the devrules executable
+        import shutil
+
+        devrules_path = shutil.which("devrules") or "devrules"
+
+        commit_msg_content = f"""#!/bin/sh
+# DevRules commit-msg hook
+# Validates commit message format, then runs pre-commit if available
+
+# Step 1: Run devrules validation
+"{devrules_path}" check-commit "$1"
+DEVRULES_EXIT=$?
+
+if [ $DEVRULES_EXIT -ne 0 ]; then
+    exit $DEVRULES_EXIT
+fi
+
+# Step 2: Run pre-commit commit-msg hooks if pre-commit is installed
+if command -v pre-commit >/dev/null 2>&1; then
+    if [ -f .pre-commit-config.yaml ]; then
+        pre-commit hook-impl --config=.pre-commit-config.yaml --hook-type=commit-msg --hook-dir="$GIT_DIR/hooks" -- "$@"
+        exit $?
+    fi
+fi
+
+exit 0
+"""
+
+        if os.path.exists(commit_msg_hook):
+            overwrite = typer.confirm(f"{commit_msg_hook} already exists. Overwrite?")
+            if not overwrite:
+                typer.echo("Skipping commit-msg hook.")
+            else:
+                with open(commit_msg_hook, "w") as f:
+                    f.write(commit_msg_content)
+                os.chmod(commit_msg_hook, 0o755)
+                typer.secho(f"✔ Updated: {commit_msg_hook}", fg=typer.colors.GREEN)
+        else:
+            with open(commit_msg_hook, "w") as f:
+                f.write(commit_msg_content)
+            os.chmod(commit_msg_hook, 0o755)
+            typer.secho(f"✔ Created: {commit_msg_hook}", fg=typer.colors.GREEN)
+
+        typer.secho("\n✔ Git hooks installed!", fg=typer.colors.GREEN)
+        typer.echo("  Commit messages will now be validated by devrules.")
+        typer.echo("  Use 'git commit --no-verify' to bypass (if allowed by config).")
+
+    @app.command()
+    def uninstall_hooks():
+        """Remove devrules git hooks."""
+        hooks = [".git/hooks/commit-msg"]
+
+        for hook_path in hooks:
+            if os.path.exists(hook_path):
+                os.remove(hook_path)
+                typer.secho(f"✔ Removed: {hook_path}", fg=typer.colors.GREEN)
+            else:
+                typer.echo(f"  {hook_path} not found, skipping.")
+
+        typer.secho("\n✔ Git hooks uninstalled.", fg=typer.colors.GREEN)
+
+    return {
+        "init_config": init_config,
+        "install_hooks": install_hooks,
+        "uninstall_hooks": uninstall_hooks,
+    }
