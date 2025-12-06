@@ -11,6 +11,7 @@ A flexible CLI tool for enforcing development guidelines across your projects.
 - ✅ **Branch naming validation** - Enforce consistent branch naming conventions
 - ✅ **Commit message format checking** - Validate commit message structure
 - ✅ **Pull Request validation** - Check PR size and title format
+- ✅ **Deployment workflow** - Manage deployments across environments with Jenkins integration
 - ⚙️ **Configurable via TOML** - Customize all rules to match your workflow
 - 🔌 **Git hooks integration** - Automatic validation in your Git workflow
 - 🎨 **Interactive branch creation** - User-friendly branch creation wizard
@@ -50,7 +51,16 @@ export GH_TOKEN=your_github_token
 devrules check-pr owner repo 42
 ```
 
-6. **Launch the TUI Dashboard:**
+6. **Deploy to an environment:**
+```bash
+# Configure deployment settings in .devrules.toml first
+devrules deploy dev --branch feature/123-new-feature
+
+# Or check deployment readiness without deploying
+devrules check-deployment staging
+```
+
+7. **Launch the TUI Dashboard:**
 ```bash
 # Install with TUI support first
 pip install "devrules[tui]"
