@@ -82,7 +82,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             )
 
         # Validate commit
-        breakpoint()
         is_valid, result_message = validate_commit(message, config.commit)
 
         if not is_valid:
