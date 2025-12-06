@@ -12,6 +12,7 @@ ALIAS_MAP = {
     "delete_branch": ["db"],
     "update_issue_status": ["uis"],
     "list_issues": ["li"],
+    "describe_issue": ["di"],
 }
 
 

@@ -17,6 +17,26 @@ from devrules.core.project_service import (
 )
 
 
+def _get_valid_statuses() -> list[str]:
+    config = load_config(None)
+    configured_statuses = getattr(config.github, "valid_statuses", None)
+    if configured_statuses:
+        return list(configured_statuses)
+
+    return [
+        "Backlog",
+        "Blocked",
+        "To Do",
+        "In Progress",
+        "Waiting Integration",
+        "QA Testing",
+        "QA In Progress",
+        "QA Approved",
+        "Pending To Deploy",
+        "Done",
+    ]
+
+
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command()
     def update_issue_status(
@@ -40,22 +60,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         # Load config to validate allowed statuses
         config = load_config(None)
-        configured_statuses = getattr(config.github, "valid_statuses", None)
-        if configured_statuses:
-            valid_statuses = list(configured_statuses)
-        else:
-            valid_statuses = [
-                "Backlog",
-                "Blocked",
-                "To Do",
-                "In Progress",
-                "Waiting Integration",
-                "QA Testing",
-                "QA In Progress",
-                "QA Approved",
-                "Pending To Deploy",
-                "Done",
-            ]
+        valid_statuses = _get_valid_statuses()
 
         if status not in valid_statuses:
             allowed = ", ".join(valid_statuses)
@@ -194,6 +199,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             "-a",
             help="Filter by assignee (GitHub username)",
         ),
+        status: Optional[str] = typer.Option(
+            None,
+            "--status",
+            help="Filter project items by Status field (requires --project)",
+        ),
         project: Optional[str] = typer.Option(
             None,
             "--project",
@@ -206,6 +216,18 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         ensure_gh_installed()
 
         if project is not None:
+            # Validate status against configured valid_statuses when filtering project items
+            if status is not None:
+                valid_statuses = _get_valid_statuses()
+
+                if status not in valid_statuses:
+                    allowed = ", ".join(valid_statuses)
+                    typer.secho(
+                        f"✘ Invalid status '{status}'. Allowed values: {allowed}",
+                        fg=typer.colors.RED,
+                    )
+                    raise typer.Exit(code=1)
+
             project_str = str(project)
 
             if project_str.lower() == "all":
@@ -259,7 +281,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                             typer.echo(e.stderr)
                         raise typer.Exit(code=1)
 
-                    print_project_items(result.stdout, assignee, label)
+                    print_project_items(result.stdout, assignee, label, status)
 
                 return
 
@@ -278,6 +300,13 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 "json",
             ]
         else:
+            if status is not None:
+                typer.secho(
+                    "✘ --status can only be used together with --project.",
+                    fg=typer.colors.RED,
+                )
+                raise typer.Exit(code=1)
+
             cmd = ["gh", "issue", "list", "--state", state, "--limit", str(limit)]
 
             if assignee:
@@ -300,11 +329,70 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(code=1)
 
         if project is not None:
-            print_project_items(result.stdout, assignee, project)
+            print_project_items(result.stdout, assignee, project, status)
         else:
             typer.echo(result.stdout)
+
+    @app.command()
+    def describe_issue(
+        issue: int = typer.Argument(..., help="Issue number (e.g. 123)"),
+        repo: Optional[str] = typer.Option(
+            None,
+            "--repo",
+            "-r",
+            help="Repository in format owner/repo (defaults to config)",
+        ),
+    ):
+        """Show the description (body) of a GitHub issue."""
+
+        ensure_gh_installed()
+
+        config = load_config(None)
+
+        # Determine repository
+        if repo:
+            repo_arg = repo
+        else:
+            github_owner = getattr(config.github, "owner", None)
+            github_repo = getattr(config.github, "repo", None)
+            if github_owner and github_repo:
+                repo_arg = f"{github_owner}/{github_repo}"
+            else:
+                typer.secho(
+                    "✘ Repository must be provided via --repo or configured in the config file under [github] section.",
+                    fg=typer.colors.RED,
+                )
+                raise typer.Exit(code=1)
+
+        cmd = [
+            "gh",
+            "issue",
+            "view",
+            str(issue),
+            "--repo",
+            repo_arg,
+        ]
+
+        try:
+            result = subprocess.run(
+                cmd,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            typer.secho(
+                f"✘ Failed to fetch issue #{issue}: {e}",
+                fg=typer.colors.RED,
+            )
+            if e.stderr:
+                typer.echo(e.stderr)
+            raise typer.Exit(code=1)
+
+        typer.echo(result.stdout)
 
     return {
         "update_issue_status": update_issue_status,
         "list_issues": list_issues,
+        "describe_issue": describe_issue,
     }

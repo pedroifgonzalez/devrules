@@ -10,7 +10,16 @@ from typing import Any, Callable, Dict
 
 import typer
 
-from devrules.cli_commands import branch, build_cmd, commit, config_cmd, dashboard, pr, project
+from devrules.cli_commands import (
+    branch,
+    build_cmd,
+    commit,
+    config_cmd,
+    dashboard,
+    deploy,
+    pr,
+    project,
+)
 from devrules.utils.aliases import register_command_aliases
 
 app = typer.Typer(help="DevRules - Development guidelines enforcement tool")
@@ -24,6 +33,6 @@ namespace.update(project.register(app))
 namespace.update(config_cmd.register(app))
 namespace.update(dashboard.register(app))
 namespace.update(build_cmd.register(app))
-
+namespace.update(deploy.register(app))
 
 register_command_aliases(app, namespace)
