@@ -1,6 +1,7 @@
 """Commit message validation."""
 
 import re
+
 from devrules.config import CommitConfig
 
 
@@ -13,7 +14,7 @@ def validate_commit(message: str, config: CommitConfig) -> tuple:
     message_content = message
     if tag_found:
         content = message.replace(tag_found.group(), "")
-        message_content: str = content.strip()
+        message_content = content.strip()
 
     if len(message_content) < config.min_length:
         return False, f"Commit message too short (min: {config.min_length} chars)"
