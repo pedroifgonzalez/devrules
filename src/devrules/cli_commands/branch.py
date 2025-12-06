@@ -203,7 +203,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             branch = owned_branches[choice - 1]
 
         # Basic safety: don't delete main shared branches through this command
-        if branch in ("main", "master", "develop") or branch.startswith("release/"):
+        if branch in ("main", "master", "develop") or (branch and branch.startswith("release/")):
             typer.secho(
                 f"✘ Refusing to delete shared branch '{branch}' via CLI.", fg=typer.colors.RED
             )
@@ -241,7 +241,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(code=0)
 
         # Delete branch using service
-        delete_branch_local_and_remote(branch, remote, force)
+        if branch:
+            delete_branch_local_and_remote(branch, remote, force)
 
         raise typer.Exit(code=0)
 
