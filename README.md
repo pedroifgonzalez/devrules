@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="devrules.png" alt="DevRules Logo" width="200">
+</p>
+
 # DevRules
 
 [![PyPI version](https://badge.fury.io/py/devrules.svg)](https://badge.fury.io/py/devrules)
