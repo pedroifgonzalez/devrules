@@ -94,10 +94,10 @@ class EnterpriseBuilder:
         if package_name:
             pyproject["project"]["name"] = package_name
 
-        # Add version suffix
+        # Add version suffix using PEP 440 local version identifier (+)
         current_version = pyproject["project"]["version"]
-        if version_suffix and not current_version.endswith(f"-{version_suffix}"):
-            pyproject["project"]["version"] = f"{current_version}-{version_suffix}"
+        if version_suffix and f"+{version_suffix}" not in current_version:
+            pyproject["project"]["version"] = f"{current_version}+{version_suffix}"
 
         # Write back
         with open(pyproject_path, "w") as f:

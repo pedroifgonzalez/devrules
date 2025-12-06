@@ -8,3 +8,10 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Enterprise config
+.devrules.enterprise.toml
+*.enterprise.toml
+
+# VS Code
+.vscode/

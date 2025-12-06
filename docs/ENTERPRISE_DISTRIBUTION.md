@@ -94,12 +94,12 @@ Share the wheel file via:
 #### Install from Wheel
 
 ```bash
-pip install /path/to/devrules_company-0.1.3-enterprise-py3-none-any.whl
+pip install /path/to/devrules_company-0.1.3+enterprise-py3-none-any.whl
 ```
 
 Or from URL:
 ```bash
-pip install https://files.company.com/packages/devrules_company-0.1.3-enterprise-py3-none-any.whl
+pip install https://files.company.com/packages/devrules_company-0.1.3+enterprise-py3-none-any.whl
 ```
 
 ---
@@ -201,13 +201,13 @@ cp dist/encryption.key /path/to/shared/location/
 
 ### Semantic Versioning
 
-Use semantic versioning with enterprise suffix:
+Use semantic versioning with enterprise local version identifier (PEP 440):
 
 ```
-0.1.3-enterprise       # Initial enterprise build
-0.1.4-enterprise       # Bug fix
-0.2.0-enterprise       # New features
-1.0.0-enterprise       # Major release
+0.1.3+enterprise       # Initial enterprise build
+0.1.4+enterprise       # Bug fix
+0.2.0+enterprise       # New features
+1.0.0+enterprise       # Major release
 ```
 
 ### Multiple Versions
@@ -274,7 +274,7 @@ twine upload --repository-url https://pypi.company.com dist/devrules_company-*.w
 
 Send update notification:
 ```
-Subject: DevRules Update - v0.1.4-enterprise
+Subject: DevRules Update - v0.1.4+enterprise
 
 Changes:
 - Updated branch naming pattern

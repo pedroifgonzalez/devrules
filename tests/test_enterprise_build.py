@@ -109,7 +109,7 @@ class TestEnterpriseBuild:
         # Verify modifications
         pyproject = toml.load(project_root / "pyproject.toml")
         assert pyproject["project"]["name"] == "test-devrules-company"
-        assert pyproject["project"]["version"] == "0.1.0-enterprise"
+        assert pyproject["project"]["version"] == "0.1.0+enterprise"
 
     def test_restore_package_metadata(self, project_root):
         """Test restoring original package metadata."""
