@@ -9,14 +9,15 @@ A flexible CLI tool for enforcing development guidelines across your projects.
 ## 🚀 Features
 
 - ✅ **Branch naming validation** - Enforce consistent branch naming conventions
-- ✅ **Commit message format checking** - Validate commit message structure
+- ✅ **Commit message format checking** - Validate commit message structure with GPG signing support
 - ✅ **Pull Request validation** - Check PR size and title format
 - ✅ **Deployment workflow** - Manage deployments across environments with Jenkins integration
 - ⚙️ **Configurable via TOML** - Customize all rules to match your workflow
-- 🔌 **Git hooks integration** - Automatic validation in your Git workflow
+- 🔌 **Git hooks integration** - Automatic validation with pre-commit support
 - 🎨 **Interactive branch creation** - User-friendly branch creation wizard
-- 🌐 **GitHub API integration** - Validate PRs directly from GitHub
+- 🌐 **GitHub API integration** - Manage issues, projects, and PRs directly
 - 📊 **TUI Dashboard** - Interactive terminal dashboard for metrics and issue tracking
+- 🏢 **Enterprise builds** - Create custom packages with embedded corporate configuration
 
 ## 📦 Installation
 ```bash
@@ -48,7 +49,9 @@ devrules check-commit .git/COMMIT_EDITMSG
 5. **Validate a Pull Request:**
 ```bash
 export GH_TOKEN=your_github_token
-devrules check-pr owner repo 42
+devrules check-pr 42 --owner your-org --repo your-repo
+# Or configure owner/repo in .devrules.toml and just run:
+devrules check-pr 42
 ```
 
 6. **Deploy to an environment:**
@@ -67,6 +70,23 @@ pip install "devrules[tui]"
 
 # Run the dashboard
 devrules dashboard
+```
+
+8. **Manage GitHub Issues:**
+```bash
+# List issues from a project
+devrules list-issues --project 6
+
+# View issue details
+devrules describe-issue 123
+
+# Update issue status
+devrules update-issue-status 123 --status "In Progress" --project 6
+```
+
+9. **Commit with validation:**
+```bash
+devrules commit "[FTR] Add new feature"
 ```
 
 ## ⚙️ Configuration
@@ -89,7 +109,13 @@ protected_branch_prefixes = ["staging-"]  # Block direct commits to these branch
 max_loc = 400
 max_files = 20
 require_title_tag = true
+
+[github]
+owner = "your-org"
+repo = "your-repo"
 ```
+
+For a complete configuration example, run `devrules init-config`.
 
 ## 🔗 Git Hooks Integration
 
@@ -152,6 +178,23 @@ Most commands have short aliases for convenience:
 | `deploy` | `dep` | Deploy to environment |
 | `check-deployment` | `cd` | Check deployment status |
 | `build-enterprise` | `be` | Build enterprise package |
+
+## 🏢 Enterprise Builds
+
+Create custom packages with embedded corporate configuration:
+
+```bash
+# Install enterprise dependencies
+pip install "devrules[enterprise]"
+
+# Build enterprise package
+devrules build-enterprise \
+  --config .devrules.enterprise.toml \
+  --name devrules-mycompany \
+  --sensitive github.api_url,github.owner
+```
+
+See [Enterprise Build Guide](docs/ENTERPRISE_BUILD.md) for more details.
 
 ## 📚 Documentation
 
