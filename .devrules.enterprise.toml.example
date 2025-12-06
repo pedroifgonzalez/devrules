@@ -1,0 +1,77 @@
+# DevRules Enterprise Configuration Example
+# Copy this to .devrules.enterprise.toml and customize for your organization
+
+[enterprise]
+# Enable enterprise mode
+enabled = true
+# Lock configuration (prevents user overrides)
+locked = true
+# Enable integrity verification
+integrity_check = true
+
+[enterprise.encryption]
+# Fields to encrypt (supports dot notation)
+# These fields will be encrypted in the final build
+sensitive_fields = [
+    "github.api_url",
+    "github.owner",
+    "github.repo",
+]
+
+[branch]
+# Corporate branch naming standards
+pattern = "^(feature|bugfix|hotfix|release|docs)/(\\d+-)?[a-z0-9-]+"
+prefixes = ["feature", "bugfix", "hotfix", "release", "docs"]
+require_issue_number = true
+enforce_single_branch_per_issue_env = true
+labels_hierarchy = ["docs", "feature", "bugfix", "hotfix"]
+
+[branch.labels_mapping]
+enhancement = "feature"
+bug = "bugfix"
+documentation = "docs"
+
+[commit]
+# Corporate commit message standards
+tags = ["WIP", "FTR", "FIX", "DOCS", "TST", "REF"]
+pattern = "^\\[({tags})\\].+"
+min_length = 10
+max_length = 400
+restrict_branch_to_owner = true
+append_issue_number = true
+allow_hook_bypass = false
+
+[pr]
+# Corporate PR standards
+max_loc = 400
+max_files = 20
+require_title_tag = true
+title_pattern = "^\\[({tags})\\].+"
+require_issue_status_check = true
+allowed_pr_statuses = ["In review", "Ready"]
+project_for_status_check = []
+
+[github]
+# GitHub Enterprise configuration
+# These values will be encrypted if listed in sensitive_fields
+api_url = "https://github.company.com/api/v3"
+timeout = 30
+owner = "company-org"
+repo = "company-repo"
+valid_statuses = [
+  "Backlog",
+  "Ready",
+  "In progress",
+  "In review",
+  "Done",
+]
+
+[github.projects]
+main = "Main Project (#1)"
+
+[github.status_emojis]
+backlog = "📋"
+ready = "🚀"
+in_progress = "⏳"
+in_review = "👀"
+done = "✅"

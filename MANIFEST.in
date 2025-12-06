@@ -1,5 +1,7 @@
 include README.md
 include LICENSE
 include .devrules.toml.example
+include .devrules.enterprise.toml.example
+graft src/devrules/enterprise
 recursive-include src *.py
 recursive-include tests *.py
