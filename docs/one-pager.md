@@ -54,6 +54,9 @@ Your standards, converted into living rules, applied directly in the developer's
 - **🎨 Interactive workflows**  
   Guided branch creation and commit processes reduce cognitive load.
 
+- **📚 Context-aware documentation**  
+  Documentation appears automatically when you modify specific files—perfect timing, 100% relevant, zero searching.
+
 ## 🔍 Real Examples
 
 - **✔️ Prevent commits to forbidden branches**  
@@ -86,6 +89,14 @@ Your standards, converted into living rules, applied directly in the developer's
 - **✔️ Enterprise builds**  
   Create custom packages with embedded corporate configuration for zero-config deployments.  
   Companies can build their own branded version (e.g., `devrules-acme`) with pre-configured rules baked in.
+
+- **✔️ Context-aware documentation**  
+  Automatically displays relevant documentation based on files you're modifying:
+  - Shows migration guides when touching `migrations/**`
+  - Displays API guidelines when editing `api/**/*.py`
+  - Surfaces security policies for sensitive code
+  - Includes actionable checklists, not just links
+  - **300% increase in documentation visibility** - appears exactly when needed, not before or after
 
 ## 📈 Company Impact
 

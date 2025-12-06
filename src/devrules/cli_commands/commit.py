@@ -6,6 +6,11 @@ import typer
 from devrules.config import load_config
 from devrules.core.git_service import ensure_git_repo, get_current_branch, get_current_issue_number
 from devrules.validators.commit import validate_commit
+from devrules.validators.documentation import display_documentation_guidance
+from devrules.validators.forbidden_files import (
+    get_forbidden_file_suggestions,
+    validate_no_forbidden_files,
+)
 from devrules.validators.ownership import validate_branch_ownership
 
 
@@ -42,11 +47,39 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config_file: Optional[str] = typer.Option(
             None, "--config", "-c", help="Path to config file"
         ),
+        skip_checks: bool = typer.Option(
+            False, "--skip-checks", help="Skip file validation and documentation checks"
+        ),
     ):
         """Validate and commit changes with a properly formatted message."""
         import subprocess
 
         config = load_config(config_file)
+
+        # Check for forbidden files (unless skipped)
+        if not skip_checks and (config.commit.forbidden_patterns or config.commit.forbidden_paths):
+            is_valid, validation_message = validate_no_forbidden_files(
+                forbidden_patterns=config.commit.forbidden_patterns,
+                forbidden_paths=config.commit.forbidden_paths,
+                check_staged=True,
+            )
+
+            if not is_valid:
+                typer.secho("\n✘ Forbidden Files Detected", fg=typer.colors.RED, bold=True)
+                typer.echo(validation_message)
+                typer.echo("\n💡 Suggestions:")
+                for suggestion in get_forbidden_file_suggestions():
+                    typer.echo(f"  • {suggestion}")
+                typer.echo()
+                raise typer.Exit(code=1)
+
+        # Show context-aware documentation (unless skipped)
+        if not skip_checks and config.documentation.show_on_commit and config.documentation.rules:
+            display_documentation_guidance(
+                rules=config.documentation.rules,
+                base_branch="HEAD",
+                show_files=True,
+            )
 
         # Validate commit
         is_valid, result_message = validate_commit(message, config.commit)

@@ -20,6 +20,10 @@ gpg_sign = false
 # Protected branches that should not receive direct commits (merge-only)
 # Useful for staging branches that combine multiple features for testing
 protected_branch_prefixes = ["staging-"]
+# Forbidden file patterns (glob patterns)
+forbidden_patterns = ["*.dump", "*.sql", ".env.local", "*.log", "*.swp", "*~"]
+# Forbidden paths (directories that should not be committed)
+forbidden_paths = ["tmp/", "cache/", "local/", ".vscode/"]
 
 [pr]
 # Pull Request validation
@@ -34,6 +38,13 @@ allowed_pr_statuses = []
 # List of project keys from [github.projects] to check status against
 # If empty, checks all configured projects
 project_for_status_check = []
+# Allowed target branches for PRs (if empty, no restriction)
+allowed_targets = ["develop", "main", "staging"]
+# Advanced target rules based on source branch patterns
+# [[pr.target_rules]]
+# source_pattern = "^feature/.*"
+# allowed_targets = ["develop"]
+# disallowed_message = "Feature branches must target develop, not main"
 
 [github]
 # GitHub API settings
@@ -74,3 +85,48 @@ jenkins_job_name = "deploy-backend-staging"
 name = "prod"
 default_branch = "main"
 jenkins_job_name = "deploy-backend-prod"
+
+[validation]
+# Check for uncommitted changes before branch creation
+check_uncommitted = true
+# Check if local branch is behind remote before branch creation
+check_behind_remote = true
+# If true, show warnings but don't block operations
+warn_only = false
+# Allowed base branches for creating new branches (empty = no restriction)
+allowed_base_branches = []
+# Forbidden base branch patterns (regex patterns)
+# Example: ["^feature/.*"] prevents creating branches from other feature branches
+forbidden_base_patterns = []
+
+[documentation]
+# Show context-aware documentation during commits
+show_on_commit = true
+# Show context-aware documentation during PR creation
+show_on_pr = true
+
+# Documentation rules - show relevant docs based on files changed
+# [[documentation.rules]]
+# file_pattern = "migrations/**"
+# docs_url = "https://wiki.company.com/database-migrations"
+# message = "You're modifying migrations. Please review the migration guidelines."
+# checklist = [
+#   "Update the entrypoint if adding new tables",
+#   "Test the migration rollback",
+#   "Update the database schema documentation"
+# ]
+
+# [[documentation.rules]]
+# file_pattern = "api/**/*.py"
+# docs_url = "https://wiki.company.com/api-guidelines"
+# message = "API changes detected"
+# checklist = [
+#   "Update API documentation",
+#   "Add/update tests",
+#   "Consider backward compatibility"
+# ]
+
+# [[documentation.rules]]
+# file_pattern = "auth/**"
+# docs_url = "https://wiki.company.com/security-guidelines"
+# message = "Security-sensitive code detected. Extra review required."

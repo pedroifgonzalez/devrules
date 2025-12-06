@@ -32,6 +32,8 @@ class CommitConfig:
     allow_hook_bypass: bool = False
     gpg_sign: bool = False
     protected_branch_prefixes: list = field(default_factory=list)
+    forbidden_patterns: list = field(default_factory=list)
+    forbidden_paths: list = field(default_factory=list)
 
 
 @dataclass
@@ -45,6 +47,8 @@ class PRConfig:
     require_issue_status_check: bool = False
     allowed_pr_statuses: list = field(default_factory=list)
     project_for_status_check: list = field(default_factory=list)
+    allowed_targets: list = field(default_factory=list)
+    target_rules: list = field(default_factory=list)
 
 
 @dataclass
@@ -67,6 +71,36 @@ class EnvironmentConfig:
     name: str
     default_branch: str
     jenkins_job_name: Optional[str] = None  # If None, uses repo name from github.repo
+
+
+@dataclass
+class ValidationConfig:
+    """Repository validation configuration."""
+
+    check_uncommitted: bool = True
+    check_behind_remote: bool = True
+    warn_only: bool = False
+    allowed_base_branches: list = field(default_factory=list)
+    forbidden_base_patterns: list = field(default_factory=list)
+
+
+@dataclass
+class DocumentationRule:
+    """Documentation rule for context-aware guidance."""
+
+    file_pattern: str
+    docs_url: str = ""
+    checklist: list = field(default_factory=list)
+    message: str = ""
+
+
+@dataclass
+class DocumentationConfig:
+    """Documentation linking configuration."""
+
+    rules: list = field(default_factory=list)
+    show_on_commit: bool = True
+    show_on_pr: bool = True
 
 
 @dataclass
@@ -93,6 +127,8 @@ class Config:
     pr: PRConfig
     github: GitHubConfig = field(default_factory=GitHubConfig)
     deployment: DeploymentConfig = field(default_factory=DeploymentConfig)
+    validation: ValidationConfig = field(default_factory=ValidationConfig)
+    documentation: DocumentationConfig = field(default_factory=DocumentationConfig)
 
 
 DEFAULT_CONFIG = {
@@ -170,6 +206,18 @@ DEFAULT_CONFIG = {
         "migration_paths": ["migrations/", "alembic/versions/"],
         "auto_rollback_on_failure": True,
         "require_confirmation": True,
+    },
+    "validation": {
+        "check_uncommitted": True,
+        "check_behind_remote": True,
+        "warn_only": False,
+        "allowed_base_branches": [],
+        "forbidden_base_patterns": [],
+    },
+    "documentation": {
+        "rules": [],
+        "show_on_commit": True,
+        "show_on_pr": True,
     },
 }
 
@@ -283,10 +331,25 @@ def load_config(config_path: Optional[str] = None) -> Config:
         }
     )
 
+    # Parse documentation rules
+    doc_data = config_data.get("documentation", {})
+    doc_rules = []
+    for rule in doc_data.get("rules", []):
+        if isinstance(rule, dict):
+            doc_rules.append(DocumentationRule(**rule))
+
+    documentation_config = DocumentationConfig(
+        rules=doc_rules,
+        show_on_commit=doc_data.get("show_on_commit", True),
+        show_on_pr=doc_data.get("show_on_pr", True),
+    )
+
     return Config(
         branch=BranchConfig(**config_data["branch"]),
         commit=CommitConfig(**{**config_data["commit"], "pattern": commit_pattern}),
         pr=PRConfig(**{**config_data["pr"], "title_pattern": pr_pattern}),
         github=GitHubConfig(**config_data.get("github", {})),
         deployment=deployment_config,
+        validation=ValidationConfig(**config_data.get("validation", {})),
+        documentation=documentation_config,
     )

@@ -6,7 +6,13 @@ import typer
 from devrules.config import load_config
 from devrules.core.git_service import ensure_git_repo, get_current_branch
 from devrules.core.github_service import ensure_gh_installed, fetch_pr_info
+from devrules.validators.documentation import display_documentation_guidance
 from devrules.validators.pr import validate_pr
+from devrules.validators.pr_target import (
+    suggest_pr_target,
+    validate_pr_base_not_protected,
+    validate_pr_target,
+)
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
@@ -24,6 +30,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             "-p",
             help="Project to check issue status against (faster than checking all)",
         ),
+        skip_checks: bool = typer.Option(
+            False, "--skip-checks", help="Skip target validation and documentation checks"
+        ),
     ):
         """Create a GitHub pull request for the current branch against the base branch."""
         import subprocess
@@ -31,8 +40,50 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         ensure_gh_installed()
         ensure_git_repo()
 
+        # Load config first
+        config = load_config(config_file)
+
         # Determine current branch
         current_branch = get_current_branch()
+
+        # Validate that current branch is not protected (staging branches)
+        if not skip_checks:
+            is_valid_base, base_message = validate_pr_base_not_protected(
+                current_branch,
+                config.commit.protected_branch_prefixes,
+            )
+            if not is_valid_base:
+                typer.secho(f"\n✘ {base_message}", fg=typer.colors.RED)
+                raise typer.Exit(code=1)
+
+        # Validate PR target branch
+        if not skip_checks:
+            is_valid_target, target_message = validate_pr_target(
+                source_branch=current_branch,
+                target_branch=base,
+                config=config.pr,
+            )
+
+            if not is_valid_target:
+                typer.secho("\n✘ Invalid PR Target", fg=typer.colors.RED, bold=True)
+                typer.echo(f"  {target_message}")
+
+                # Try to suggest a better target
+                suggested = suggest_pr_target(current_branch, config.pr)
+                if suggested:
+                    typer.echo(f"\n💡 Suggested target: {suggested}")
+                    typer.echo(f"   Try: devrules create-pr --base {suggested}")
+
+                typer.echo()
+                raise typer.Exit(code=1)
+
+        # Show context-aware documentation
+        if not skip_checks and config.documentation.show_on_pr and config.documentation.rules:
+            display_documentation_guidance(
+                rules=config.documentation.rules,
+                base_branch=base,
+                show_files=True,
+            )
 
         if current_branch == base:
             typer.secho(
@@ -72,9 +123,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             humanized = humanized[0].upper() + humanized[1:]
 
         pr_title = f"[{tag}] {humanized}" if humanized else f"[{tag}] {current_branch}"
-
-        # Load config and check if status validation is required
-        config = load_config(config_file)
 
         # Validate issue status if enabled
         if config.pr.require_issue_status_check:
