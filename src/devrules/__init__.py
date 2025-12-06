@@ -1,6 +1,6 @@
 """DevRules - Development guidelines enforcement tool."""
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 from devrules.config import load_config
 from devrules.validators import validate_branch, validate_commit, validate_pr
