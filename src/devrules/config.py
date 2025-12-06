@@ -30,6 +30,7 @@ class CommitConfig:
     restrict_branch_to_owner: bool = False
     append_issue_number: bool = True
     allow_hook_bypass: bool = False
+    gpg_sign: bool = False
 
 
 @dataclass

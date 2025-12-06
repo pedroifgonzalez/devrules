@@ -73,6 +73,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 message = f"#{issue_number} {message}"
 
         options = []
+        if config.commit.gpg_sign:
+            options.append("-S")
         if config.commit.allow_hook_bypass:
             options.append("-n")
         options.append("-m")
