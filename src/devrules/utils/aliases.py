@@ -10,9 +10,14 @@ ALIAS_MAP = {
     "create_pr": ["pr"],
     "list_owned_branches": ["lob"],
     "delete_branch": ["db"],
+    "delete_merged": ["dm"],
     "update_issue_status": ["uis"],
     "list_issues": ["li"],
     "describe_issue": ["di"],
+    "dashboard": ["dash"],
+    "deploy": ["dep"],
+    "check_deployment": ["cd"],
+    "build_enterprise": ["be"],
 }
 
 
