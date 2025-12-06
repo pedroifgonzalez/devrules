@@ -1,14 +1,17 @@
-<p align="center">
-  <img src="devrules.png" alt="DevRules Logo" width="200">
-</p>
-
-# DevRules
-
-[![PyPI version](https://badge.fury.io/py/devrules.svg)](https://badge.fury.io/py/devrules)
-[![Python Versions](https://img.shields.io/pypi/pyversions/devrules.svg)](https://pypi.org/project/devrules/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-A flexible CLI tool for enforcing development guidelines across your projects.
+<table>
+  <tr>
+    <td><img src="devrules.png" alt="DevRules Logo" width="150"></td>
+    <td>
+      <h1>DevRules</h1>
+      <p>A flexible CLI tool for enforcing development guidelines across your projects.</p>
+      <p>
+        <a href="https://badge.fury.io/py/devrules"><img src="https://badge.fury.io/py/devrules.svg" alt="PyPI version"></a>
+        <a href="https://pypi.org/project/devrules/"><img src="https://img.shields.io/pypi/pyversions/devrules.svg" alt="Python Versions"></a>
+        <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+      </p>
+    </td>
+  </tr>
+</table>
 
 ## 🚀 Features
 
