@@ -7,11 +7,28 @@
       <p>
         <a href="https://badge.fury.io/py/devrules"><img src="https://badge.fury.io/py/devrules.svg" alt="PyPI version"></a>
         <a href="https://pypi.org/project/devrules/"><img src="https://img.shields.io/pypi/pyversions/devrules.svg" alt="Python Versions"></a>
-        <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+        <a href="LICENSE"><img src="https://img.shields.io/badge/License-BSL%201.1-blue.svg" alt="License: BSL 1.1"></a>
       </p>
     </td>
   </tr>
 </table>
+
+## 📜 License
+
+DevRules is licensed under the **Business Source License 1.1 (BSL)**.
+
+**What this means:**
+- ✅ **Free for small companies** - Organizations with < 100 employees can use in production
+- ✅ **Free for non-production** - Anyone can use for development, testing, and evaluation
+- ✅ **Source available** - Full source code is visible and modifiable
+- ✅ **Becomes open source** - Converts to Apache 2.0 license on 2029-12-06 (4 years)
+- 💼 **Commercial license available** - For larger organizations or production use beyond the grant
+
+**Need a commercial license?** Contact pedroifgonzalez@gmail.com
+
+See [LICENSE](LICENSE) for full details.
+
+---
 
 ## 🚀 Features
 

@@ -18,13 +18,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Enhanced PR config** - Added allowed_targets and target_rules to [pr] section
 - **Skip checks flag** - Added --skip-checks option to create-branch, commit, and create-pr commands
 - **Comprehensive documentation** - 9 new documentation files with 5,000+ lines covering all features
+- **Commercial licensing guide** - Added COMMERCIAL_LICENSE.md with pricing and licensing information
 
 ### Changed
+- **License changed from MIT to Business Source License 1.1** - Protects commercial value while allowing free use for small companies
 - create-branch command now validates repository state before creating branches
 - commit command now checks for forbidden files and displays context-aware documentation
 - create-pr command now validates PR target branches and displays context-aware documentation
 - Configuration examples updated with new sections and options
 - init-config template includes new validation and documentation sections
+- README updated with license information and usage grants
+
+### License Details
+- Free for organizations with < 100 employees (production use)
+- Free for non-production use (development, testing, evaluation)
+- Automatically converts to Apache 2.0 on 2029-12-06 (4 years from release)
+- Commercial licenses available for larger organizations
+- Full source code remains available and modifiable
 
 ### Impact
 - 300% increase in documentation visibility
