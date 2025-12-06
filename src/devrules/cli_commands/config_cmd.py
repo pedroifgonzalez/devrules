@@ -62,7 +62,8 @@ max_length = 100
 restrict_branch_to_owner = true
 append_issue_number = true
 allow_hook_bypass = false  # If true, allows commits with --no-verify flag
-
+gpg_sign = false  # If true, signs commits with GPG (requires git config user.signingkey)
+protected_branch_prefixes = ["staging-"]  # Branches that should not receive direct commits (merge-only)
 
 [pr]
 max_loc = 400
@@ -95,8 +96,38 @@ valid_statuses = [
   "Done",
 ]
 
+[github.status_emojis]
+# Emoji mappings for issue statuses (used in list_issues output)
+# backlog = "📋"
+# in_progress = "🔄"
+# done = "✅"
+
 [github.projects]
 project = "{project}"
+
+[deployment]
+# Jenkins configuration for deployments
+jenkins_url = "https://jenkins.yourcompany.com"
+# jenkins_user = "your-username"  # Can also use env var JENKINS_USER
+# jenkins_token = "your-api-token"  # Can also use env var JENKINS_TOKEN
+multibranch_pipeline = false  # If true, uses /job/{{name}}/job/{{branch}} URL format
+migration_detection_enabled = true
+migration_paths = ["migrations/", "alembic/versions/"]
+auto_rollback_on_failure = true
+require_confirmation = true
+
+[deployment.environments.dev]
+name = "dev"
+default_branch = "develop"
+# jenkins_job_name = "deploy-backend-dev"  # Optional: defaults to github.repo
+
+[deployment.environments.staging]
+name = "staging"
+default_branch = "staging"
+
+[deployment.environments.prod]
+name = "prod"
+default_branch = "main"
 """.format(
             github_owner=github_owner,
             github_repo=github_repo,
