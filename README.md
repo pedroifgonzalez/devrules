@@ -82,6 +82,8 @@ tags = ["WIP", "FTR", "FIX", "DOCS", "TST"]
 pattern = "^\\[({tags})\\].+"
 min_length = 10
 max_length = 100
+gpg_sign = false  # Sign commits with GPG
+protected_branch_prefixes = ["staging-"]  # Block direct commits to these branches
 
 [pr]
 max_loc = 400
@@ -90,6 +92,25 @@ require_title_tag = true
 ```
 
 ## 🔗 Git Hooks Integration
+
+### Automatic Installation
+
+Install git hooks with a single command:
+
+```bash
+devrules install-hooks
+```
+
+This creates a `commit-msg` hook that:
+1. Validates commit messages using devrules
+2. Runs any existing pre-commit hooks (if `pre-commit` is installed)
+
+To uninstall:
+```bash
+devrules uninstall-hooks
+```
+
+### Manual Setup
 
 **Commit message validation:**
 ```bash
@@ -105,6 +126,32 @@ devrules check-commit "$1" || exit 1
 current_branch=$(git symbolic-ref --short HEAD)
 devrules check-branch "$current_branch" || exit 1
 ```
+
+## ⌨️ Command Aliases
+
+Most commands have short aliases for convenience:
+
+| Command | Alias | Description |
+|---------|-------|-------------|
+| `check-branch` | `cb` | Validate branch name |
+| `check-commit` | `cc` | Validate commit message |
+| `check-pr` | `cpr` | Validate pull request |
+| `create-branch` | `nb` | Create new branch |
+| `commit` | `ci` | Commit with validation |
+| `create-pr` | `pr` | Create pull request |
+| `init-config` | `init` | Generate config file |
+| `install-hooks` | `ih` | Install git hooks |
+| `uninstall-hooks` | `uh` | Remove git hooks |
+| `list-issues` | `li` | List GitHub issues |
+| `describe-issue` | `di` | Show issue details |
+| `update-issue-status` | `uis` | Update issue status |
+| `list-owned-branches` | `lob` | List your branches |
+| `delete-branch` | `db` | Delete a branch |
+| `delete-merged` | `dm` | Delete merged branches |
+| `dashboard` | `dash` | Open TUI dashboard |
+| `deploy` | `dep` | Deploy to environment |
+| `check-deployment` | `cd` | Check deployment status |
+| `build-enterprise` | `be` | Build enterprise package |
 
 ## 📚 Documentation
 
