@@ -30,6 +30,10 @@ See [LICENSE](LICENSE) for full details.
 
 ---
 
+## 🎬 Demo
+
+![Branch Name Validation](demos/gifs/devrules-branch-name-validation.gif)
+
 ## 🚀 Features
 
 - ✅ **Branch naming validation** - Enforce consistent branch naming conventions
