@@ -42,7 +42,7 @@ See [LICENSE](LICENSE) for full details.
 - ✅ **Deployment workflow** - Manage deployments across environments with Jenkins integration
 - ⚙️ **Configurable via TOML** - Customize all rules to match your workflow
 - 🔌 **Git hooks integration** - Automatic validation with pre-commit support
-- 🎨 **Interactive branch creation** - User-friendly branch creation wizard
+- 🎨 **Interactive mode with Gum** - Beautiful terminal UI with arrow-key selection and styled prompts
 - 🌐 **GitHub API integration** - Manage issues, projects, and PRs directly
 - 📊 **TUI Dashboard** - Interactive terminal dashboard for metrics and issue tracking
 - 🏢 **Enterprise builds** - Create custom packages with embedded corporate configuration
@@ -51,6 +51,30 @@ See [LICENSE](LICENSE) for full details.
 ```bash
 pip install devrules
 ```
+
+### Optional: Install Gum for Enhanced UI
+
+DevRules integrates with [Gum](https://github.com/charmbracelet/gum) for a beautiful interactive terminal experience. Install it for:
+- Arrow-key selection menus
+- Styled input prompts
+- Formatted tables
+- Colorful output
+
+```bash
+# macOS
+brew install gum
+
+# Linux (Debian/Ubuntu)
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
+sudo apt update && sudo apt install gum
+
+# Windows (Scoop)
+scoop install charm-gum
+```
+
+> **Note:** Gum is optional. DevRules falls back to standard prompts if Gum is not installed.
 
 ## 🎯 Quick Start
 
@@ -190,9 +214,11 @@ Most commands have short aliases for convenience:
 | `check-branch` | `cb` | Validate branch name |
 | `check-commit` | `cc` | Validate commit message |
 | `check-pr` | `cpr` | Validate pull request |
-| `create-branch` | `nb` | Create new branch |
+| `create-branch` | `nb` | Create new branch (interactive with Gum) |
 | `commit` | `ci` | Commit with validation |
+| `icommit` | `ic` | Interactive commit with tag selection |
 | `create-pr` | `pr` | Create pull request |
+| `ipr` | - | Interactive PR with target selection |
 | `init-config` | `init` | Generate config file |
 | `install-hooks` | `ih` | Install git hooks |
 | `uninstall-hooks` | `uh` | Remove git hooks |
@@ -238,7 +264,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-Built with [Typer](https://typer.tiangolo.com/) for an amazing CLI experience.
+Built with:
+- [Typer](https://typer.tiangolo.com/) - Amazing CLI framework
+- [Gum](https://github.com/charmbracelet/gum) - Glamorous shell scripts and terminal UI
 
 ## 📧 Contact
 
