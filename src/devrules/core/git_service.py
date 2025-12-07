@@ -6,6 +6,7 @@ import typer
 
 from devrules.config import Config
 from devrules.dtos.github import ProjectItem
+from devrules.utils import gum
 
 
 def ensure_git_repo() -> None:
@@ -96,7 +97,65 @@ def sanitize_description(description: str) -> str:
 
 
 def get_branch_name_interactive(config: Config) -> str:
-    """Get branch name through interactive prompts."""
+    """Get branch name through interactive prompts.
+
+    Uses gum for enhanced UI if available, falls back to typer prompts.
+    """
+    # Use gum if available for enhanced UI
+    if gum.is_available():
+        return _get_branch_name_with_gum(config)
+    else:
+        return _get_branch_name_with_typer(config)
+
+
+def _get_branch_name_with_gum(config: Config) -> str:
+    """Get branch name using gum for enhanced UI."""
+    # Header
+    print(gum.style("🌿 Create New Branch", foreground=81, bold=True))
+    print(gum.style("=" * 50, foreground=81))
+
+    # Step 1: Select branch type
+    branch_type = gum.choose(
+        config.branch.prefixes,
+        header="📋 Select branch type:",
+    )
+
+    if not branch_type:
+        typer.secho("✘ No branch type selected", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    # Step 2: Issue/ticket number (optional)
+    issue_number = gum.input_text(
+        placeholder="Enter number or leave empty to skip",
+        header="🔢 Issue/ticket number (optional):",
+    )
+
+    # Step 3: Branch description
+    description = gum.input_text(
+        placeholder="fix-login-bug",
+        header="📝 Branch description (use lowercase and hyphens):",
+    )
+
+    if not description:
+        gum.error("Description cannot be empty")
+        raise typer.Exit(code=1)
+
+    # Clean and format description
+    description = sanitize_description(description)
+
+    if not description:
+        gum.error("Description cannot be empty after sanitization")
+        raise typer.Exit(code=1)
+
+    # Build branch name
+    if issue_number:
+        return f"{branch_type}/{issue_number}-{description}"
+    else:
+        return f"{branch_type}/{description}"
+
+
+def _get_branch_name_with_typer(config: Config) -> str:
+    """Get branch name using typer prompts (fallback)."""
     typer.secho("\n🌿 Create New Branch", fg=typer.colors.CYAN, bold=True)
     typer.echo("=" * 50)
 
