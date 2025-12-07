@@ -6,7 +6,6 @@ import typer
 from devrules.config import load_config
 from devrules.core.git_service import ensure_git_repo, get_current_branch, get_current_issue_number
 from devrules.validators.commit import validate_commit
-from devrules.validators.documentation import display_documentation_guidance
 from devrules.validators.forbidden_files import (
     get_forbidden_file_suggestions,
     validate_no_forbidden_files,
@@ -107,6 +106,19 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             if issue_number and f"#{issue_number}" not in message:
                 message = f"#{issue_number} {message}"
 
+        # Get documentation guidance BEFORE commit (while files are still staged)
+        doc_message = None
+        if not skip_checks and config.documentation.show_on_commit and config.documentation.rules:
+            from devrules.validators.documentation import get_relevant_documentation
+
+            has_docs, doc_message = get_relevant_documentation(
+                rules=config.documentation.rules,
+                base_branch="HEAD",
+                show_files=True,
+            )
+            if not has_docs:
+                doc_message = None
+
         options = []
         if config.commit.gpg_sign:
             options.append("-S")
@@ -124,17 +136,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 check=True,
             )
             typer.secho("\n✔ Committed changes!", fg=typer.colors.GREEN)
-            # Show context-aware documentation (unless skipped)
-            if (
-                not skip_checks
-                and config.documentation.show_on_commit
-                and config.documentation.rules
-            ):
-                display_documentation_guidance(
-                    rules=config.documentation.rules,
-                    base_branch="HEAD",
-                    show_files=True,
-                )
+
+            # Show context-aware documentation AFTER commit
+            if doc_message:
+                typer.secho(f"{doc_message}", fg=typer.colors.YELLOW)
         except subprocess.CalledProcessError as e:
             typer.secho(f"\n✘ Failed to commit changes: {e}", fg=typer.colors.RED)
             raise typer.Exit(code=1) from e
