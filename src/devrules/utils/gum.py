@@ -45,7 +45,8 @@ def choose(
     cmd.extend(options)
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        # Don't capture stderr so user sees the interactive UI
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
         if result.returncode != 0:
             return None
         output = result.stdout.strip()
@@ -87,7 +88,8 @@ def input_text(
         cmd.extend(["--char-limit", str(char_limit)])
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        # Don't capture stderr so user sees the interactive UI
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
         if result.returncode != 0:
             return None
         return result.stdout.strip()
@@ -122,7 +124,8 @@ def write(
         cmd.extend(["--char-limit", str(char_limit)])
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        # Don't capture stderr so user sees the interactive UI
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
         if result.returncode != 0:
             return None
         return result.stdout.strip()
@@ -205,10 +208,11 @@ def filter_list(
         cmd.extend(["--header", header])
 
     try:
+        # Don't capture stderr so user sees the interactive UI
         result = subprocess.run(
             cmd,
             input="\n".join(options),
-            capture_output=True,
+            stdout=subprocess.PIPE,
             text=True,
         )
         if result.returncode != 0:
