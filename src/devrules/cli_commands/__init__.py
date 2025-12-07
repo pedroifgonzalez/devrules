@@ -36,3 +36,11 @@ namespace.update(build_cmd.register(app))
 namespace.update(deploy.register(app))
 
 register_command_aliases(app, namespace)
+
+
+@app.command()
+def shell():
+    """Launch interactive DevRules shell (REPL mode)."""
+    from devrules.shell import run_shell
+
+    run_shell()
