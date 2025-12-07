@@ -124,17 +124,20 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 check=True,
             )
             typer.secho("\n✔ Committed changes!", fg=typer.colors.GREEN)
+            # Show context-aware documentation (unless skipped)
+            if (
+                not skip_checks
+                and config.documentation.show_on_commit
+                and config.documentation.rules
+            ):
+                display_documentation_guidance(
+                    rules=config.documentation.rules,
+                    base_branch="HEAD",
+                    show_files=True,
+                )
         except subprocess.CalledProcessError as e:
             typer.secho(f"\n✘ Failed to commit changes: {e}", fg=typer.colors.RED)
             raise typer.Exit(code=1) from e
-
-        # Show context-aware documentation (unless skipped)
-        if not skip_checks and config.documentation.show_on_commit and config.documentation.rules:
-            display_documentation_guidance(
-                rules=config.documentation.rules,
-                base_branch="HEAD",
-                show_files=True,
-            )
 
     return {
         "check_commit": check_commit,
