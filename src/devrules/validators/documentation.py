@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 from devrules.config import DocumentationRule
+from devrules.utils import gum
 
 
 def get_changed_files(base_branch: str = "HEAD") -> List[str]:
@@ -116,12 +117,6 @@ def format_documentation_message(
     if not matches:
         return ""
 
-    lines = [
-        "\n📚 Context-Aware Documentation",
-        "=" * 50,
-        "",
-    ]
-
     # Group by rule
     rule_groups = {}
     for file_path, rule in matches:
@@ -130,11 +125,85 @@ def format_documentation_message(
             rule_groups[rule_key] = {"rule": rule, "files": []}
         rule_groups[rule_key]["files"].append(file_path)
 
+    # Use table format if gum is available
+    if gum.is_available():
+        return _format_docs_table(rule_groups, show_files)
+    else:
+        return _format_docs_list(rule_groups, show_files)
+
+
+def _format_docs_table(rule_groups: dict, show_files: bool) -> str:
+    """Format documentation as a table using gum."""
+    lines = []
+
+    # Header
+    lines.append(gum.style("\n📚 Context-Aware Documentation", foreground=81, bold=True))
+    lines.append(gum.style("=" * 60, foreground=81))
+    lines.append("")
+
+    # Build table rows
+    table_rows = []
     for group_data in rule_groups.values():
         rule = group_data["rule"]
         files = group_data["files"]
 
-        # Show pattern that was matched
+        # Pattern column
+        pattern = rule.file_pattern
+
+        # Files column
+        if show_files and len(files) <= 3:
+            files_str = ", ".join(files)
+        elif show_files:
+            files_str = f"{len(files)} file(s)"
+        else:
+            files_str = "-"
+
+        # Info column (message or docs URL)
+        info = rule.message or rule.docs_url or "-"
+        if len(info) > 40:
+            info = info[:37] + "..."
+
+        table_rows.append([pattern, files_str, info])
+
+    # Print table
+    lines.append(
+        gum.table(
+            table_rows,
+            headers=["Pattern", "Files", "Info"],
+            border="rounded",
+            border_foreground=99,
+        )
+    )
+
+    # Show checklists separately (they don't fit well in tables)
+    for group_data in rule_groups.values():
+        rule = group_data["rule"]
+        if rule.checklist:
+            lines.append("")
+            lines.append(gum.style(f"✅ Checklist for {rule.file_pattern}:", foreground=82))
+            for item in rule.checklist:
+                lines.append(f"   • {item}")
+
+        # Show full docs URL if truncated
+        if rule.docs_url and len(rule.docs_url) > 40:
+            lines.append(gum.style(f"🔗 {rule.docs_url}", foreground=81))
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _format_docs_list(rule_groups: dict, show_files: bool) -> str:
+    """Format documentation as a list (fallback)."""
+    lines = [
+        "\n📚 Context-Aware Documentation",
+        "=" * 50,
+        "",
+    ]
+
+    for group_data in rule_groups.values():
+        rule = group_data["rule"]
+        files = group_data["files"]
+
         lines.append(f"📌 Pattern: {rule.file_pattern}")
 
         if show_files and len(files) <= 5:
@@ -142,15 +211,12 @@ def format_documentation_message(
         elif show_files:
             lines.append(f"   Files: {len(files)} file(s) matched")
 
-        # Show custom message if provided
         if rule.message:
             lines.append(f"   ℹ️  {rule.message}")
 
-        # Show documentation URL
         if rule.docs_url:
             lines.append(f"   🔗 Docs: {rule.docs_url}")
 
-        # Show checklist if provided
         if rule.checklist:
             lines.append("   ✅ Checklist:")
             for item in rule.checklist:

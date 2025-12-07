@@ -316,3 +316,100 @@ def warning(message: str) -> None:
 def info(message: str) -> None:
     """Print info message (cyan)."""
     print_styled(f"ℹ {message}", foreground=81)
+
+
+def table(
+    rows: list[list[str]],
+    headers: list[str] | None = None,
+    border: str = "rounded",
+    border_foreground: int = 99,
+) -> str:
+    """Render a table using gum format.
+
+    Args:
+        rows: List of rows, each row is a list of cell values
+        headers: Optional header row
+        border: Border style (rounded, double, thick, normal, hidden)
+        border_foreground: Border color
+
+    Returns:
+        Formatted table string
+    """
+    if not GUM_AVAILABLE or not rows:
+        # Fallback to simple ASCII table
+        return _simple_table(rows, headers)
+
+    # Build CSV-like input for gum table (data rows only, headers via --columns)
+    all_rows = []
+    for row in rows:
+        all_rows.append(",".join(f'"{cell}"' for cell in row))
+
+    csv_input = "\n".join(all_rows)
+
+    cmd = ["gum", "table", "--print"]  # -p for static print
+    if headers:
+        cmd.extend(["--columns", ",".join(headers)])
+    if border:
+        cmd.extend(["--border", border])
+    if border_foreground:
+        cmd.extend(["--border.foreground", str(border_foreground)])
+
+    try:
+        result = subprocess.run(
+            cmd,
+            input=csv_input,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return result.stdout.rstrip("\n")
+    except Exception:
+        pass
+
+    return _simple_table(rows, headers)
+
+
+def _simple_table(rows: list[list[str]], headers: list[str] | None = None) -> str:
+    """Simple ASCII table fallback."""
+    if not rows:
+        return ""
+
+    # Calculate column widths
+    all_rows = [headers] + rows if headers else rows
+    col_widths = []
+    for col_idx in range(len(all_rows[0])):
+        max_width = max(len(str(row[col_idx])) for row in all_rows if col_idx < len(row))
+        col_widths.append(max_width)
+
+    lines = []
+
+    # Header
+    if headers:
+        header_line = " │ ".join(h.ljust(col_widths[i]) for i, h in enumerate(headers))
+        lines.append(f"│ {header_line} │")
+        separator = "─┼─".join("─" * w for w in col_widths)
+        lines.append(f"├─{separator}─┤")
+
+    # Rows
+    for row in rows:
+        row_line = " │ ".join(str(cell).ljust(col_widths[i]) for i, cell in enumerate(row))
+        lines.append(f"│ {row_line} │")
+
+    return "\n".join(lines)
+
+
+def print_table(
+    rows: list[list[str]],
+    headers: list[str] | None = None,
+    border: str = "rounded",
+    border_foreground: int = 99,
+) -> None:
+    """Print a formatted table.
+
+    Args:
+        rows: List of rows
+        headers: Optional headers
+        border: Border style
+        border_foreground: Border color
+    """
+    print(table(rows, headers, border, border_foreground))
