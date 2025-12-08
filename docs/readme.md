@@ -10,12 +10,12 @@ Welcome to the DevRules documentation! This index will help you find exactly wha
 
 1. **[One-Pager](one-pager.md)** - Quick overview of what DevRules does and why it matters
 2. **[Main README](../README.md)** - Installation, configuration, and basic usage
-3. **[Quick Reference](QUICK_REFERENCE.md)** - Cheat sheet for new features
+3. **[Quick Reference](quick-reference.md)** - Cheat sheet for new features
 
 ### Just Implemented - New Features!
 
-4. **[New Features Guide](NEW_FEATURES.md)** - Complete guide to recently added features
-5. **[Implementation Complete](IMPLEMENTATION_COMPLETE.md)** - Executive summary of what was built
+4. **[New Features Guide](new-features.md)** - Complete guide to recently added features
+5. **[Implementation Complete](implementation-complete.md)** - Executive summary of what was built
 
 ---
 
@@ -29,19 +29,19 @@ Welcome to the DevRules documentation! This index will help you find exactly wha
 
 ### Feature Deep Dives
 
-- **[New Features Guide](NEW_FEATURES.md)** (964 lines)
+- **[New Features Guide](new-features.md)** (964 lines)
   - Repository state validation
   - Forbidden file protection
   - Context-aware documentation
   - PR target branch validation
 
-- **[Context-Aware Documentation Benefits](CONTEXT_AWARE_DOCS_BENEFITS.md)** (508 lines)
+- **[Context-Aware Documentation Benefits](context-aware-docs-benefits.md)** (508 lines)
   - Complete benefits breakdown
   - Measurable impact and ROI
   - Psychology behind why it works
   - Best practices for implementation
 
-- **[Real-World Scenario](SCENARIO_CONTEXT_AWARE_DOCS.md)** (408 lines)
+- **[Real-World Scenario](scenario-context-aware-docs.md)** (408 lines)
   - New developer onboarding story
   - Before/after comparisons
   - Actual ROI calculations
@@ -55,7 +55,7 @@ Welcome to the DevRules documentation! This index will help you find exactly wha
   - Migration guide
   - Impact assessment
 
-- **[Implementation Complete](IMPLEMENTATION_COMPLETE.md)** (610 lines)
+- **[Implementation Complete](implementation-complete.md)** (610 lines)
   - Executive summary
   - Files created/modified
   - Success metrics
@@ -71,46 +71,46 @@ Welcome to the DevRules documentation! This index will help you find exactly wha
 - [One-Pager](one-pager.md) - Quick pitch (5 min read)
 - [Company Impact Table](one-pager.md#company-impact)
 - [ROI Comparison](comparison.md#roi-comparison)
-- [Real-World Scenario ROI](SCENARIO_CONTEXT_AWARE_DOCS.md#roi-calculation)
+- [Real-World Scenario ROI](scenario-context-aware-docs.md#roi-calculation)
 
 💼 **Enterprise Features:**
 - [Enterprise Customization](one-pager.md#enterprise-customization)
-- [Enterprise Build Guide](ENTERPRISE_BUILD.md) (if exists)
+- [Enterprise Build Guide](enterprise-build.md) (if exists)
 
 ### For Developers
 
 🔧 **Setup & Configuration:**
-- [Quick Start](NEW_FEATURES.md#quick-start)
-- [Configuration Examples](NEW_FEATURES.md#configuration)
-- [Migration Guide](NEW_FEATURES.md#migration-guide)
+- [Quick Start](new-features.md#quick-start)
+- [Configuration Examples](new-features.md#configuration)
+- [Migration Guide](new-features.md#migration-guide)
 
 ⚡ **Quick Reference:**
-- [Command Updates](QUICK_REFERENCE.md#command-updates)
-- [Common Patterns](QUICK_REFERENCE.md#common-patterns)
-- [Troubleshooting](NEW_FEATURES.md#troubleshooting)
+- [Command Updates](quick-reference.md#command-updates)
+- [Common Patterns](quick-reference.md#common-patterns)
+- [Troubleshooting](new-features.md#troubleshooting)
 
 🎓 **Learning:**
-- [Real-World Scenario](SCENARIO_CONTEXT_AWARE_DOCS.md)
-- [Feature Examples](NEW_FEATURES.md#usage-examples)
-- [Best Practices](NEW_FEATURES.md#best-practices)
+- [Real-World Scenario](scenario-context-aware-docs.md)
+- [Feature Examples](new-features.md#usage-examples)
+- [Best Practices](new-features.md#best-practices)
 
 ### For Engineering Leaders
 
 📈 **Metrics & Impact:**
-- [Measurable Impact](CONTEXT_AWARE_DOCS_BENEFITS.md#measurable-impact)
-- [Success Metrics](CONTEXT_AWARE_DOCS_BENEFITS.md#success-metrics)
-- [Before/After Comparison](SCENARIO_CONTEXT_AWARE_DOCS.md#sarahs-first-week-side-by-side-comparison)
+- [Measurable Impact](context-aware-docs-benefits.md#measurable-impact)
+- [Success Metrics](context-aware-docs-benefits.md#success-metrics)
+- [Before/After Comparison](scenario-context-aware-docs.md#sarahs-first-week-side-by-side-comparison)
 
 🎯 **Team Benefits:**
-- [Onboarding Impact](CONTEXT_AWARE_DOCS_BENEFITS.md#educational-value)
-- [Senior Developer Time Savings](SCENARIO_CONTEXT_AWARE_DOCS.md#real-impact-at-techcorp)
+- [Onboarding Impact](context-aware-docs-benefits.md#educational-value)
+- [Senior Developer Time Savings](scenario-context-aware-docs.md#real-impact-at-techcorp)
 - [Code Quality Improvements](comparison.md#roi-comparison)
 
 ### For Security Teams
 
 🛡️ **Security Features:**
-- [Forbidden File Protection](NEW_FEATURES.md#2--forbidden-file-protection)
-- [Security Scenario](SCENARIO_CONTEXT_AWARE_DOCS.md#day-2-first-commit-attempt-200-pm)
+- [Forbidden File Protection](new-features.md#2--forbidden-file-protection)
+- [Security Scenario](scenario-context-aware-docs.md#day-2-first-commit-attempt-200-pm)
 - [Sensitive Code Detection](comparison.md#3-sensitive-code-detection)
 
 ---
@@ -118,45 +118,45 @@ Welcome to the DevRules documentation! This index will help you find exactly wha
 ## 🔍 Find by Feature
 
 ### Repository State Validation
-- [Feature Overview](NEW_FEATURES.md#1--repository-state-validation)
-- [Configuration](QUICK_REFERENCE.md#-repository-state-validation)
+- [Feature Overview](new-features.md#1--repository-state-validation)
+- [Configuration](quick-reference.md#-repository-state-validation)
 - [Implementation Details](implementation-summary.md#1--repository-state-validation)
 
 ### Forbidden File Protection
-- [Feature Overview](NEW_FEATURES.md#2--forbidden-file-protection)
-- [Configuration](QUICK_REFERENCE.md#-forbidden-file-blocking)
-- [Common Patterns](NEW_FEATURES.md#common-patterns)
-- [Security Impact](SCENARIO_CONTEXT_AWARE_DOCS.md#day-2-first-commit-attempt-200-pm)
+- [Feature Overview](new-features.md#2--forbidden-file-protection)
+- [Configuration](quick-reference.md#-forbidden-file-blocking)
+- [Common Patterns](new-features.md#common-patterns)
+- [Security Impact](scenario-context-aware-docs.md#day-2-first-commit-attempt-200-pm)
 
 ### Context-Aware Documentation
-- [Feature Overview](NEW_FEATURES.md#3--context-aware-documentation)
-- [Complete Benefits Guide](CONTEXT_AWARE_DOCS_BENEFITS.md)
-- [Real-World Scenario](SCENARIO_CONTEXT_AWARE_DOCS.md)
-- [Configuration Examples](QUICK_REFERENCE.md#-context-aware-documentation)
-- [Why It Works](CONTEXT_AWARE_DOCS_BENEFITS.md#why-it-works-the-psychology)
+- [Feature Overview](new-features.md#3--context-aware-documentation)
+- [Complete Benefits Guide](context-aware-docs-benefits.md)
+- [Real-World Scenario](scenario-context-aware-docs.md)
+- [Configuration Examples](quick-reference.md#-context-aware-documentation)
+- [Why It Works](context-aware-docs-benefits.md#why-it-works-the-psychology)
 
 ### PR Target Validation
-- [Feature Overview](NEW_FEATURES.md#4--pr-target-branch-validation)
-- [Configuration](QUICK_REFERENCE.md#-pr-target-validation)
-- [Common Rules](NEW_FEATURES.md#common-patterns-3)
+- [Feature Overview](new-features.md#4--pr-target-branch-validation)
+- [Configuration](quick-reference.md#-pr-target-validation)
+- [Common Rules](new-features.md#common-patterns-3)
 
 ---
 
 ## 📊 Documents by Length
 
 **Quick Reads (< 10 min):**
-- [Quick Reference](QUICK_REFERENCE.md) - 287 lines
+- [Quick Reference](quick-reference.md) - 287 lines
 - [One-Pager](one-pager.md) - ~200 lines
 
 **Medium Reads (10-30 min):**
 - [Feature Gap Analysis](feature-gaps.md) - 363 lines
-- [Real-World Scenario](SCENARIO_CONTEXT_AWARE_DOCS.md) - 408 lines
-- [Context-Aware Benefits](CONTEXT_AWARE_DOCS_BENEFITS.md) - 508 lines
+- [Real-World Scenario](scenario-context-aware-docs.md) - 408 lines
+- [Context-Aware Benefits](context-aware-docs-benefits.md) - 508 lines
 - [Implementation Summary](implementation-summary.md) - 521 lines
 
 **Comprehensive Guides (30+ min):**
-- [Implementation Complete](IMPLEMENTATION_COMPLETE.md) - 610 lines
-- [New Features Guide](NEW_FEATURES.md) - 964 lines
+- [Implementation Complete](implementation-complete.md) - 610 lines
+- [New Features Guide](new-features.md) - 964 lines
 - [Comparison Document](comparison.md) - ~800 lines
 
 ---
@@ -165,26 +165,26 @@ Welcome to the DevRules documentation! This index will help you find exactly wha
 
 ### Path 1: "I Need to Understand the Value" (20 min)
 1. [One-Pager](one-pager.md) - 5 min
-2. [Real-World Scenario](SCENARIO_CONTEXT_AWARE_DOCS.md) - 15 min
+2. [Real-World Scenario](scenario-context-aware-docs.md) - 15 min
 3. **Result:** Clear understanding of business value and ROI
 
 ### Path 2: "I Need to Implement This" (45 min)
-1. [Quick Reference](QUICK_REFERENCE.md) - 5 min
-2. [New Features Guide](NEW_FEATURES.md) - 30 min
-3. [Migration Guide](NEW_FEATURES.md#migration-guide) - 10 min
+1. [Quick Reference](quick-reference.md) - 5 min
+2. [New Features Guide](new-features.md) - 30 min
+3. [Migration Guide](new-features.md#migration-guide) - 10 min
 4. **Result:** Ready to configure and deploy
 
 ### Path 3: "I Need to Convince My Team" (30 min)
 1. [One-Pager](one-pager.md) - 5 min
 2. [Comparison Document](comparison.md) - 15 min
-3. [Context-Aware Benefits](CONTEXT_AWARE_DOCS_BENEFITS.md) - 10 min
+3. [Context-Aware Benefits](context-aware-docs-benefits.md) - 10 min
 4. **Result:** Armed with compelling arguments and data
 
 ### Path 4: "I Want Deep Technical Understanding" (90 min)
-1. [Implementation Complete](IMPLEMENTATION_COMPLETE.md) - 20 min
+1. [Implementation Complete](implementation-complete.md) - 20 min
 2. [Implementation Summary](implementation-summary.md) - 20 min
 3. [Feature Gap Analysis](feature-gaps.md) - 15 min
-4. [New Features Guide](NEW_FEATURES.md) - 35 min
+3. [New Features Guide](new-features.md) - 35 min
 5. **Result:** Complete technical knowledge
 
 ---
@@ -192,22 +192,22 @@ Welcome to the DevRules documentation! This index will help you find exactly wha
 ## 🆘 Common Questions
 
 **Q: What's new in v0.2.0?**  
-A: See [Implementation Complete](IMPLEMENTATION_COMPLETE.md) - 4 major features added
+A: See [Implementation Complete](implementation-complete.md) - 4 major features added
 
 **Q: How do I set up context-aware documentation?**  
-A: See [Configuration Examples](NEW_FEATURES.md#configuration-2)
+A: See [Configuration Examples](new-features.md#configuration-2)
 
 **Q: What's the ROI?**  
-A: See [Real-World Scenario ROI](SCENARIO_CONTEXT_AWARE_DOCS.md#roi-calculation) - typically 5,500%+ return
+A: See [Real-World Scenario ROI](scenario-context-aware-docs.md#roi-calculation) - typically 5,500%+ return
 
 **Q: Is it compatible with my current setup?**  
-A: Yes! 100% backward compatible. See [Backward Compatibility](IMPLEMENTATION_COMPLETE.md#backward-compatibility)
+A: Yes! 100% backward compatible. See [Backward Compatibility](implementation-complete.md#backward-compatibility)
 
 **Q: How long does setup take?**  
-A: 5 minutes for basic, 30 minutes for full customization. See [Quick Setup](QUICK_REFERENCE.md#-quick-setup)
+A: 5 minutes for basic, 30 minutes for full customization. See [Quick Setup](quick-reference.md#-quick-setup)
 
 **Q: What if I need to bypass a check?**  
-A: Use `--skip-checks` flag. See [Troubleshooting](NEW_FEATURES.md#troubleshooting)
+A: Use `--skip-checks` flag. See [Troubleshooting](new-features.md#troubleshooting)
 
 ---
 
@@ -225,13 +225,13 @@ A: Use `--skip-checks` flag. See [Troubleshooting](NEW_FEATURES.md#troubleshooti
 |----------|--------|--------------|----------|
 | [one-pager.md](one-pager.md) | ✅ Current | Dec 2025 | Business |
 | [comparison.md](comparison.md) | ✅ Current | Dec 2025 | Technical |
-| [NEW_FEATURES.md](NEW_FEATURES.md) | ✅ Current | Dec 2025 | Developers |
-| [QUICK_REFERENCE.md](QUICK_REFERENCE.md) | ✅ Current | Dec 2025 | Developers |
+| [new-features.md](new-features.md) | ✅ Current | Dec 2025 | Developers |
+| [quick-reference.md](quick-reference.md) | ✅ Current | Dec 2025 | Developers |
 | [feature-gaps.md](feature-gaps.md) | ✅ Current | Dec 2025 | Technical |
 | [implementation-summary.md](implementation-summary.md) | ✅ Current | Dec 2025 | Technical |
-| [IMPLEMENTATION_COMPLETE.md](IMPLEMENTATION_COMPLETE.md) | ✅ Current | Dec 2025 | Leadership |
-| [CONTEXT_AWARE_DOCS_BENEFITS.md](CONTEXT_AWARE_DOCS_BENEFITS.md) | ✅ Current | Dec 2025 | All |
-| [SCENARIO_CONTEXT_AWARE_DOCS.md](SCENARIO_CONTEXT_AWARE_DOCS.md) | ✅ Current | Dec 2025 | All |
+| [implementation-complete.md](implementation-complete.md) | ✅ Current | Dec 2025 | Leadership |
+| [context-aware-docs-benefits.md](context-aware-docs-benefits.md) | ✅ Current | Dec 2025 | All |
+| [scenario-context-aware-docs.md](scenario-context-aware-docs.md) | ✅ Current | Dec 2025 | All |
 
 ---
 

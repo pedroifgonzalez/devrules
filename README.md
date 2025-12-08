@@ -3,7 +3,7 @@
     <td><img src="devrules.png" alt="DevRules Logo" width="150"></td>
     <td>
       <h1>DevRules</h1>
-      <p>A flexible CLI tool for enforcing development guidelines across your projects.</p>
+      <p>Automate your internal rules. Reduce errors. Accelerate onboarding.</p>
       <p>
         <a href="https://badge.fury.io/py/devrules"><img src="https://badge.fury.io/py/devrules.svg" alt="PyPI version"></a>
         <a href="https://pypi.org/project/devrules/"><img src="https://img.shields.io/pypi/pyversions/devrules.svg" alt="Python Versions"></a>
