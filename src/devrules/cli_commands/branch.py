@@ -66,10 +66,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config = load_config(config_file)
         ensure_git_repo()
 
+        def at_least_one_validation_repo_state_set():
+            return any((config.validation.check_uncommitted, config.validation.check_behind_remote))
+
         # Validate repository state before creating branch
-        if not skip_checks and (
-            config.validation.check_uncommitted or config.validation.check_behind_remote
-        ):
+        if not skip_checks and at_least_one_validation_repo_state_set():
             typer.echo("\n🔍 Checking repository state...")
             is_valid, messages = validate_repo_state(
                 check_uncommitted=config.validation.check_uncommitted,
