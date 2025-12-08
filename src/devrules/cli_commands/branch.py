@@ -17,6 +17,7 @@ from devrules.core.git_service import (
     resolve_issue_branch,
 )
 from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
+from devrules.utils.typer import add_typer_block_message
 from devrules.validators.branch import validate_branch, validate_single_branch_per_issue_env
 from devrules.validators.ownership import list_user_owned_branches
 from devrules.validators.repo_state import display_repo_state_issues, validate_repo_state
@@ -188,14 +189,13 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         # Interactive selection if branch not provided
         if branch is None:
-            typer.secho("\n🗑 Delete Branch", fg=typer.colors.CYAN, bold=True)
-            typer.echo("=" * 50)
-            typer.echo("\n📋 Select a branch to delete:")
+            add_typer_block_message(
+                header="🗑 Delete Branch",
+                subheader="📋 Select a branch to delete:",
+                messages=[f"{idx}. {b}" for idx, b in enumerate(owned_branches, 1)],
+            )
 
-            for idx, b in enumerate(owned_branches, 1):
-                typer.echo(f"  {idx}. {b}")
-
-            choice = typer.prompt("\nEnter number", type=int)
+            choice = typer.prompt("Enter number", type=int)
 
             if choice < 1 or choice > len(owned_branches):
                 typer.secho("✘ Invalid choice", fg=typer.colors.RED)
@@ -291,14 +291,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(code=0)
 
         # 5. Show candidates
-        typer.secho("\n🗑 Delete Merged Branches", fg=typer.colors.CYAN, bold=True)
-        typer.echo("=" * 50)
-        typer.echo(
-            f"\nThe following branches are merged into 'develop' and owned by you.\nThey will be deleted locally and from remote '{remote}':\n"
+        add_typer_block_message(
+            header="🗑 Delete Merged Branches",
+            subheader=f"The following branches are merged into 'develop' and owned by you.\nThey will be deleted locally and from remote '{remote}'",
+            messages=[f"- {b}" for b in final_candidates],
         )
-
-        for b in final_candidates:
-            typer.echo(f"  - {b}")
 
         # 6. Confirm
         if not typer.confirm("\n  Delete these branches?", default=False):
