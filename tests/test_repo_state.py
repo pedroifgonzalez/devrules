@@ -180,7 +180,7 @@ def test_validate_repo_state_has_issues(mock_run):
     )
 
     assert is_valid is False
-    assert len(messages) >= 2  # At least uncommitted and behind messages
+    assert len(messages) == 1  # One uncommitted change
 
 
 @patch("devrules.validators.repo_state.subprocess.run")
