@@ -27,6 +27,14 @@ class BranchMessages:
     NOT_ALLOWED_TO_DELETE_BRANCH = (
         "✘ You are not allowed to delete branch '{}' because you do not own it."
     )
+    CROSS_REPO_CARD_FORBIDDEN = (
+        "✘ Cannot create branch: the selected issue/card belongs to a different repository "
+        "("
+        "{}"
+        " vs "
+        "{}"
+        ")."
+    )
 
     # Prompts
     DELETE_BRANCH_PROMPT = "You are about to delete branch '{}' locally and from remote '{}'."

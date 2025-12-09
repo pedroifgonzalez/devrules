@@ -17,6 +17,7 @@ class BranchConfig:
     enforce_single_branch_per_issue_env: bool = True
     labels_mapping: dict = field(default_factory=dict)
     labels_hierarchy: list = field(default_factory=list)
+    forbid_cross_repo_cards: bool = False
 
 
 @dataclass
@@ -137,6 +138,7 @@ DEFAULT_CONFIG = {
         "prefixes": ["feature", "bugfix", "hotfix", "release", "docs"],
         "require_issue_number": False,
         "enforce_single_branch_per_issue_env": True,
+        "forbid_cross_repo_cards": False,
         "labels_mapping": {"enhancement": "feature", "bug": "bugfix", "documentation": "docs"},
         "labels_hierarchy": ["docs", "feature", "bugfix", "hotfix"],
     },

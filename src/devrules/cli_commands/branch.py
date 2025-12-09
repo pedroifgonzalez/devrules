@@ -19,7 +19,11 @@ from devrules.core.git_service import (
 from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
 from devrules.messages import branch as msg
 from devrules.utils.typer import add_typer_block_message
-from devrules.validators.branch import validate_branch, validate_single_branch_per_issue_env
+from devrules.validators.branch import (
+    validate_branch,
+    validate_cross_repo_card,
+    validate_single_branch_per_issue_env,
+)
 from devrules.validators.ownership import list_user_owned_branches
 from devrules.validators.repo_state import display_repo_state_issues, validate_repo_state
 
@@ -103,6 +107,45 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             gh_project_item = find_project_item_for_issue(
                 owner=owner, project_number=project_number, issue=issue
             )
+
+            # Optional rule: forbid creating branches for cards/issues that belong
+            # to a different repository than the one configured for this project.
+            if config.branch.forbid_cross_repo_cards:
+                is_same_repo, repo_message = validate_cross_repo_card(
+                    gh_project_item, config.github
+                )
+
+                if not is_same_repo:
+                    # Prefer a concise, user-friendly message using centralized text.
+                    try:
+                        # Derive the expected and actual repo labels for the message.
+                        expected = f"{getattr(config.github, 'owner', '')}/{getattr(config.github, 'repo', '')}"
+                        actual = None
+
+                        content = getattr(gh_project_item, "content", None) or {}
+                        if isinstance(content, dict):
+                            actual = content.get("repository") or None
+
+                        if not actual and gh_project_item.repository:
+                            repo_url = str(gh_project_item.repository)
+                            if "github.com/" in repo_url:
+                                parts = repo_url.rstrip("/").split("github.com/")[-1].split("/")
+                                if len(parts) >= 2:
+                                    actual = f"{parts[0]}/{parts[1]}"
+
+                        if not actual:
+                            actual = "<unknown>"
+
+                        typer.secho(
+                            msg.CROSS_REPO_CARD_FORBIDDEN.format(actual, expected),
+                            fg=typer.colors.RED,
+                        )
+                    except Exception:
+                        # Fallback to the raw validator message if anything goes wrong.
+                        typer.secho(f"\n✘ {repo_message}", fg=typer.colors.RED)
+
+                    raise typer.Exit(code=1)
+
             scope = detect_scope(config=config, project_item=gh_project_item)
             final_branch_name = resolve_issue_branch(
                 scope=scope, project_item=gh_project_item, issue=issue
