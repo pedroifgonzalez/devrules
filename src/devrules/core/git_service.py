@@ -162,15 +162,13 @@ def _get_branch_name_with_gum(config: Config) -> str:
 
 def _get_branch_name_with_typer(config: Config) -> str:
     """Get branch name using typer prompts (fallback)."""
-    typer.secho("\n🌿 Create New Branch", fg=typer.colors.CYAN, bold=True)
-    typer.echo("=" * 50)
+    add_typer_block_message(
+        header="🌿 Create New Branch",
+        subheader="📋 Select branch type:",
+        messages=[f"{idx}. {prefix}" for idx, prefix in enumerate(config.branch.prefixes, 1)],
+    )
 
-    # Step 1: Select branch type
-    typer.echo("\n📋 Select branch type:")
-    for idx, prefix in enumerate(config.branch.prefixes, 1):
-        typer.echo(f"  {idx}. {prefix}")
-
-    type_choice = typer.prompt("\nEnter number", type=int, default=1)
+    type_choice = typer.prompt("Enter number", type=int, default=1)
 
     if type_choice < 1 or type_choice > len(config.branch.prefixes):
         typer.secho("✘ Invalid choice", fg=typer.colors.RED)

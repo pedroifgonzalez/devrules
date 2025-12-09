@@ -14,6 +14,12 @@ from devrules.core.deployment_service import (
     rollback_deployment,
 )
 from devrules.core.git_service import ensure_git_repo, get_current_branch
+from devrules.utils.typer import add_typer_block_message
+
+# module messages
+CONFIRM_DEPLOYMENT = "¿Confirma que desea desplegar '{}' en '{}'?"
+DEPLOYMENT_CANCELLED = "Deployment cancelled."
+DEPLOYING_TO_ENVIRONMENT = "🚀 Deploying {} to {}..."
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
@@ -142,26 +148,28 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         # Step 4: Confirm deployment
         if config.deployment.require_confirmation and not force:
-            typer.echo("\n" + "=" * 60)
-            typer.secho("📋 Deployment Summary", fg=typer.colors.CYAN, bold=True)
-            typer.echo("=" * 60)
-            typer.echo(f"  Environment:      {environment}")
-            typer.echo(f"  Branch to deploy: {branch}")
-            typer.echo(f"  Current branch:   {deployed_branch}")
-            typer.echo(f"  Jenkins job:      {env_config.jenkins_job_name}")
-            typer.echo("=" * 60)
+            add_typer_block_message(
+                header="📋 Deployment Summary",
+                subheader="",
+                messages=[
+                    f"Environment:      {environment}",
+                    f"Branch to deploy: {branch}",
+                    f"Current branch:   {deployed_branch}",
+                    f"Jenkins job:      {env_config.jenkins_job_name}",
+                ],
+            )
 
             confirmed = typer.confirm(
-                f"\n¿Confirma que desea desplegar '{branch}' en '{environment}'?",
+                CONFIRM_DEPLOYMENT.format(branch, environment),
                 default=False,
             )
 
             if not confirmed:
-                typer.echo("Deployment cancelled.")
+                typer.echo(DEPLOYMENT_CANCELLED)
                 raise typer.Exit(code=0)
 
         # Step 5: Execute deployment
-        typer.echo(f"\n🚀 Deploying {branch} to {environment}...")
+        typer.echo(f"\n{DEPLOYING_TO_ENVIRONMENT.format(branch, environment)}")
         success, message = execute_deployment(branch, environment, config)
 
         if success:
