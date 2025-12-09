@@ -5,6 +5,7 @@ import typer
 
 from devrules.config import load_config
 from devrules.core.git_service import ensure_git_repo, get_current_branch, get_current_issue_number
+from devrules.messages import commit as msg
 from devrules.utils import gum
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.commit import validate_commit
@@ -13,19 +14,6 @@ from devrules.validators.forbidden_files import (
     validate_no_forbidden_files,
 )
 from devrules.validators.ownership import validate_branch_ownership
-
-# module messages
-MESSAGE_CANNOT_BE_EMPTY = "Message cannot be empty"
-NO_TAG_SELECTED = "No tag selected"
-INVALID_CHOICE = "✘ Invalid choice"
-COMMIT_MESSAGE_FILE_NOT_FOUND = "Commit message file not found: {}"
-FORBIDDEN_FILES_DETECTED = "✘ Forbidden Files Detected"
-COMMIT_CANCELLED = "Commit cancelled"
-COMMITTED_CHANGES = "✔ Committed changes!"
-FAILED_TO_COMMIT_CHANGES = "✘ Failed to commit changes: {}"
-CANNOT_COMMIT_TO_PROTECTED_BRANCH = (
-    "✘ Cannot commit directly to '{}'. Branches containing '{}' are protected (merge-only)."
-)
 
 
 def build_commit_message_interactive(tags: list[str]) -> Optional[str]:
@@ -51,7 +39,7 @@ def _build_commit_with_gum(tags: list[str]) -> Optional[str]:
     # Select tag
     tag = gum.choose(tags, header="Select commit tag:")
     if not tag:
-        gum.error(NO_TAG_SELECTED)
+        gum.error(msg.NO_TAG_SELECTED)
         return None
 
     # Write message
@@ -61,7 +49,7 @@ def _build_commit_with_gum(tags: list[str]) -> Optional[str]:
     )
 
     if not message:
-        gum.error(MESSAGE_CANNOT_BE_EMPTY)
+        gum.error(msg.MESSAGE_CANNOT_BE_EMPTY)
         return None
 
     return f"[{tag}] {message}"
@@ -78,7 +66,7 @@ def _build_commit_with_typer(tags: list[str]) -> Optional[str]:
     tag_choice = typer.prompt("Enter number", type=int, default=1)
 
     if tag_choice < 1 or tag_choice > len(tags):
-        typer.secho(INVALID_CHOICE, fg=typer.colors.RED)
+        typer.secho(msg.INVALID_CHOICE, fg=typer.colors.RED)
         return None
 
     tag = tags[tag_choice - 1]
@@ -87,7 +75,7 @@ def _build_commit_with_typer(tags: list[str]) -> Optional[str]:
     message = typer.prompt(f"\n[{tag}] Enter commit message")
 
     if not message:
-        typer.secho(f"✘ {MESSAGE_CANNOT_BE_EMPTY}", fg=typer.colors.RED)
+        typer.secho(f"✘ {msg.MESSAGE_CANNOT_BE_EMPTY}", fg=typer.colors.RED)
         return None
 
     return f"[{tag}] {message}"
@@ -105,7 +93,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config = load_config(config_file)
 
         if not os.path.exists(file):
-            typer.secho(COMMIT_MESSAGE_FILE_NOT_FOUND.format(file), fg=typer.colors.RED)
+            typer.secho(msg.COMMIT_MESSAGE_FILE_NOT_FOUND.format(file), fg=typer.colors.RED)
             raise typer.Exit(code=1)
 
         with open(file, "r") as f:
@@ -145,7 +133,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
             if not is_valid:
                 add_typer_block_message(
-                    header=FORBIDDEN_FILES_DETECTED,
+                    header=msg.FORBIDDEN_FILES_DETECTED,
                     subheader=validation_message,
                     messages=["💡 Suggestions:"]
                     + [f"• {suggestion}" for suggestion in get_forbidden_file_suggestions()],
@@ -168,7 +156,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             for prefix in config.commit.protected_branch_prefixes:
                 if current_branch.count(prefix):
                     typer.secho(
-                        CANNOT_COMMIT_TO_PROTECTED_BRANCH.format(current_branch, prefix),
+                        msg.CANNOT_COMMIT_TO_PROTECTED_BRANCH.format(current_branch, prefix),
                         fg=typer.colors.RED,
                     )
                     raise typer.Exit(code=1)
@@ -215,13 +203,13 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 ],
                 check=True,
             )
-            typer.secho(f"\n{COMMITTED_CHANGES}", fg=typer.colors.GREEN)
+            typer.secho(f"\n{msg.COMMITTED_CHANGES}", fg=typer.colors.GREEN)
 
             # Show context-aware documentation AFTER commit
             if doc_message:
                 typer.secho(f"{doc_message}", fg=typer.colors.YELLOW)
         except subprocess.CalledProcessError as e:
-            typer.secho(f"\n{FAILED_TO_COMMIT_CHANGES.format(e)}", fg=typer.colors.RED)
+            typer.secho(f"\n{msg.FAILED_TO_COMMIT_CHANGES.format(e)}", fg=typer.colors.RED)
             raise typer.Exit(code=1) from e
 
     @app.command()
@@ -249,7 +237,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
             if not is_valid:
                 add_typer_block_message(
-                    header=FORBIDDEN_FILES_DETECTED,
+                    header=msg.FORBIDDEN_FILES_DETECTED,
                     subheader=validation_message,
                     messages=["💡 Suggestions:"]
                     + [f"• {suggestion}" for suggestion in get_forbidden_file_suggestions()],
@@ -261,7 +249,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         message = build_commit_message_interactive(config.commit.tags)
 
         if not message:
-            typer.secho(f"✘ {COMMIT_CANCELLED}", fg=typer.colors.YELLOW)
+            typer.secho(f"✘ {msg.COMMIT_CANCELLED}", fg=typer.colors.YELLOW)
             raise typer.Exit(code=0)
 
         # Validate commit message
@@ -278,7 +266,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             for prefix in config.commit.protected_branch_prefixes:
                 if current_branch.count(prefix):
                     typer.secho(
-                        CANNOT_COMMIT_TO_PROTECTED_BRANCH.format(current_branch, prefix),
+                        msg.CANNOT_COMMIT_TO_PROTECTED_BRANCH.format(current_branch, prefix),
                         fg=typer.colors.RED,
                     )
                     raise typer.Exit(code=1)
@@ -312,12 +300,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             print(f"\n📝 Commit message: {gum.style(message, foreground=82)}")
             confirmed = gum.confirm("Proceed with commit?")
             if confirmed is False:
-                typer.secho(COMMIT_CANCELLED, fg=typer.colors.YELLOW)
+                typer.secho(msg.COMMIT_CANCELLED, fg=typer.colors.YELLOW)
                 raise typer.Exit(code=0)
         else:
             typer.echo(f"\n📝 Commit message: {message}")
             if not typer.confirm("Proceed with commit?", default=True):
-                typer.secho(COMMIT_CANCELLED, fg=typer.colors.YELLOW)
+                typer.secho(msg.COMMIT_CANCELLED, fg=typer.colors.YELLOW)
                 raise typer.Exit(code=0)
 
         options = []
@@ -330,12 +318,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         try:
             subprocess.run(["git", "commit", *options], check=True)
-            typer.secho(f"\n{COMMITTED_CHANGES}", fg=typer.colors.GREEN)
+            typer.secho(f"\n{msg.COMMITTED_CHANGES}", fg=typer.colors.GREEN)
 
             if doc_message:
                 typer.secho(f"{doc_message}", fg=typer.colors.YELLOW)
         except subprocess.CalledProcessError as e:
-            typer.secho(f"\n{FAILED_TO_COMMIT_CHANGES.format(e)}", fg=typer.colors.RED)
+            typer.secho(f"\n{msg.FAILED_TO_COMMIT_CHANGES.format(e)}", fg=typer.colors.RED)
             raise typer.Exit(code=1) from e
 
     return {

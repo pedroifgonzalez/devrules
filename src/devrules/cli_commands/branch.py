@@ -17,27 +17,11 @@ from devrules.core.git_service import (
     resolve_issue_branch,
 )
 from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
+from devrules.messages import branch as msg
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.branch import validate_branch, validate_single_branch_per_issue_env
 from devrules.validators.ownership import list_user_owned_branches
 from devrules.validators.repo_state import display_repo_state_issues, validate_repo_state
-
-# module messages
-NO_BRANCHES_OWNED_BY_YOU = "No branches owned by you were found."
-NO_OWNED_BRANCHES_TO_DELETE = "No owned branches available to delete."
-INVALID_CHOICE = "✘ Invalid choice"
-REFUSING_TO_DELETE_SHARED_BRANCH = "✘ Refusing to delete shared branch '{}' via CLI."
-UNABLE_TO_DETERMINE_CURRENT_BRANCH = "✘ Unable to determine current branch"
-CANNOT_DELETE_CURRENT_BRANCH = "✘ Cannot delete the branch you are currently on."
-NOT_ALLOWED_TO_DELETE_BRANCH = (
-    "✘ You are not allowed to delete branch '{}' because you do not own it."
-)
-DELETE_BRANCH_PROMPT = "You are about to delete branch '{}' locally and from remote '{}'."
-CANCELLED = "Cancelled."
-NO_MERGED_BRANCHES = "No branches found that are merged into develop."
-NO_OWNED_MERGED_BRANCHES = (
-    "No owned merged branches available to delete (filtered protected/current)."
-)
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
@@ -170,7 +154,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(code=1)
 
         if not branches:
-            typer.secho(NO_BRANCHES_OWNED_BY_YOU, fg=typer.colors.YELLOW)
+            typer.secho(msg.NO_BRANCHES_OWNED_BY_YOU, fg=typer.colors.YELLOW)
             raise typer.Exit(code=0)
 
         add_typer_block_message(
@@ -204,7 +188,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(code=1)
 
         if not owned_branches:
-            typer.secho(NO_OWNED_BRANCHES_TO_DELETE, fg=typer.colors.YELLOW)
+            typer.secho(msg.NO_OWNED_BRANCHES_TO_DELETE, fg=typer.colors.YELLOW)
             raise typer.Exit(code=0)
 
         # Interactive selection if branch not provided
@@ -218,14 +202,14 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             choice = typer.prompt("Enter number", type=int)
 
             if choice < 1 or choice > len(owned_branches):
-                typer.secho(INVALID_CHOICE, fg=typer.colors.RED)
+                typer.secho(msg.INVALID_CHOICE, fg=typer.colors.RED)
                 raise typer.Exit(code=1)
 
             branch = owned_branches[choice - 1]
 
         # Basic safety: don't delete main shared branches through this command
         if branch in ("main", "master", "develop") or (branch and branch.startswith("release/")):
-            typer.secho(REFUSING_TO_DELETE_SHARED_BRANCH.format(branch), fg=typer.colors.RED)
+            typer.secho(msg.REFUSING_TO_DELETE_SHARED_BRANCH.format(branch), fg=typer.colors.RED)
             raise typer.Exit(code=1)
 
         # Prevent deleting the currently checked-out branch
@@ -238,22 +222,22 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             )
             current_branch = current_branch_result.stdout.strip()
         except subprocess.CalledProcessError:
-            typer.secho(UNABLE_TO_DETERMINE_CURRENT_BRANCH, fg=typer.colors.RED)
+            typer.secho(msg.UNABLE_TO_DETERMINE_CURRENT_BRANCH, fg=typer.colors.RED)
             raise typer.Exit(code=1)
 
         if current_branch == branch:
-            typer.secho(CANNOT_DELETE_CURRENT_BRANCH, fg=typer.colors.RED)
+            typer.secho(msg.CANNOT_DELETE_CURRENT_BRANCH, fg=typer.colors.RED)
             raise typer.Exit(code=1)
 
         # Enforce ownership rules before allowing delete using the same logic
         if branch not in owned_branches:
-            typer.secho(NOT_ALLOWED_TO_DELETE_BRANCH.format(branch), fg=typer.colors.RED)
+            typer.secho(msg.NOT_ALLOWED_TO_DELETE_BRANCH.format(branch), fg=typer.colors.RED)
             raise typer.Exit(code=1)
 
         # Confirm deletion
-        typer.echo(DELETE_BRANCH_PROMPT.format(branch, remote))
+        typer.echo(msg.DELETE_BRANCH_PROMPT.format(branch, remote))
         if not typer.confirm("  Continue?", default=False):
-            typer.echo(CANCELLED)
+            typer.echo(msg.CANCELLED)
             raise typer.Exit(code=0)
 
         # Delete branch using service
@@ -274,7 +258,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         merged_branches = set(get_merged_branches(base_branch="develop"))
 
         if not merged_branches:
-            typer.secho(NO_MERGED_BRANCHES, fg=typer.colors.YELLOW)
+            typer.secho(msg.NO_MERGED_BRANCHES, fg=typer.colors.YELLOW)
             raise typer.Exit(code=0)
 
         # 2. Get owned branches
@@ -299,7 +283,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             final_candidates.append(b)
 
         if not final_candidates:
-            typer.secho(NO_OWNED_MERGED_BRANCHES, fg=typer.colors.YELLOW)
+            typer.secho(msg.NO_OWNED_MERGED_BRANCHES, fg=typer.colors.YELLOW)
             raise typer.Exit(code=0)
 
         # 5. Show candidates
@@ -311,7 +295,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         # 6. Confirm
         if not typer.confirm("Delete these branches?", default=False):
-            typer.echo(CANCELLED)
+            typer.echo(msg.CANCELLED)
             raise typer.Exit(code=0)
 
         # 7. Delete

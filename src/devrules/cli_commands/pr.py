@@ -6,6 +6,7 @@ import typer
 from devrules.config import load_config
 from devrules.core.git_service import ensure_git_repo, get_current_branch
 from devrules.core.github_service import ensure_gh_installed, fetch_pr_info
+from devrules.messages import pr as msg
 from devrules.utils import gum
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.documentation import display_documentation_guidance
@@ -15,15 +16,6 @@ from devrules.validators.pr_target import (
     validate_pr_base_not_protected,
     validate_pr_target,
 )
-
-# module messages
-INVALID_PR_TARGET = "✘ Invalid PR Target"
-CURRENT_BRANCH_SAME_AS_BASE = (
-    "✘ Current branch is the same as the base branch; nothing to create a PR for."
-)
-FAILED_TO_CREATE_PR = "✘ Failed to create PR: {}"
-PR_CREATED_SUCCESSFULLY = "✔ PR created successfully!"
-PR_CANCELLED = "PR cancelled"
 
 
 def select_base_branch_interactive(allowed_targets: list[str], suggested: str = "develop") -> str:
@@ -108,15 +100,15 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
             if not is_valid_target:
                 suggested = suggest_pr_target(current_branch, config.pr)
-                messages = [target_message]
+                msg_list = [target_message]
                 if suggested:
-                    messages.append(f"💡 Suggested target: {suggested}")
-                    messages.append(f"   Try: devrules create-pr --base {suggested}")
+                    msg_list.append(f"💡 Suggested target: {suggested}")
+                    msg_list.append(f"   Try: devrules create-pr --base {suggested}")
 
                 add_typer_block_message(
-                    header=INVALID_PR_TARGET,
+                    header=msg.INVALID_PR_TARGET,
                     subheader="",
-                    messages=messages,
+                    messages=msg_list,
                     indent_block=False,
                 )
                 raise typer.Exit(code=1)
@@ -130,7 +122,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             )
 
         if current_branch == base:
-            typer.secho(CURRENT_BRANCH_SAME_AS_BASE, fg=typer.colors.RED)
+            typer.secho(msg.CURRENT_BRANCH_SAME_AS_BASE, fg=typer.colors.RED)
             raise typer.Exit(code=1)
 
         # Derive PR title from branch name
@@ -177,13 +169,13 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 current_branch, config.pr, config.github, project_override=project_override
             )
 
-            for msg in messages:
-                if "✔" in msg or "ℹ" in msg:
-                    typer.secho(msg, fg=typer.colors.GREEN)
-                elif "⚠" in msg:
-                    typer.secho(msg, fg=typer.colors.YELLOW)
+            for message in messages:
+                if "✔" in message or "ℹ" in message:
+                    typer.secho(message, fg=typer.colors.GREEN)
+                elif "⚠" in message:
+                    typer.secho(message, fg=typer.colors.YELLOW)
                 else:
-                    typer.secho(msg, fg=typer.colors.RED)
+                    typer.secho(message, fg=typer.colors.RED)
 
             if not is_valid:
                 typer.echo()
@@ -211,7 +203,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         try:
             subprocess.run(cmd, check=True)
         except subprocess.CalledProcessError as e:
-            typer.secho(FAILED_TO_CREATE_PR.format(e), fg=typer.colors.RED)
+            typer.secho(msg.FAILED_TO_CREATE_PR.format(e), fg=typer.colors.RED)
             raise typer.Exit(code=1)
 
         typer.secho(f"✔ Created pull request: {pr_title}", fg=typer.colors.GREEN)
@@ -267,13 +259,13 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             pr_info, config.pr, current_branch=current_branch, github_config=config.github
         )
 
-        for msg in messages:
-            if "✔" in msg or "ℹ" in msg:
-                typer.secho(msg, fg=typer.colors.GREEN)
-            elif "⚠" in msg:
-                typer.secho(msg, fg=typer.colors.YELLOW)
+        for message in messages:
+            if "✔" in message or "ℹ" in message:
+                typer.secho(message, fg=typer.colors.GREEN)
+            elif "⚠" in message:
+                typer.secho(message, fg=typer.colors.YELLOW)
             else:
-                typer.secho(msg, fg=typer.colors.RED)
+                typer.secho(message, fg=typer.colors.RED)
 
         raise typer.Exit(code=0 if is_valid else 1)
 
@@ -341,7 +333,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
             if not is_valid_target:
                 add_typer_block_message(
-                    header=INVALID_PR_TARGET,
+                    header=msg.INVALID_PR_TARGET,
                     subheader="",
                     messages=[target_message],
                     indent_block=False,
@@ -417,13 +409,13 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 current_branch, config.pr, config.github, project_override=project_override
             )
 
-            for msg in messages:
-                if "✔" in msg or "ℹ" in msg:
-                    typer.secho(msg, fg=typer.colors.GREEN)
-                elif "⚠" in msg:
-                    typer.secho(msg, fg=typer.colors.YELLOW)
+            for message in messages:
+                if "✔" in message or "ℹ" in message:
+                    typer.secho(message, fg=typer.colors.GREEN)
+                elif "⚠" in message:
+                    typer.secho(message, fg=typer.colors.YELLOW)
                 else:
-                    typer.secho(msg, fg=typer.colors.RED)
+                    typer.secho(message, fg=typer.colors.RED)
 
             if not is_valid:
                 typer.echo()
@@ -445,12 +437,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             confirmed = gum.confirm("Create pull request?")
             confirmed = gum.confirm("Create this PR?")
             if confirmed is False:
-                typer.secho(PR_CANCELLED, fg=typer.colors.YELLOW)
+                typer.secho(msg.PR_CANCELLED, fg=typer.colors.YELLOW)
                 raise typer.Exit(code=0)
         else:
             typer.echo(f"\n📝 Title: {pr_title}")
             if not typer.confirm("\nCreate this PR?", default=True):
-                typer.secho(PR_CANCELLED, fg=typer.colors.YELLOW)
+                typer.secho(msg.PR_CANCELLED, fg=typer.colors.YELLOW)
                 raise typer.Exit(code=0)
 
         cmd = [
@@ -469,7 +461,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         try:
             subprocess.run(cmd, check=True)
         except subprocess.CalledProcessError as e:
-            typer.secho(FAILED_TO_CREATE_PR.format(e), fg=typer.colors.RED)
+            typer.secho(msg.FAILED_TO_CREATE_PR.format(e), fg=typer.colors.RED)
             raise typer.Exit(code=1)
 
         typer.secho(f"\n✔ Created pull request: {pr_title}", fg=typer.colors.GREEN)

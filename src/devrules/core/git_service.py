@@ -6,15 +6,9 @@ import typer
 
 from devrules.config import Config
 from devrules.dtos.github import ProjectItem
+from devrules.messages import git as msg
 from devrules.utils import gum
 from devrules.utils.typer import add_typer_block_message
-
-# module messages
-NOT_A_GIT_REPOSITORY = "✘ Not a git repository"
-UNABLE_TO_DETERMINE_CURRENT_BRANCH = "✘ Unable to determine current branch"
-BRANCH_NAME_ALREADY_EXISTS = "\n✘ Branch '{}' already exists!"
-FAILED_TO_CREATE_BRANCH = "\n✘ Failed to create branch: {}"
-DESCRIPTION_CAN_NOT_BE_EMPTY = "✘ Description cannot be empty"
 
 
 def ensure_git_repo() -> None:
@@ -22,7 +16,7 @@ def ensure_git_repo() -> None:
     try:
         subprocess.run(["git", "rev-parse", "--git-dir"], check=True, capture_output=True)
     except subprocess.CalledProcessError:
-        typer.secho(NOT_A_GIT_REPOSITORY, fg=typer.colors.RED)
+        typer.secho(msg.NOT_A_GIT_REPOSITORY, fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
 
@@ -37,7 +31,7 @@ def get_current_branch() -> str:
         )
         return result.stdout.strip()
     except subprocess.CalledProcessError:
-        typer.secho(UNABLE_TO_DETERMINE_CURRENT_BRANCH, fg=typer.colors.RED)
+        typer.secho(msg.UNABLE_TO_DETERMINE_CURRENT_BRANCH, fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
 
@@ -72,7 +66,7 @@ def create_and_checkout_branch(branch_name: str) -> None:
         )
 
     except subprocess.CalledProcessError as e:
-        typer.secho(FAILED_TO_CREATE_BRANCH.format(e), fg=typer.colors.RED)
+        typer.secho(msg.FAILED_TO_CREATE_BRANCH.format(e), fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
 
@@ -83,7 +77,7 @@ def handle_existing_branch(branch_name: str) -> None:
             ["git", "rev-parse", "--verify", f"refs/heads/{branch_name}"], capture_output=True
         )
         if result.returncode == 0:
-            typer.secho(BRANCH_NAME_ALREADY_EXISTS.format(branch_name), fg=typer.colors.RED)
+            typer.secho(msg.BRANCH_NAME_ALREADY_EXISTS.format(branch_name), fg=typer.colors.RED)
 
             if typer.confirm("\n  Switch to existing branch?", default=False):
                 subprocess.run(["git", "checkout", branch_name], check=True)
@@ -143,7 +137,7 @@ def _get_branch_name_with_gum(config: Config) -> str:
     )
 
     if not description:
-        gum.error(DESCRIPTION_CAN_NOT_BE_EMPTY)
+        gum.error(msg.DESCRIPTION_CAN_NOT_BE_EMPTY)
         raise typer.Exit(code=1)
 
     # Clean and format description
@@ -191,7 +185,7 @@ def _get_branch_name_with_typer(config: Config) -> str:
     description = sanitize_description(description)
 
     if not description:
-        typer.secho(DESCRIPTION_CAN_NOT_BE_EMPTY, fg=typer.colors.RED)
+        typer.secho(msg.DESCRIPTION_CAN_NOT_BE_EMPTY, fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
     # Build branch name

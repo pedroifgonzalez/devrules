@@ -14,12 +14,8 @@ from devrules.core.deployment_service import (
     rollback_deployment,
 )
 from devrules.core.git_service import ensure_git_repo, get_current_branch
+from devrules.messages import deploy as msg
 from devrules.utils.typer import add_typer_block_message
-
-# module messages
-CONFIRM_DEPLOYMENT = "¿Confirma que desea desplegar '{}' en '{}'?"
-DEPLOYMENT_CANCELLED = "Deployment cancelled."
-DEPLOYING_TO_ENVIRONMENT = "🚀 Deploying {} to {}..."
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
@@ -160,16 +156,16 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             )
 
             confirmed = typer.confirm(
-                CONFIRM_DEPLOYMENT.format(branch, environment),
+                msg.CONFIRM_DEPLOYMENT.format(branch, environment),
                 default=False,
             )
 
             if not confirmed:
-                typer.echo(DEPLOYMENT_CANCELLED)
+                typer.echo(msg.DEPLOYMENT_CANCELLED)
                 raise typer.Exit(code=0)
 
         # Step 5: Execute deployment
-        typer.echo(f"\n{DEPLOYING_TO_ENVIRONMENT.format(branch, environment)}")
+        typer.echo(f"\n{msg.DEPLOYING_TO_ENVIRONMENT.format(branch, environment)}")
         success, message = execute_deployment(branch, environment, config)
 
         if success:
