@@ -28,6 +28,38 @@ from devrules.validators.ownership import list_user_owned_branches
 from devrules.validators.repo_state import display_repo_state_issues, validate_repo_state
 
 
+def _handle_forbidden_cross_repo_card(gh_project_item: Any, config: Any, repo_message: str) -> None:
+    # Prefer a concise, user-friendly message using centralized text.
+    try:
+        # Derive the expected and actual repo labels for the message.
+        expected = f"{getattr(config.github, 'owner', '')}/{getattr(config.github, 'repo', '')}"
+        actual = None
+
+        content = getattr(gh_project_item, "content", None) or {}
+        if isinstance(content, dict):
+            actual = content.get("repository") or None
+
+        if not actual and gh_project_item.repository:
+            repo_url = str(gh_project_item.repository)
+            if "github.com/" in repo_url:
+                parts = repo_url.rstrip("/").split("github.com/")[-1].split("/")
+                if len(parts) >= 2:
+                    actual = f"{parts[0]}/{parts[1]}"
+
+        if not actual:
+            actual = "<unknown>"
+
+        typer.secho(
+            msg.CROSS_REPO_CARD_FORBIDDEN.format(actual, expected),
+            fg=typer.colors.RED,
+        )
+    except Exception:
+        # Fallback to the raw validator message if anything goes wrong.
+        typer.secho(f"\n✘ {repo_message}", fg=typer.colors.RED)
+
+    raise typer.Exit(code=1)
+
+
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command()
     def check_branch(
@@ -116,35 +148,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 )
 
                 if not is_same_repo:
-                    # Prefer a concise, user-friendly message using centralized text.
-                    try:
-                        # Derive the expected and actual repo labels for the message.
-                        expected = f"{getattr(config.github, 'owner', '')}/{getattr(config.github, 'repo', '')}"
-                        actual = None
-
-                        content = getattr(gh_project_item, "content", None) or {}
-                        if isinstance(content, dict):
-                            actual = content.get("repository") or None
-
-                        if not actual and gh_project_item.repository:
-                            repo_url = str(gh_project_item.repository)
-                            if "github.com/" in repo_url:
-                                parts = repo_url.rstrip("/").split("github.com/")[-1].split("/")
-                                if len(parts) >= 2:
-                                    actual = f"{parts[0]}/{parts[1]}"
-
-                        if not actual:
-                            actual = "<unknown>"
-
-                        typer.secho(
-                            msg.CROSS_REPO_CARD_FORBIDDEN.format(actual, expected),
-                            fg=typer.colors.RED,
-                        )
-                    except Exception:
-                        # Fallback to the raw validator message if anything goes wrong.
-                        typer.secho(f"\n✘ {repo_message}", fg=typer.colors.RED)
-
-                    raise typer.Exit(code=1)
+                    _handle_forbidden_cross_repo_card(gh_project_item, config, repo_message)
 
             scope = detect_scope(config=config, project_item=gh_project_item)
             final_branch_name = resolve_issue_branch(
