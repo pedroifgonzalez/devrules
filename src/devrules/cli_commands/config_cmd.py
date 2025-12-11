@@ -43,10 +43,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         example_config = """# DevRules Configuration File
 
 [branch]
-pattern = "^(feature|bugfix|hotfix|release|docs)/(\\\d+-)?[a-z0-9-]+"
+pattern = "^(feature|bugfix|hotfix|release|docs)/(\\d+-)?[a-z0-9-]+"
 prefixes = ["feature", "bugfix", "hotfix", "release", "docs"]
 require_issue_number = false
 enforce_single_branch_per_issue_env = true  # If true, only one branch per issue per environment (dev/staging)
+forbid_cross_repo_cards = false  # If true, prevents creating branches from cards/issues belonging to other repositories
 labels_hierarchy = ["docs", "feature", "bugfix", "hotfix"]
 
 [branch.labels_mapping]

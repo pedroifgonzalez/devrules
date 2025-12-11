@@ -434,7 +434,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 f"   Branch: {gum.style(current_branch, foreground=212)} → {gum.style(base, foreground=82)}"
             )
             print(f"   Title:  {gum.style(pr_title, foreground=222)}")
-            confirmed = gum.confirm("Create pull request?")
             confirmed = gum.confirm("Create this PR?")
             if confirmed is False:
                 typer.secho(msg.PR_CANCELLED, fg=typer.colors.YELLOW)
