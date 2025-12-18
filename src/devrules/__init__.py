@@ -18,7 +18,7 @@ Change Date: 2029-12-06
 Change License: Apache License, Version 2.0
 """
 
-__version__ = "0.1.5"
+__version__ = "0.1.6"
 
 from devrules.config import load_config
 from devrules.validators import validate_branch, validate_commit, validate_pr

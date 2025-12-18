@@ -5,7 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.5] - 2025-12-06
+## [0.1.6] - 2024-12-18
+
+### Added
+- **Shell mode** - Interactive shell mode for typing less (`devrules shell`)
+- **Gum integration** - Enhanced terminal UI with gum for interactive prompts and table formatting
+- **Cross-repository card validation** - New `forbid_cross_repo_cards` option to prevent branches from issues belonging to other repos
+- **Branch validation** - New `require_issue_number` option to enforce issue numbers in branch names
+- **Project management commands** - New `add-project` command to add GitHub projects to configuration
+- **Issue description command** - New `describe-issue` command to display GitHub issue body (alias: `di`)
+- **Issue status filtering** - Added status filter option to `list-issues` command
+- **Comprehensive Git hooks guide** - New documentation for Git hooks integration
+
+### Changed
+- Documentation guidance now displays after commits and shows staged files correctly
+- Messages centralized for consistency across CLI commands
+- Repository state validation breaks early when issues are found
+- Documentation organized with better structure and references
+- Interactive UI improved with gum for branch creation, commits, and pull requests
+
+### Fixed
+- **SyntaxWarning for invalid escape sequence** - Fixed by using raw string literal in `config_cmd.py`
+- **Branch validation** - `require_issue_number` config option now properly validated
+- Duplicate confirmation prompt removed from PR creation
+- Documentation guidance now correctly finds staged files
+- License description updated to remove outdated project information
+
+### Technical Improvements
+- Extracted cross-repo card validation logic into separate function
+- Added `forbid_cross_repo_cards` to initial configuration template
+- Centralized messages to maintain single source of truth
+- Standardized CLI message formatting across all commands
+- Improved code organization and consistency
+
+## [0.1.5] - 2024-12-06
 
 ### Added
 - **Repository state validation** - Check for uncommitted changes and if local branch is behind remote before branch creation
