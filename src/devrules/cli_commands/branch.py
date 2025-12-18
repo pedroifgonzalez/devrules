@@ -17,9 +17,47 @@ from devrules.core.git_service import (
     resolve_issue_branch,
 )
 from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
-from devrules.validators.branch import validate_branch, validate_single_branch_per_issue_env
+from devrules.messages import branch as msg
+from devrules.utils.typer import add_typer_block_message
+from devrules.validators.branch import (
+    validate_branch,
+    validate_cross_repo_card,
+    validate_single_branch_per_issue_env,
+)
 from devrules.validators.ownership import list_user_owned_branches
 from devrules.validators.repo_state import display_repo_state_issues, validate_repo_state
+
+
+def _handle_forbidden_cross_repo_card(gh_project_item: Any, config: Any, repo_message: str) -> None:
+    # Prefer a concise, user-friendly message using centralized text.
+    try:
+        # Derive the expected and actual repo labels for the message.
+        expected = f"{getattr(config.github, 'owner', '')}/{getattr(config.github, 'repo', '')}"
+        actual = None
+
+        content = getattr(gh_project_item, "content", None) or {}
+        if isinstance(content, dict):
+            actual = content.get("repository") or None
+
+        if not actual and gh_project_item.repository:
+            repo_url = str(gh_project_item.repository)
+            if "github.com/" in repo_url:
+                parts = repo_url.rstrip("/").split("github.com/")[-1].split("/")
+                if len(parts) >= 2:
+                    actual = f"{parts[0]}/{parts[1]}"
+
+        if not actual:
+            actual = "<unknown>"
+
+        typer.secho(
+            msg.CROSS_REPO_CARD_FORBIDDEN.format(actual, expected),
+            fg=typer.colors.RED,
+        )
+    except Exception:
+        # Fallback to the raw validator message if anything goes wrong.
+        typer.secho(f"\n✘ {repo_message}", fg=typer.colors.RED)
+
+    raise typer.Exit(code=1)
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
@@ -66,10 +104,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config = load_config(config_file)
         ensure_git_repo()
 
+        def at_least_one_validation_repo_state_set():
+            return any((config.validation.check_uncommitted, config.validation.check_behind_remote))
+
         # Validate repository state before creating branch
-        if not skip_checks and (
-            config.validation.check_uncommitted or config.validation.check_behind_remote
-        ):
+        if not skip_checks and at_least_one_validation_repo_state_set():
             typer.echo("\n🔍 Checking repository state...")
             is_valid, messages = validate_repo_state(
                 check_uncommitted=config.validation.check_uncommitted,
@@ -100,6 +139,17 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             gh_project_item = find_project_item_for_issue(
                 owner=owner, project_number=project_number, issue=issue
             )
+
+            # Optional rule: forbid creating branches for cards/issues that belong
+            # to a different repository than the one configured for this project.
+            if config.branch.forbid_cross_repo_cards:
+                is_same_repo, repo_message = validate_cross_repo_card(
+                    gh_project_item, config.github
+                )
+
+                if not is_same_repo:
+                    _handle_forbidden_cross_repo_card(gh_project_item, config, repo_message)
+
             scope = detect_scope(config=config, project_item=gh_project_item)
             final_branch_name = resolve_issue_branch(
                 scope=scope, project_item=gh_project_item, issue=issue
@@ -151,12 +201,15 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(code=1)
 
         if not branches:
-            typer.secho("No branches owned by you were found.", fg=typer.colors.YELLOW)
+            typer.secho(msg.NO_BRANCHES_OWNED_BY_YOU, fg=typer.colors.YELLOW)
             raise typer.Exit(code=0)
 
-        typer.secho("Branches owned by you:\n", fg=typer.colors.GREEN, bold=True)
-        for b in branches:
-            typer.echo(f"- {b}")
+        add_typer_block_message(
+            header="Branches owned by you",
+            subheader="",
+            messages=[f"- {b}" for b in branches],
+            indent_block=False,
+        )
 
         raise typer.Exit(code=0)
 
@@ -182,31 +235,28 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(code=1)
 
         if not owned_branches:
-            typer.secho("No owned branches available to delete.", fg=typer.colors.YELLOW)
+            typer.secho(msg.NO_OWNED_BRANCHES_TO_DELETE, fg=typer.colors.YELLOW)
             raise typer.Exit(code=0)
 
         # Interactive selection if branch not provided
         if branch is None:
-            typer.secho("\n🗑 Delete Branch", fg=typer.colors.CYAN, bold=True)
-            typer.echo("=" * 50)
-            typer.echo("\n📋 Select a branch to delete:")
+            add_typer_block_message(
+                header="🗑 Delete Branch",
+                subheader="📋 Select a branch to delete:",
+                messages=[f"{idx}. {b}" for idx, b in enumerate(owned_branches, 1)],
+            )
 
-            for idx, b in enumerate(owned_branches, 1):
-                typer.echo(f"  {idx}. {b}")
-
-            choice = typer.prompt("\nEnter number", type=int)
+            choice = typer.prompt("Enter number", type=int)
 
             if choice < 1 or choice > len(owned_branches):
-                typer.secho("✘ Invalid choice", fg=typer.colors.RED)
+                typer.secho(msg.INVALID_CHOICE, fg=typer.colors.RED)
                 raise typer.Exit(code=1)
 
             branch = owned_branches[choice - 1]
 
         # Basic safety: don't delete main shared branches through this command
         if branch in ("main", "master", "develop") or (branch and branch.startswith("release/")):
-            typer.secho(
-                f"✘ Refusing to delete shared branch '{branch}' via CLI.", fg=typer.colors.RED
-            )
+            typer.secho(msg.REFUSING_TO_DELETE_SHARED_BRANCH.format(branch), fg=typer.colors.RED)
             raise typer.Exit(code=1)
 
         # Prevent deleting the currently checked-out branch
@@ -219,25 +269,22 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             )
             current_branch = current_branch_result.stdout.strip()
         except subprocess.CalledProcessError:
-            typer.secho("✘ Unable to determine current branch", fg=typer.colors.RED)
+            typer.secho(msg.UNABLE_TO_DETERMINE_CURRENT_BRANCH, fg=typer.colors.RED)
             raise typer.Exit(code=1)
 
         if current_branch == branch:
-            typer.secho("✘ Cannot delete the branch you are currently on.", fg=typer.colors.RED)
+            typer.secho(msg.CANNOT_DELETE_CURRENT_BRANCH, fg=typer.colors.RED)
             raise typer.Exit(code=1)
 
         # Enforce ownership rules before allowing delete using the same logic
         if branch not in owned_branches:
-            typer.secho(
-                f"✘ You are not allowed to delete branch '{branch}' because you do not own it.",
-                fg=typer.colors.RED,
-            )
+            typer.secho(msg.NOT_ALLOWED_TO_DELETE_BRANCH.format(branch), fg=typer.colors.RED)
             raise typer.Exit(code=1)
 
         # Confirm deletion
-        typer.echo(f"You are about to delete branch '{branch}' locally and from remote '{remote}'.")
+        typer.echo(msg.DELETE_BRANCH_PROMPT.format(branch, remote))
         if not typer.confirm("  Continue?", default=False):
-            typer.echo("Cancelled.")
+            typer.echo(msg.CANCELLED)
             raise typer.Exit(code=0)
 
         # Delete branch using service
@@ -258,7 +305,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         merged_branches = set(get_merged_branches(base_branch="develop"))
 
         if not merged_branches:
-            typer.secho("No branches found that are merged into develop.", fg=typer.colors.YELLOW)
+            typer.secho(msg.NO_MERGED_BRANCHES, fg=typer.colors.YELLOW)
             raise typer.Exit(code=0)
 
         # 2. Get owned branches
@@ -283,25 +330,19 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             final_candidates.append(b)
 
         if not final_candidates:
-            typer.secho(
-                "No owned merged branches available to delete (filtered protected/current).",
-                fg=typer.colors.YELLOW,
-            )
+            typer.secho(msg.NO_OWNED_MERGED_BRANCHES, fg=typer.colors.YELLOW)
             raise typer.Exit(code=0)
 
         # 5. Show candidates
-        typer.secho("\n🗑 Delete Merged Branches", fg=typer.colors.CYAN, bold=True)
-        typer.echo("=" * 50)
-        typer.echo(
-            f"\nThe following branches are merged into 'develop' and owned by you.\nThey will be deleted locally and from remote '{remote}':\n"
+        add_typer_block_message(
+            header="🗑 Delete Merged Branches",
+            subheader="Branches already merged and owned by you:",
+            messages=[f"- {b}" for b in final_candidates],
         )
 
-        for b in final_candidates:
-            typer.echo(f"  - {b}")
-
         # 6. Confirm
-        if not typer.confirm("\n  Delete these branches?", default=False):
-            typer.echo("Cancelled.")
+        if not typer.confirm("Delete these branches?", default=False):
+            typer.echo(msg.CANCELLED)
             raise typer.Exit(code=0)
 
         # 7. Delete

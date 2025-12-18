@@ -9,9 +9,23 @@ wheels/
 # Virtual environments
 .venv
 
+# Cache directories
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.cache/
+
 # Enterprise config
 .devrules.enterprise.toml
 *.enterprise.toml
 
-# VS Code
+# IDE and editor specific
 .vscode/
+.windsurf/
+.idea/
+*.swp
+*.swo
+*~
+
+# Personal notes
+.notes/

@@ -5,8 +5,10 @@ import shutil
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+import toml
 import typer
 
+from devrules.config import load_config
 from devrules.enterprise.builder import EnterpriseBuilder
 
 
@@ -169,4 +171,308 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             typer.secho(f"\n✘ Build failed: {e}", fg=typer.colors.RED)
             raise typer.Exit(code=1)
 
-    return {"build_enterprise": build_enterprise}
+    @app.command()
+    def add_github_projects(
+        config_file: Optional[str] = typer.Option(
+            None, "--config", "-c", help="Path to configuration file (defaults to .devrules.toml)"
+        ),
+        owner: Optional[str] = typer.Option(
+            None, "--owner", "-o", help="GitHub owner/organization (defaults to config)"
+        ),
+        filter_query: Optional[str] = typer.Option(
+            None, "--filter", "-f", help="Filter projects by name (case-insensitive)"
+        ),
+    ):
+        """Interactively fetch and add GitHub Projects to configuration.
+
+        This command fetches all GitHub Projects from an owner/organization
+        and allows you to select which ones to add to your configuration.
+
+        Example:
+            devrules add-github-projects --owner mycompany --filter backend
+        """
+        try:
+            # Load current config
+            config = load_config(config_file)
+
+            # Determine owner
+            github_owner = owner or config.github.owner
+            if not github_owner:
+                typer.secho(
+                    "✘ GitHub owner must be provided via --owner or configured in the config file",
+                    fg=typer.colors.RED,
+                )
+                raise typer.Exit(code=1)
+
+            # Get GitHub token
+            token = os.getenv("GH_TOKEN")
+            if not token:
+                typer.secho(
+                    "✘ GH_TOKEN environment variable not set",
+                    fg=typer.colors.RED,
+                )
+                typer.echo("  Set it with: export GH_TOKEN='your-github-token'")
+                raise typer.Exit(code=1)
+
+            # Determine config file path
+            if config_file:
+                config_path = Path(config_file)
+            else:
+                from devrules.config import find_config_file
+
+                config_path = find_config_file()
+                if not config_path:
+                    config_path = Path(".devrules.toml")
+                    if not config_path.exists():
+                        typer.secho(
+                            "✘ Configuration file not found. Run 'devrules init-config' first.",
+                            fg=typer.colors.RED,
+                        )
+                        raise typer.Exit(code=1)
+
+            typer.secho(
+                f"\n🔍 Fetching GitHub Projects for {github_owner}...",
+                fg=typer.colors.CYAN,
+                bold=True,
+            )
+
+            # Use gh CLI to fetch projects
+            import json
+            import subprocess
+
+            try:
+                result = subprocess.run(
+                    [
+                        "gh",
+                        "project",
+                        "list",
+                        "--owner",
+                        github_owner,
+                        "--format",
+                        "json",
+                        "--limit",
+                        "100",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+
+                if result.returncode != 0:
+                    typer.secho(
+                        "✘ Failed to fetch projects. Make sure 'gh' CLI is installed and authenticated.",
+                        fg=typer.colors.RED,
+                    )
+                    if result.stderr:
+                        typer.echo(result.stderr)
+                    raise typer.Exit(code=1)
+
+                if not result.stdout.strip():
+                    typer.secho(f"✘ No projects found for {github_owner}", fg=typer.colors.YELLOW)
+                    raise typer.Exit(code=0)
+
+                projects_data = json.loads(result.stdout)
+                if isinstance(projects_data, dict) and "projects" in projects_data:
+                    projects_list = projects_data["projects"]
+                else:
+                    projects_list = projects_data
+
+                if not projects_list:
+                    typer.secho(f"✘ No projects found for {github_owner}", fg=typer.colors.YELLOW)
+                    raise typer.Exit(code=0)
+
+                # Filter projects if requested
+                if filter_query:
+                    filtered_projects = [
+                        p
+                        for p in projects_list
+                        if filter_query.lower() in (p.get("title") or p.get("name", "")).lower()
+                    ]
+                    if not filtered_projects:
+                        typer.secho(
+                            f"✘ No projects match filter '{filter_query}'",
+                            fg=typer.colors.YELLOW,
+                        )
+                        raise typer.Exit(code=0)
+                    projects_list = filtered_projects
+
+                typer.secho(f"✓ Found {len(projects_list)} projects", fg=typer.colors.GREEN)
+
+            except json.JSONDecodeError as e:
+                typer.secho(f"✘ Failed to parse projects data: {e}", fg=typer.colors.RED)
+                raise typer.Exit(code=1)
+            except subprocess.TimeoutExpired:
+                typer.secho("✘ Request timed out while fetching projects", fg=typer.colors.RED)
+                raise typer.Exit(code=1)
+            except Exception as e:
+                typer.secho(f"✘ Error fetching projects: {e}", fg=typer.colors.RED)
+                raise typer.Exit(code=1)
+
+            # Load current config file to preserve formatting
+            with open(config_path, "r") as f:
+                config_data = toml.load(f)
+
+            # Get existing projects
+            existing_projects = config_data.get("github", {}).get("projects", {})
+
+            typer.secho("\n📊 Available Projects:", fg=typer.colors.CYAN)
+            typer.echo("   (Already configured projects will be marked with ✓)\n")
+
+            # Show projects
+            for idx, proj in enumerate(projects_list, 1):
+                proj_number = proj.get("number")
+                proj_title = proj.get("title") or proj.get("name", "")
+
+                # Check if already configured
+                is_configured = False
+                for existing_value in existing_projects.values():
+                    if f"#{proj_number}" in str(existing_value):
+                        is_configured = True
+                        break
+
+                status = "✓" if is_configured else " "
+                typer.echo(f"  [{status}] {idx:2d}. {proj_title} (#{proj_number})")
+
+            typer.echo("\n" + "─" * 60)
+            typer.secho("Selection options:", fg=typer.colors.CYAN)
+            typer.echo("  • Single: 1")
+            typer.echo("  • Multiple: 1,3,5")
+            typer.echo("  • Range: 1-5")
+            typer.echo("  • All: all")
+            typer.echo("  • Skip: press Enter")
+            typer.echo("─" * 60)
+
+            selection = typer.prompt("\nYour selection", default="", show_default=False)
+
+            if not selection.strip():
+                typer.secho("No projects selected.", fg=typer.colors.YELLOW)
+                raise typer.Exit(code=0)
+
+            # Parse selection
+            selected_projects = []
+            if selection.lower() == "all":
+                selected_projects = projects_list
+            else:
+                indices: set[int] = set()
+                parts = selection.split(",")
+                for part in parts:
+                    part = part.strip()
+                    if "-" in part:
+                        try:
+                            start, end = part.split("-")
+                            indices.update(range(int(start), int(end) + 1))
+                        except ValueError:
+                            typer.secho(f"✘ Invalid range: {part}", fg=typer.colors.RED)
+                            raise typer.Exit(code=1)
+                    else:
+                        try:
+                            indices.add(int(part))
+                        except ValueError:
+                            typer.secho(f"✘ Invalid number: {part}", fg=typer.colors.RED)
+                            raise typer.Exit(code=1)
+
+                for idx in sorted(indices):
+                    if 1 <= idx <= len(projects_list):
+                        selected_projects.append(projects_list[idx - 1])
+
+            if not selected_projects:
+                typer.echo("No valid projects selected.")
+                raise typer.Exit(code=0)
+
+            # Add selected projects to config
+            typer.secho(
+                f"\n📝 Adding {len(selected_projects)} projects to configuration...",
+                fg=typer.colors.CYAN,
+            )
+
+            if "github" not in config_data:
+                config_data["github"] = {}
+            if "projects" not in config_data["github"]:
+                config_data["github"]["projects"] = {}
+
+            added_count = 0
+            skipped_count = 0
+
+            for proj in selected_projects:
+                proj_number = proj.get("number")
+                proj_title = proj.get("title") or proj.get("name", "")
+                project_value = f"{proj_title} (#{proj_number})"
+
+                # Check if already configured
+                already_exists = False
+                for existing_value in existing_projects.values():
+                    if f"#{proj_number}" in str(existing_value):
+                        already_exists = True
+                        break
+
+                if already_exists:
+                    typer.secho(
+                        f"   ⊝ Skipped (already configured): {project_value}",
+                        fg=typer.colors.YELLOW,
+                    )
+                    skipped_count += 1
+                else:
+                    # Generate a unique key from project title
+                    key = proj_title.lower().replace(" ", "_").replace("-", "_")
+                    # Remove special characters
+                    key = "".join(c for c in key if c.isalnum() or c == "_")
+
+                    # Ensure uniqueness
+                    counter = 1
+                    base_key = key
+                    while key in config_data["github"]["projects"]:
+                        key = f"{base_key}_{counter}"
+                        counter += 1
+
+                    config_data["github"]["projects"][key] = project_value
+                    typer.secho(f"   ✓ Added: {project_value}", fg=typer.colors.GREEN)
+                    added_count += 1
+
+            if added_count == 0:
+                typer.secho(
+                    "\n✓ No new projects to add (all were already configured)",
+                    fg=typer.colors.GREEN,
+                )
+                raise typer.Exit(code=0)
+
+            # Write updated config
+            with open(config_path, "w") as f:
+                toml.dump(config_data, f)
+
+            typer.secho(
+                f"\n✅ Successfully added {added_count} projects to {config_path}",
+                fg=typer.colors.GREEN,
+                bold=True,
+            )
+
+            # Show summary of added projects
+            typer.secho("\n📋 Added projects:", fg=typer.colors.CYAN)
+            for proj in selected_projects:
+                proj_number = proj.get("number")
+                proj_title = proj.get("title") or proj.get("name", "")
+
+                # Check if it was added or skipped
+                was_skipped = False
+                for existing_value in existing_projects.values():
+                    if f"#{proj_number}" in str(existing_value):
+                        was_skipped = True
+                        break
+
+                if not was_skipped:
+                    typer.echo(f"   • {proj_title} (#{proj_number})")
+
+            typer.echo("\n💡 Next steps:")
+            typer.echo("  • View config: cat .devrules.toml")
+            typer.echo("  • List issues: devrules list-issues --project <project-name>")
+            typer.echo("  • Dashboard: devrules dashboard")
+
+        except typer.Exit:
+            raise
+        except Exception as e:
+            typer.secho(f"\n✘ Error: {e}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+
+    return {
+        "build_enterprise": build_enterprise,
+        "add_github_projects": add_github_projects,
+    }

@@ -6,6 +6,9 @@ import typer
 
 from devrules.config import Config
 from devrules.dtos.github import ProjectItem
+from devrules.messages import git as msg
+from devrules.utils import gum
+from devrules.utils.typer import add_typer_block_message
 
 
 def ensure_git_repo() -> None:
@@ -13,7 +16,7 @@ def ensure_git_repo() -> None:
     try:
         subprocess.run(["git", "rev-parse", "--git-dir"], check=True, capture_output=True)
     except subprocess.CalledProcessError:
-        typer.secho("✘ Not a git repository", fg=typer.colors.RED)
+        typer.secho(msg.NOT_A_GIT_REPOSITORY, fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
 
@@ -28,7 +31,7 @@ def get_current_branch() -> str:
         )
         return result.stdout.strip()
     except subprocess.CalledProcessError:
-        typer.secho("✘ Unable to determine current branch", fg=typer.colors.RED)
+        typer.secho(msg.UNABLE_TO_DETERMINE_CURRENT_BRANCH, fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
 
@@ -51,21 +54,19 @@ def create_and_checkout_branch(branch_name: str) -> None:
     try:
         subprocess.run(["git", "checkout", "-b", branch_name], check=True)
 
-        typer.echo()
-        typer.secho("=" * 50, fg=typer.colors.GREEN)
-        typer.secho(f"✔ Branch '{branch_name}' created!", fg=typer.colors.GREEN, bold=True)
-        typer.secho("=" * 50, fg=typer.colors.GREEN)
-
-        # Show next steps
-        typer.echo("\n📚 Next steps:")
-        typer.echo("  1. Make your changes")
-        typer.echo("  2. Stage files:  git add .")
-        typer.echo("  3. Commit:       git commit -m '[TAG] Your message'")
-        typer.echo(f"  4. Push:         git push -u origin {branch_name}")
-        typer.echo()
+        add_typer_block_message(
+            header=f"✔ Branch '{branch_name}' created!",
+            subheader="📚 Next steps:",
+            messages=[
+                "1. Make your changes",
+                "2. Stage files:  git add .",
+                "3. Commit:       git commit -m 'Your message'",
+                "4. Push:         git push -u origin {}".format(branch_name),
+            ],
+        )
 
     except subprocess.CalledProcessError as e:
-        typer.secho(f"\n✘ Failed to create branch: {e}", fg=typer.colors.RED)
+        typer.secho(msg.FAILED_TO_CREATE_BRANCH.format(e), fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
 
@@ -76,7 +77,7 @@ def handle_existing_branch(branch_name: str) -> None:
             ["git", "rev-parse", "--verify", f"refs/heads/{branch_name}"], capture_output=True
         )
         if result.returncode == 0:
-            typer.secho(f"\n✘ Branch '{branch_name}' already exists!", fg=typer.colors.RED)
+            typer.secho(msg.BRANCH_NAME_ALREADY_EXISTS.format(branch_name), fg=typer.colors.RED)
 
             if typer.confirm("\n  Switch to existing branch?", default=False):
                 subprocess.run(["git", "checkout", branch_name], check=True)
@@ -96,16 +97,72 @@ def sanitize_description(description: str) -> str:
 
 
 def get_branch_name_interactive(config: Config) -> str:
-    """Get branch name through interactive prompts."""
-    typer.secho("\n🌿 Create New Branch", fg=typer.colors.CYAN, bold=True)
-    typer.echo("=" * 50)
+    """Get branch name through interactive prompts.
+
+    Uses gum for enhanced UI if available, falls back to typer prompts.
+    """
+    # Use gum if available for enhanced UI
+    if gum.is_available():
+        return _get_branch_name_with_gum(config)
+    else:
+        return _get_branch_name_with_typer(config)
+
+
+def _get_branch_name_with_gum(config: Config) -> str:
+    """Get branch name using gum for enhanced UI."""
+    # Header
+    print(gum.style("🌿 Create New Branch", foreground=81, bold=True))
+    print(gum.style("=" * 50, foreground=81))
 
     # Step 1: Select branch type
-    typer.echo("\n📋 Select branch type:")
-    for idx, prefix in enumerate(config.branch.prefixes, 1):
-        typer.echo(f"  {idx}. {prefix}")
+    branch_type = gum.choose(
+        config.branch.prefixes,
+        header="📋 Select branch type:",
+    )
 
-    type_choice = typer.prompt("\nEnter number", type=int, default=1)
+    if not branch_type:
+        typer.secho("✘ No branch type selected", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    # Step 2: Issue/ticket number (optional)
+    issue_number = gum.input_text(
+        placeholder="Enter number or leave empty to skip",
+        header="🔢 Issue/ticket number (optional):",
+    )
+
+    # Step 3: Branch description
+    description = gum.input_text(
+        placeholder="Enter a short description of branch intent",
+        header="📝 Branch description:",
+    )
+
+    if not description:
+        gum.error(msg.DESCRIPTION_CAN_NOT_BE_EMPTY)
+        raise typer.Exit(code=1)
+
+    # Clean and format description
+    description = sanitize_description(description)
+
+    if not description:
+        gum.error("Description cannot be empty after sanitization")
+        raise typer.Exit(code=1)
+
+    # Build branch name
+    if issue_number:
+        return f"{branch_type}/{issue_number}-{description}"
+    else:
+        return f"{branch_type}/{description}"
+
+
+def _get_branch_name_with_typer(config: Config) -> str:
+    """Get branch name using typer prompts (fallback)."""
+    add_typer_block_message(
+        header="🌿 Create New Branch",
+        subheader="📋 Select branch type:",
+        messages=[f"{idx}. {prefix}" for idx, prefix in enumerate(config.branch.prefixes, 1)],
+    )
+
+    type_choice = typer.prompt("Enter number", type=int, default=1)
 
     if type_choice < 1 or type_choice > len(config.branch.prefixes):
         typer.secho("✘ Invalid choice", fg=typer.colors.RED)
@@ -128,7 +185,7 @@ def get_branch_name_interactive(config: Config) -> str:
     description = sanitize_description(description)
 
     if not description:
-        typer.secho("✘ Description cannot be empty", fg=typer.colors.RED)
+        typer.secho(msg.DESCRIPTION_CAN_NOT_BE_EMPTY, fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
     # Build branch name

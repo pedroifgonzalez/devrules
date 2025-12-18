@@ -1,7 +1,8 @@
 """Repository state validation."""
 
 import subprocess
-from typing import Tuple
+from collections import OrderedDict
+from typing import Callable, Tuple
 
 import typer
 
@@ -36,7 +37,7 @@ def check_uncommitted_changes() -> Tuple[bool, str]:
         has_unstaged = result_unstaged.returncode != 0
         has_untracked = bool(result_untracked.stdout.strip())
 
-        if has_staged or has_unstaged or has_untracked:
+        if any([has_staged, has_unstaged, has_untracked]):
             changes = []
             if has_staged:
                 changes.append("staged changes")
@@ -117,7 +118,6 @@ def validate_repo_state(
     check_uncommitted: bool = True,
     check_behind: bool = True,
     warn_only: bool = False,
-    branch: str = "HEAD",
 ) -> Tuple[bool, list]:
     """Validate repository state before operations.
 
@@ -133,17 +133,21 @@ def validate_repo_state(
     messages = []
     has_issues = False
 
-    if check_uncommitted:
-        has_changes, msg = check_uncommitted_changes()
-        if has_changes:
-            has_issues = True
-            messages.append(f"⚠️  {msg}")
+    MAP_CHECKINGS: dict[str, tuple[bool, Callable]] = OrderedDict(
+        {
+            "\n🆕 Checking uncommitted changes": (check_uncommitted, check_uncommitted_changes),
+            "\n🏎️ Checking behind HEAD": (check_behind, check_behind_remote),
+        }
+    )
 
-    if check_behind:
-        is_behind, msg = check_behind_remote(branch)
-        if is_behind:
-            has_issues = True
-            messages.append(f"⚠️  {msg}")
+    for label, (check, func) in MAP_CHECKINGS.items():
+        if check:
+            typer.echo(label)
+            issues, msg = func()
+            if issues:
+                has_issues = True
+                messages.append(f"⚠️  {msg}")
+                break
 
     if not has_issues:
         messages.append("✅ Repository state is clean")

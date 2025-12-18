@@ -5,6 +5,130 @@ from typing import Any, Callable, Dict
 import typer
 
 
+def _install_commit_msg_hook(hooks_dir: str, devrules_path: str) -> None:
+    """Install commit-msg hook to validate commit messages."""
+    commit_msg_hook = os.path.join(hooks_dir, "commit-msg")
+
+    commit_msg_content = f"""#!/bin/sh
+# DevRules commit-msg hook
+# Validates commit message format, then runs pre-commit if available
+
+# Step 1: Run devrules validation
+"{devrules_path}" check-commit "$1"
+DEVRULES_EXIT=$?
+
+if [ $DEVRULES_EXIT -ne 0 ]; then
+    exit $DEVRULES_EXIT
+fi
+
+# Step 2: Run pre-commit commit-msg hooks if pre-commit is installed
+if command -v pre-commit >/dev/null 2>&1; then
+    if [ -f .pre-commit-config.yaml ]; then
+        pre-commit hook-impl --config=.pre-commit-config.yaml --hook-type=commit-msg --hook-dir="$GIT_DIR/hooks" -- "$@"
+        exit $?
+    fi
+fi
+
+exit 0
+"""
+
+    _write_hook_file(commit_msg_hook, commit_msg_content, "commit-msg")
+
+
+def _install_pre_commit_hook(hooks_dir: str, devrules_path: str) -> None:
+    """Install pre-commit hook to validate files before commit."""
+    pre_commit_hook = os.path.join(hooks_dir, "pre-commit")
+
+    pre_commit_content = f"""#!/bin/sh
+# DevRules pre-commit hook
+# Validates files and repository state before commit
+
+# Run devrules pre-commit validation
+"{devrules_path}" pre-commit-check
+DEVRULES_EXIT=$?
+
+if [ $DEVRULES_EXIT -ne 0 ]; then
+    exit $DEVRULES_EXIT
+fi
+
+# Run pre-commit hooks if pre-commit is installed
+if command -v pre-commit >/dev/null 2>&1; then
+    if [ -f .pre-commit-config.yaml ]; then
+        pre-commit run --all-files
+        exit $?
+    fi
+fi
+
+exit 0
+"""
+
+    _write_hook_file(pre_commit_hook, pre_commit_content, "pre-commit")
+
+
+def _install_pre_push_hook(hooks_dir: str, devrules_path: str) -> None:
+    """Install pre-push hook to validate branch before push."""
+    pre_push_hook = os.path.join(hooks_dir, "pre-push")
+
+    pre_push_content = f"""#!/bin/sh
+# DevRules pre-push hook
+# Validates branch and issue status before push
+
+# Get current branch
+current_branch=$(git symbolic-ref --short HEAD)
+
+# Run devrules pre-push validation
+"{devrules_path}" pre-push-check --branch "$current_branch"
+DEVRULES_EXIT=$?
+
+if [ $DEVRULES_EXIT -ne 0 ]; then
+    exit $DEVRULES_EXIT
+fi
+
+exit 0
+"""
+
+    _write_hook_file(pre_push_hook, pre_push_content, "pre-push")
+
+
+def _install_post_checkout_hook(hooks_dir: str, devrules_path: str) -> None:
+    """Install post-checkout hook to show branch context."""
+    post_checkout_hook = os.path.join(hooks_dir, "post-checkout")
+
+    post_checkout_content = f"""#!/bin/sh
+# DevRules post-checkout hook
+# Shows branch context after checkout
+
+# Only run for branch checkouts (not file checkouts)
+if [ "$3" = "1" ]; then
+    # Get current branch
+    current_branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "HEAD")
+    
+    # Run devrules branch context
+    "{devrules_path}" branch-context --branch "$current_branch" 2>/dev/null || true
+fi
+
+exit 0
+"""
+
+    _write_hook_file(post_checkout_hook, post_checkout_content, "post-checkout")
+
+
+def _write_hook_file(hook_path: str, content: str, hook_name: str) -> None:
+    """Write hook file with proper permissions."""
+    if os.path.exists(hook_path):
+        overwrite = typer.confirm(f"{hook_name} hook already exists. Overwrite?")
+        if not overwrite:
+            typer.echo(f"Skipping {hook_name} hook.")
+            return
+        typer.secho(f"✔ Updated: {hook_path}", fg=typer.colors.GREEN)
+    else:
+        typer.secho(f"✔ Created: {hook_path}", fg=typer.colors.GREEN)
+
+    with open(hook_path, "w") as f:
+        f.write(content)
+    os.chmod(hook_path, 0o755)
+
+
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command()
     def init_config(
@@ -40,13 +164,14 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         except Exception:
             pass
 
-        example_config = """# DevRules Configuration File
+        example_config = r"""# DevRules Configuration File
 
 [branch]
-pattern = "^(feature|bugfix|hotfix|release|docs)/(\\\d+-)?[a-z0-9-]+"
+pattern = "^(feature|bugfix|hotfix|release|docs)/(\\d+-)?[a-z0-9-]+"
 prefixes = ["feature", "bugfix", "hotfix", "release", "docs"]
 require_issue_number = false
 enforce_single_branch_per_issue_env = true  # If true, only one branch per issue per environment (dev/staging)
+forbid_cross_repo_cards = false  # If true, prevents creating branches from cards/issues belonging to other repositories
 labels_hierarchy = ["docs", "feature", "bugfix", "hotfix"]
 
 [branch.labels_mapping]
@@ -194,7 +319,7 @@ show_on_pr = true
 
     @app.command()
     def install_hooks():
-        """Install git hooks to enforce devrules validation on commits."""
+        """Install git hooks to enforce devrules validation on commits and pushes."""
         hooks_dir = ".git/hooks"
 
         if not os.path.exists(".git"):
@@ -203,60 +328,39 @@ show_on_pr = true
 
         os.makedirs(hooks_dir, exist_ok=True)
 
-        # commit-msg hook to validate commit messages
-        commit_msg_hook = os.path.join(hooks_dir, "commit-msg")
-
         # Get the path to the devrules executable
         import shutil
 
         devrules_path = shutil.which("devrules") or "devrules"
 
-        commit_msg_content = f"""#!/bin/sh
-# DevRules commit-msg hook
-# Validates commit message format, then runs pre-commit if available
+        # 1. Install commit-msg hook
+        _install_commit_msg_hook(hooks_dir, devrules_path)
 
-# Step 1: Run devrules validation
-"{devrules_path}" check-commit "$1"
-DEVRULES_EXIT=$?
+        # 2. Install pre-commit hook
+        _install_pre_commit_hook(hooks_dir, devrules_path)
 
-if [ $DEVRULES_EXIT -ne 0 ]; then
-    exit $DEVRULES_EXIT
-fi
+        # 3. Install pre-push hook
+        _install_pre_push_hook(hooks_dir, devrules_path)
 
-# Step 2: Run pre-commit commit-msg hooks if pre-commit is installed
-if command -v pre-commit >/dev/null 2>&1; then
-    if [ -f .pre-commit-config.yaml ]; then
-        pre-commit hook-impl --config=.pre-commit-config.yaml --hook-type=commit-msg --hook-dir="$GIT_DIR/hooks" -- "$@"
-        exit $?
-    fi
-fi
+        # 4. Install post-checkout hook
+        _install_post_checkout_hook(hooks_dir, devrules_path)
 
-exit 0
-"""
-
-        if os.path.exists(commit_msg_hook):
-            overwrite = typer.confirm(f"{commit_msg_hook} already exists. Overwrite?")
-            if not overwrite:
-                typer.echo("Skipping commit-msg hook.")
-            else:
-                with open(commit_msg_hook, "w") as f:
-                    f.write(commit_msg_content)
-                os.chmod(commit_msg_hook, 0o755)
-                typer.secho(f"✔ Updated: {commit_msg_hook}", fg=typer.colors.GREEN)
-        else:
-            with open(commit_msg_hook, "w") as f:
-                f.write(commit_msg_content)
-            os.chmod(commit_msg_hook, 0o755)
-            typer.secho(f"✔ Created: {commit_msg_hook}", fg=typer.colors.GREEN)
-
-        typer.secho("\n✔ Git hooks installed!", fg=typer.colors.GREEN)
-        typer.echo("  Commit messages will now be validated by devrules.")
+        typer.secho("\n✔ All git hooks installed!", fg=typer.colors.GREEN)
+        typer.echo("  • Commit messages will be validated by devrules")
+        typer.echo("  • Files will be checked before commits")
+        typer.echo("  • Branches will be validated before pushes")
+        typer.echo("  • Branch context will be shown on checkout")
         typer.echo("  Use 'git commit --no-verify' to bypass (if allowed by config).")
 
     @app.command()
     def uninstall_hooks():
         """Remove devrules git hooks."""
-        hooks = [".git/hooks/commit-msg"]
+        hooks = [
+            ".git/hooks/commit-msg",
+            ".git/hooks/pre-commit",
+            ".git/hooks/pre-push",
+            ".git/hooks/post-checkout",
+        ]
 
         for hook_path in hooks:
             if os.path.exists(hook_path):
@@ -265,7 +369,7 @@ exit 0
             else:
                 typer.echo(f"  {hook_path} not found, skipping.")
 
-        typer.secho("\n✔ Git hooks uninstalled.", fg=typer.colors.GREEN)
+        typer.secho("\n✔ All git hooks uninstalled.", fg=typer.colors.GREEN)
 
     return {
         "init_config": init_config,
