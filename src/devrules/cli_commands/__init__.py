@@ -17,6 +17,7 @@ from devrules.cli_commands import (
     config_cmd,
     dashboard,
     deploy,
+    hook_commands,
     pr,
     project,
 )
@@ -31,6 +32,7 @@ namespace.update(commit.register(app))
 namespace.update(pr.register(app))
 namespace.update(project.register(app))
 namespace.update(config_cmd.register(app))
+namespace.update(hook_commands.register(app))
 namespace.update(dashboard.register(app))
 namespace.update(build_cmd.register(app))
 namespace.update(deploy.register(app))
