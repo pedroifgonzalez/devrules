@@ -14,6 +14,11 @@ def validate_branch(branch_name: str, config: BranchConfig) -> tuple:
     if pattern.match(branch_name):
         return True, f"Branch name valid: {branch_name}"
 
+    if config.require_issue_number:
+        issue_number = _extract_issue_number(branch_name)
+        if not issue_number:
+            return False, f"Branch name must contain an issue number: {branch_name}"
+
     error_msg = f"Invalid branch name: {branch_name}\n"
     error_msg += f"Expected pattern: {config.pattern}\n"
     error_msg += f"Valid prefixes: {', '.join(config.prefixes)}"
