@@ -164,7 +164,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         except Exception:
             pass
 
-        example_config = """# DevRules Configuration File
+        example_config = r"""# DevRules Configuration File
 
 [branch]
 pattern = "^(feature|bugfix|hotfix|release|docs)/(\\d+-)?[a-z0-9-]+"
