@@ -373,3 +373,16 @@ def checkout_branch_interactive(config: Config) -> None:
     except subprocess.CalledProcessError as e:
         typer.secho(f"\n✘ Failed to checkout branch: {e}", fg=typer.colors.RED)
         raise typer.Exit(code=1)
+
+
+def remote_branch_exists(branch: str, remote: str = "origin") -> bool:
+    """Check if a branch exists on the remote."""
+    try:
+        subprocess.run(
+            ["git", "ls-remote", "--exit-code", "--heads", remote, branch],
+            check=True,
+            capture_output=True,
+        )
+        return True
+    except subprocess.CalledProcessError:
+        return False

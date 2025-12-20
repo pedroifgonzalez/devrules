@@ -51,6 +51,7 @@ class PRConfig:
     project_for_status_check: list = field(default_factory=list)
     allowed_targets: list = field(default_factory=list)
     target_rules: list = field(default_factory=list)
+    auto_push: bool = False
 
 
 @dataclass
@@ -179,6 +180,7 @@ DEFAULT_CONFIG = {
         "require_issue_status_check": False,
         "allowed_pr_statuses": [],
         "project_for_status_check": [],
+        "auto_push": False,
     },
     "github": {
         "api_url": "https://api.github.com",

@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, Optional
 import typer
 
 from devrules.config import load_config
-from devrules.core.git_service import ensure_git_repo, get_current_branch
+from devrules.core.git_service import ensure_git_repo, get_current_branch, remote_branch_exists
 from devrules.core.github_service import ensure_gh_installed, fetch_pr_info
 from devrules.messages import pr as msg
 from devrules.utils import gum
@@ -66,6 +66,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         ),
         skip_checks: bool = typer.Option(
             False, "--skip-checks", help="Skip target validation and documentation checks"
+        ),
+        auto_push: Optional[bool] = typer.Option(
+            None, "--auto-push/--no-auto-push", help="Push branch before creating PR"
         ),
     ):
         """Create a GitHub pull request for the current branch against the base branch."""
@@ -186,6 +189,46 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 raise typer.Exit(code=1)
 
             typer.echo()
+
+        # Confirm before creating
+        if gum.is_available():
+            print("\n📋 Summary:")
+            print(
+                f"   Branch: {gum.style(current_branch, foreground=212)} → {gum.style(base, foreground=82)}"
+            )
+            print(f"   Title:  {gum.style(pr_title, foreground=222)}")
+            confirmed = gum.confirm("Create this PR?")
+            if confirmed is False:
+                typer.secho(msg.PR_CANCELLED, fg=typer.colors.YELLOW)
+                raise typer.Exit(code=0)
+        else:
+            typer.echo(f"\n📝 Title: {pr_title}")
+            if not typer.confirm("\nCreate this PR?", default=True):
+                typer.secho(msg.PR_CANCELLED, fg=typer.colors.YELLOW)
+                raise typer.Exit(code=0)
+
+        # Auto-push if enabled
+        # check branch is not already in remote
+        if config.pr.auto_push:
+            if not remote_branch_exists(current_branch):
+                typer.secho(
+                    f"\n🚀 Pushing branch '{current_branch}' to origin...", fg=typer.colors.CYAN
+                )
+                try:
+                    subprocess.run(
+                        ["git", "push", "-u", "origin", current_branch],
+                        check=True,
+                        capture_output=False,  # Let user see push progress
+                    )
+                except subprocess.CalledProcessError as e:
+                    typer.secho(f"✘ Failed to push branch: {e}", fg=typer.colors.RED)
+                    if not typer.confirm("Continue creating PR anyway?", default=False):
+                        raise typer.Exit(code=1)
+            else:
+                typer.secho(
+                    f"\nℹ Branch '{current_branch}' already exists on remote, skipping push.",
+                    fg=typer.colors.BLUE,
+                )
 
         cmd = [
             "gh",
@@ -444,6 +487,29 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             if not typer.confirm("\nCreate this PR?", default=True):
                 typer.secho(msg.PR_CANCELLED, fg=typer.colors.YELLOW)
                 raise typer.Exit(code=0)
+
+        # Auto-push if enabled
+        # check branch is not already in remote
+        if config.pr.auto_push:
+            if not remote_branch_exists(current_branch):
+                typer.secho(
+                    f"\n🚀 Pushing branch '{current_branch}' to origin...", fg=typer.colors.CYAN
+                )
+                try:
+                    subprocess.run(
+                        ["git", "push", "-u", "origin", current_branch],
+                        check=True,
+                        capture_output=False,  # Let user see push progress
+                    )
+                except subprocess.CalledProcessError as e:
+                    typer.secho(f"✘ Failed to push branch: {e}", fg=typer.colors.RED)
+                    if not typer.confirm("Continue creating PR anyway?", default=False):
+                        raise typer.Exit(code=1)
+            else:
+                typer.secho(
+                    f"\nℹ Branch '{current_branch}' already exists on remote, skipping push.",
+                    fg=typer.colors.BLUE,
+                )
 
         cmd = [
             "gh",
