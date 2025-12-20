@@ -603,42 +603,15 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 typer.secho(f"✘ Command failed: {e}", fg=typer.colors.RED)
                 raise typer.Exit(1)
 
-        # Step 3: Checkout Base Branch
         run_step(f"checkout base branch '{base_branch}'", ["git", "checkout", base_branch])
-
-        # Step 4: Pull Base Branch (from origin)
-        # Using "pull" as requested. Assuming origin.
         run_step(f"pull latest changes for '{base_branch}'", ["git", "pull", "origin", base_branch])
-
-        run_step(f"pull latest changes for '{current_branch}'", ["git", "pull", "origin", current_branch])
-
-        # Step 5: Push Base Branch
+        run_step(f"merge changes from '{current_branch}'", ["git", "merge", current_branch])
         run_step(f"push '{base_branch}' to origin", ["git", "push", "origin", base_branch])
-
-        # Step 6: Checkout Integration Cursor
         run_step(
             f"checkout integration cursor '{cursor_branch}'", ["git", "checkout", cursor_branch]
         )
-
-        # Step 7: Pull from Base Branch into Cursor
-        # "pull the changes from the updated base branch".
-        # This usually implies merging base into cursor.
-        msg_action = f"pull (merge) changes from '{base_branch}' into '{cursor_branch}'"
-        # We can use 'git pull origin base_branch' if we want to pull from remote base,
-        # but we just updated local base in steps 3-4-5. So local base is up to date.
-        # We can just merge local base.
-        # But 'pull' allows fetching + merging.
-        # If the user meant "propagate updates", 'git merge base_branch' is correct.
-        # However, if checking out cursor branch might be behind remote cursor, we should pull cursor first?
-        # The prompt says: "check the integration cursor branch and pull the changes from the updated base branch".
-        # It doesn't explicitly say "pull the cursor branch itself".
-        # But usually you want to pull cursor first.
-        # To strictly follow "pull changes OF that branch" (base) ... "pull changes FROM updated base branch".
-        # I will execute `git pull origin base_branch` while on cursor branch. This fetches base from origin and merges.
-        # Since we just pushed base to origin, this is consistent.
-        # Alternatively: `git merge base_branch`.
-        # I'll stick to `git pull origin base_branch` as it covers fetching too.
-        run_step(msg_action, ["git", "pull", "origin", base_branch])
+        run_step(f"pull latest changes for '{cursor_branch}'", ["git", "pull", "origin", cursor_branch])
+        run_step(f"merge changes from '{base_branch}' into '{cursor_branch}'", ["git", "merge", base_branch])
 
         typer.secho("\n✨ Sync workflow completed!", fg=typer.colors.GREEN, bold=True)
 
