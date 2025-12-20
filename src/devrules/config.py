@@ -35,6 +35,7 @@ class CommitConfig:
     protected_branch_prefixes: list = field(default_factory=list)
     forbidden_patterns: list = field(default_factory=list)
     forbidden_paths: list = field(default_factory=list)
+    auto_stage: bool = False
 
 
 @dataclass
@@ -168,6 +169,7 @@ DEFAULT_CONFIG = {
         "max_length": 100,
         "append_issue_number": True,
         "allow_hook_bypass": False,
+        "auto_stage": True,
     },
     "pr": {
         "max_loc": 400,

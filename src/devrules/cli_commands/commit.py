@@ -188,6 +188,17 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             if not has_docs:
                 doc_message = None
 
+        if config.commit.auto_stage:
+            typer.secho("Auto staging files...", fg=typer.colors.GREEN)
+            subprocess.run(
+                [
+                    "git",
+                    "add",
+                    "--all",
+                ],
+                check=True,
+            )
+
         options = []
         if config.commit.gpg_sign:
             options.append("-S")
@@ -308,6 +319,17 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             if not typer.confirm("Proceed with commit?", default=True):
                 typer.secho(msg.COMMIT_CANCELLED, fg=typer.colors.YELLOW)
                 raise typer.Exit(code=0)
+        
+        if config.commit.auto_stage:
+            typer.secho("Auto staging files...", fg=typer.colors.GREEN)
+            subprocess.run(
+                [
+                    "git",
+                    "add",
+                    "--all",
+                ],
+                check=True,
+            )
 
         options = []
         if config.commit.gpg_sign:
