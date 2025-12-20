@@ -610,6 +610,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         # Using "pull" as requested. Assuming origin.
         run_step(f"pull latest changes for '{base_branch}'", ["git", "pull", "origin", base_branch])
 
+        run_step(f"pull latest changes for '{current_branch}'", ["git", "pull", "origin", current_branch])
+
         # Step 5: Push Base Branch
         run_step(f"push '{base_branch}' to origin", ["git", "push", "origin", base_branch])
 
