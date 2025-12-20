@@ -188,23 +188,23 @@ def input_text_with_history(
 
             selected = result.stdout.strip()
 
-            # If user selected "Enter new value" or typed something new
-            if selected == "[Enter new value]" or selected not in recent:
-                # Show regular input for new value
-                new_value = input_text(
-                    placeholder=placeholder,
-                    header=header or "Enter new value:",
-                    default=default if selected == "[Enter new value]" else selected,
-                    char_limit=char_limit,
-                )
+            # Determine default value for input
+            input_default = default
+            if selected != "[Enter new value]":
+                input_default = selected
 
-                if new_value and save_to_history:
-                    history_manager.add_entry(prompt_type, new_value)
+            # Always show input prompt, pre-filled with selected history item (or default)
+            new_value = input_text(
+                placeholder=placeholder,
+                header=header or "Edit value:",
+                default=input_default,
+                char_limit=char_limit,
+            )
 
-                return new_value
-            else:
-                # User selected from history
-                return selected
+            if new_value and save_to_history:
+                history_manager.add_entry(prompt_type, new_value)
+
+            return new_value
 
         except Exception:
             # Fall back to regular input
