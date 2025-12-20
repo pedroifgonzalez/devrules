@@ -1,15 +1,150 @@
 """CLI commands for managing Functional Groups."""
 
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
 import toml
 import typer
-from rich.console import Console
-from rich.table import Table
 
 from devrules.config import find_config_file, load_config
+from devrules.utils import gum
+from devrules.utils.typer import add_typer_block_message
 
-console = Console()
+
+def _build_group_data_with_gum(
+    description: str,
+    base_branch: str,
+    branch_pattern: str,
+) -> Optional[Dict[str, Any]]:
+    """Build group data interactively using gum.
+
+    Args:
+        description: Default group description
+        base_branch: Default base branch name
+        branch_pattern: Default branch pattern
+
+    Returns:
+        Group data dictionary or None if cancelled
+    """
+    # Ask for description
+    desc = gum.input_text(
+        header="Group description",
+        placeholder="e.g., Feature group for payments",
+        default=description,
+    )
+    if desc is None:
+        return None
+
+    # Ask for base branch
+    base = gum.input_text(
+        header="Base branch",
+        placeholder="e.g., develop, main",
+        default=base_branch,
+    )
+    if not base:
+        return None
+
+    # Ask for branch pattern
+    pattern = gum.input_text(
+        header="Branch pattern (regex)",
+        placeholder="e.g., feature/.* (leave empty for no pattern)",
+        default=branch_pattern,
+    )
+    if pattern is None:
+        pattern = ""
+
+    group_data: Dict[str, Any] = {
+        "description": desc,
+        "base_branch": base,
+        "branch_pattern": pattern,
+    }
+
+    add_cursor = gum.confirm("Do you want to set an integration cursor?", default=False)
+    if add_cursor:
+        branch = gum.input_text(
+            header="Integration cursor branch",
+            placeholder="e.g., feature/my-branch",
+        )
+        if not branch:
+            return None
+
+        env = gum.input_text(
+            header="Integration cursor environment",
+            placeholder="Environment name",
+            default="dev",
+        )
+        if not env:
+            env = "dev"
+
+        group_data["integration_cursor"] = {
+            "branch": branch,
+            "environment": env,
+        }
+
+    return group_data
+
+
+def _build_group_data_with_typer(
+    description: str,
+    base_branch: str,
+    branch_pattern: str,
+) -> Optional[Dict[str, Any]]:
+    """Build group data interactively using typer prompts (fallback).
+
+    Args:
+        description: Default group description
+        base_branch: Default base branch name
+        branch_pattern: Default branch pattern
+
+    Returns:
+        Group data dictionary or None if cancelled
+    """
+    # Ask for description
+    desc = typer.prompt("Group description", default=description or "")
+
+    # Ask for base branch
+    base = typer.prompt("Base branch", default=base_branch)
+
+    # Ask for branch pattern
+    pattern = typer.prompt("Branch pattern (regex, empty for none)", default=branch_pattern or "")
+
+    group_data: Dict[str, Any] = {
+        "description": desc,
+        "base_branch": base,
+        "branch_pattern": pattern,
+    }
+
+    add_cursor = typer.confirm("Do you want to set an integration cursor?", default=False)
+    if add_cursor:
+        branch = typer.prompt("Integration cursor branch")
+        env = typer.prompt("Integration cursor environment", default="dev")
+
+        group_data["integration_cursor"] = {
+            "branch": branch,
+            "environment": env,
+        }
+
+    return group_data
+
+
+def build_group_data_interactive(
+    description: str,
+    base_branch: str,
+    branch_pattern: str,
+) -> Optional[Dict[str, Any]]:
+    """Build group data interactively using gum or typer fallback.
+
+    Args:
+        description: Group description
+        base_branch: Base branch name
+        branch_pattern: Branch pattern
+
+    Returns:
+        Group data dictionary or None if cancelled
+    """
+    if gum.is_available():
+        return _build_group_data_with_gum(description, base_branch, branch_pattern)
+    else:
+        return _build_group_data_with_typer(description, base_branch, branch_pattern)
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
@@ -22,26 +157,27 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             typer.secho("No functional groups defined in configuration.", fg=typer.colors.YELLOW)
             return
 
-        table = Table(title="Functional Groups Status")
-        table.add_column("Group", style="cyan")
-        table.add_column("Base Branch", style="green")
-        table.add_column("Integration Cursor", style="magenta")
-        table.add_column("Environment", style="yellow")
-        table.add_column("Next Merge Target", style="blue")
-
+        messages = []
         for name, group in config.functional_groups.items():
-            cursor_branch = "-"
             cursor_env = "-"
             target = group.base_branch
 
             if group.integration_cursor:
-                cursor_branch = group.integration_cursor.branch
                 cursor_env = group.integration_cursor.environment or "-"
                 target = group.integration_cursor.branch
 
-            table.add_row(name, group.base_branch, cursor_branch, cursor_env, target)
+            messages.append(f"📦 {name}")
+            messages.append(f"   Base Branch:         {group.base_branch}")
+            messages.append(f"   Environment:         {cursor_env}")
+            messages.append(f"   Next Merge Target:   {target}")
+            messages.append("")
 
-        console.print(table)
+        add_typer_block_message(
+            header="📊 Functional Groups Status",
+            subheader="",
+            messages=messages,
+            indent_block=False,
+        )
 
     @app.command("add-group")
     def add_group(
@@ -49,6 +185,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         base_branch: str = "develop",
         branch_pattern: str = "",
         description: str = "",
+        integration_cursor_branch: str = "",
+        integration_cursor_env: str = "",
+        interactive: bool = True,
     ):
         """Add a new functional group to the configuration file."""
         config_path = find_config_file()
@@ -72,21 +211,45 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             typer.secho(f"Functional group '{name}' already exists in configuration.", fg="red")
             raise typer.Exit(1)
 
-        # Add the new group
-        data["functional_groups"][name] = {
-            "description": description,
-            "base_branch": base_branch,
-            "branch_pattern": branch_pattern,
-        }
+        # Build group data
+        if integration_cursor_branch:
+            # Use provided values directly
+            group_data: Dict[str, Any] = {
+                "description": description,
+                "base_branch": base_branch,
+                "branch_pattern": branch_pattern,
+                "integration_cursor": {
+                    "branch": integration_cursor_branch,
+                    "environment": integration_cursor_env or "dev",
+                },
+            }
+        elif interactive:
+            # Build interactively
+            group_data_result = build_group_data_interactive(
+                description, base_branch, branch_pattern
+            )
+            if group_data_result is None:
+                typer.secho("Operation cancelled.", fg=typer.colors.YELLOW)
+                raise typer.Exit(0)
+            group_data = group_data_result
+        else:
+            # Non-interactive without cursor
+            group_data = {
+                "description": description,
+                "base_branch": base_branch,
+                "branch_pattern": branch_pattern,
+            }
+
+        data["functional_groups"][name] = group_data
 
         try:
             with open(config_path, "w") as f:
                 toml.dump(data, f)
             typer.secho(
-                f"[green]Added functional group '{name}' with base branch '{base_branch}'.[/green]"
+                f"Added functional group '{name}' with base branch '{base_branch}'", fg="green"
             )
         except Exception as e:
-            typer.secho(f"[red]Error writing to config file: {e}[/red]")
+            typer.secho(f"Error writing to config file: {e}", fg="red")
             raise typer.Exit(1)
 
     @app.command("set-cursor")
@@ -118,10 +281,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             with open(config_path, "w") as f:
                 toml.dump(data, f)
             typer.secho(
-                f"[green]Updated cursor for group '{group_name}' to '{branch}' ({environment}).[/green]"
+                f"Updated cursor for group '{group_name}' to '{branch}' ({environment}).",
+                fg="green",
             )
         except Exception as e:
-            typer.secho(f"[red]Error writing to config file: {e}[/red]")
+            typer.secho(f"Error writing to config file: {e}", fg="red")
             raise typer.Exit(1)
 
     return {
