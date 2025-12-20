@@ -590,7 +590,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 return False
 
             cmd_str = " ".join(command)
-            typer.secho(f"Running: {cmd_str}", fg=typer.colors.bright_black)
+            typer.secho(f"Running: {cmd_str}", fg=typer.colors.BLUE)
 
             if dry_run:
                 return True
