@@ -148,7 +148,7 @@ def build_group_data_interactive(
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
-    @app.command("group-status")
+    @app.command("functional-group-status")
     def status():
         """Show the status of all defined functional groups."""
         config = load_config()
@@ -179,7 +179,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             indent_block=False,
         )
 
-    @app.command("add-group")
+    @app.command("add-functional-group")
     def add_group(
         name: str = "",
         base_branch: str = "develop",
@@ -302,8 +302,127 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             typer.secho(f"Error writing to config file: {e}", fg="red")
             raise typer.Exit(1)
 
+    @app.command("remove-functional-group")
+    def remove_functional_group(
+        name: str = typer.Argument("", help="Name of the functional group to remove"),
+        force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
+    ):
+        """Remove a functional group and its integration cursor from the configuration."""
+        # Prompt for name if not provided
+        if not name:
+            config = load_config()
+            if not config.functional_groups:
+                typer.secho("No functional groups defined in configuration.", fg=typer.colors.YELLOW)
+                raise typer.Exit(0)
+
+            group_names = list(config.functional_groups.keys())
+            if gum.is_available():
+                name = gum.choose(group_names, header="Select group to remove:") or ""
+                if isinstance(name, list):
+                    name = name[0] if name else ""
+            else:
+                add_typer_block_message(
+                    header="🗑 Remove Functional Group",
+                    subheader="📋 Select a group to remove:",
+                    messages=[f"{idx}. {g}" for idx, g in enumerate(group_names, 1)],
+                )
+                choice = typer.prompt("Enter number", type=int)
+                if 1 <= choice <= len(group_names):
+                    name = group_names[choice - 1]
+
+        if not name:
+            typer.secho("Group name is required.", fg="red")
+            raise typer.Exit(1)
+
+        config_path = find_config_file()
+        if not config_path:
+            typer.secho("Configuration file not found", fg="red")
+            raise typer.Exit(1)
+
+        try:
+            data = toml.load(config_path)
+        except Exception as e:
+            typer.secho(f"Error loading config file: {e}", fg="red")
+            raise typer.Exit(1)
+
+        if "functional_groups" not in data or name not in data["functional_groups"]:
+            typer.secho(f"Functional group '{name}' not found in configuration.", fg="red")
+            raise typer.Exit(1)
+
+        # Confirm deletion
+        if not force:
+            if gum.is_available():
+                confirmed = gum.confirm(f"Remove functional group '{name}'?", default=False)
+            else:
+                confirmed = typer.confirm(f"Remove functional group '{name}'?", default=False)
+
+            if not confirmed:
+                typer.secho("Operation cancelled.", fg=typer.colors.YELLOW)
+                raise typer.Exit(0)
+
+        # Remove the group
+        del data["functional_groups"][name]
+
+        try:
+            with open(config_path, "w") as f:
+                toml.dump(data, f)
+            typer.secho(f"Removed functional group '{name}'.", fg="green")
+        except Exception as e:
+            typer.secho(f"Error writing to config file: {e}", fg="red")
+            raise typer.Exit(1)
+
+    @app.command("clear-functional-groups")
+    def clear_functional_groups(
+        force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
+    ):
+        """Remove all functional groups and their integration cursors from the configuration."""
+        config_path = find_config_file()
+        if not config_path:
+            typer.secho("Configuration file not found", fg="red")
+            raise typer.Exit(1)
+
+        try:
+            data = toml.load(config_path)
+        except Exception as e:
+            typer.secho(f"Error loading config file: {e}", fg="red")
+            raise typer.Exit(1)
+
+        if "functional_groups" not in data or not data["functional_groups"]:
+            typer.secho("No functional groups defined in configuration.", fg=typer.colors.YELLOW)
+            raise typer.Exit(0)
+
+        group_count = len(data["functional_groups"])
+
+        # Confirm deletion
+        if not force:
+            if gum.is_available():
+                confirmed = gum.confirm(
+                    f"Remove all {group_count} functional group(s)?", default=False
+                )
+            else:
+                confirmed = typer.confirm(
+                    f"Remove all {group_count} functional group(s)?", default=False
+                )
+
+            if not confirmed:
+                typer.secho("Operation cancelled.", fg=typer.colors.YELLOW)
+                raise typer.Exit(0)
+
+        # Clear all groups
+        data["functional_groups"] = {}
+
+        try:
+            with open(config_path, "w") as f:
+                toml.dump(data, f)
+            typer.secho(f"Removed {group_count} functional group(s).", fg="green")
+        except Exception as e:
+            typer.secho(f"Error writing to config file: {e}", fg="red")
+            raise typer.Exit(1)
+
     return {
-        "groups-status": status,
-        "add-group": add_group,
-        "set-cursor": set_cursor,
+        "functional_group_status": status,
+        "add_functional_group": add_group,
+        "set_cursor": set_cursor,
+        "remove_functional_group": remove_functional_group,
+        "clear_functional_groups": clear_functional_groups,
     }

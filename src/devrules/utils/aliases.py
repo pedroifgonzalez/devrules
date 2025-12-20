@@ -22,6 +22,11 @@ ALIAS_MAP = {
     "build_enterprise": ["be"],
     "install_hooks": ["ih"],
     "uninstall_hooks": ["uh"],
+    "functional_group_status": ["fgs"],
+    "add_functional_group": ["afg"],
+    "set_cursor": ["sc"],
+    "remove_functional_group": ["rfg"],
+    "clear_functional_groups": ["cfg"],
 }
 
 
