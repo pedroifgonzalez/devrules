@@ -4,6 +4,7 @@ import typer
 
 from devrules.config import load_config
 from devrules.core.git_service import (
+    checkout_branch_interactive,
     create_and_checkout_branch,
     create_staging_branch_name,
     delete_branch_local_and_remote,
@@ -352,10 +353,33 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         raise typer.Exit(code=0)
 
+    @app.command(name="switch-branch")
+    def switch_branch(
+        config_file: Optional[str] = typer.Option(
+            None, "--config", "-c", help="Path to config file"
+        ),
+    ):
+        """Interactively switch to another branch (alias: sb)."""
+        config = load_config(config_file)
+        checkout_branch_interactive(config)
+
+    # Alias for switch-branch
+    @app.command(name="sb", hidden=True)
+    def sb(
+        config_file: Optional[str] = typer.Option(
+            None, "--config", "-c", help="Path to config file"
+        ),
+    ):
+        """Alias for switch-branch."""
+        config = load_config(config_file)
+        checkout_branch_interactive(config)
+
     return {
         "check_branch": check_branch,
         "create_branch": create_branch,
         "list_owned_branches": list_owned_branches,
         "delete_branch": delete_branch,
         "delete_merged": delete_merged,
+        "switch_branch": switch_branch,
+        "sb": sb,
     }
