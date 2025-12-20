@@ -323,3 +323,53 @@ def delete_branch_local_and_remote(
                 fg=typer.colors.RED,
             )
             raise typer.Exit(code=1)
+
+
+def checkout_branch_interactive(config: Config) -> None:
+    """Interactively select and checkout a branch."""
+    ensure_git_repo()
+
+    current_branch = get_current_branch()
+    branches = get_existing_branches()
+
+    # Filter out current branch from candidates
+    candidates = [b for b in branches if b != current_branch]
+
+    if not candidates:
+        typer.secho("✘ No other branches found to switch to.", fg=typer.colors.YELLOW)
+        raise typer.Exit(code=0)
+
+    selected_branch = None
+
+    # Use gum if available
+    if gum.is_available():
+        print(gum.style("🔀 Switch Branch", foreground=81, bold=True))
+        print(gum.style(f"Current: {current_branch}", foreground=240))
+
+        # Use filter so user can search
+        selected_branch = gum.filter_list(
+            candidates, placeholder="Select branch to checkout...", header="Branches"
+        )
+    else:
+        # Fallback to typer prompt
+        add_typer_block_message(
+            header="🔀 Switch Branch",
+            subheader=f"Current: {current_branch}",
+            messages=[f"{idx}. {b}" for idx, b in enumerate(candidates, 1)],
+        )
+
+        choice = typer.prompt("Enter number", type=int)
+
+        if 1 <= choice <= len(candidates):
+            selected_branch = candidates[choice - 1]
+
+    if not selected_branch:
+        typer.echo("Cancelled.")
+        raise typer.Exit(code=0)
+
+    try:
+        subprocess.run(["git", "checkout", selected_branch], check=True)
+        typer.secho(f"\n✔ Switched to branch '{selected_branch}'", fg=typer.colors.GREEN)
+    except subprocess.CalledProcessError as e:
+        typer.secho(f"\n✘ Failed to checkout branch: {e}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
