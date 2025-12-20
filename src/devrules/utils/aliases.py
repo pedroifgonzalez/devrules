@@ -27,6 +27,7 @@ ALIAS_MAP = {
     "set_cursor": ["sc"],
     "remove_functional_group": ["rfg"],
     "clear_functional_groups": ["cfg"],
+    "sync_cursor": ["scf"],
 }
 
 

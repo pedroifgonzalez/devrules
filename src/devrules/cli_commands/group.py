@@ -493,10 +493,174 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             typer.secho(f"Error writing to config file: {e}", fg="red")
             raise typer.Exit(1)
 
+    @app.command("sync-cursor")
+    def sync_cursor(
+        group_name: str = typer.Argument(None, help="Functional group name (inferred if omitted)"),
+        dry_run: bool = typer.Option(
+            False, "--dry-run", help="Show commands without executing them"
+        ),
+    ):
+        """Sync base branch and update integration cursor (interactive)."""
+        import re
+        import subprocess
+
+        from devrules.core.git_service import ensure_git_repo, get_current_branch
+
+        ensure_git_repo()
+        current_branch = get_current_branch()
+        config = load_config()
+
+        if not config.functional_groups:
+            typer.secho("No functional groups defined.", fg=typer.colors.RED)
+            raise typer.Exit(1)
+
+        # 1. Determine Functional Group
+        selected_group_name = group_name
+        selected_group = None
+
+        if selected_group_name:
+            if selected_group_name not in config.functional_groups:
+                typer.secho(f"Group '{selected_group_name}' not found.", fg=typer.colors.RED)
+                raise typer.Exit(1)
+            selected_group = config.functional_groups[selected_group_name]
+        else:
+            # Try to infer from current branch
+            matches = []
+            for name, data in config.functional_groups.items():
+                pattern = data.get("branch_pattern", "")
+                if pattern and re.match(pattern, current_branch):
+                    matches.append(name)
+
+            if len(matches) == 1:
+                selected_group_name = matches[0]
+                typer.secho(f"ℹ Inferred group: {selected_group_name}", fg=typer.colors.BLUE)
+                selected_group = config.functional_groups[selected_group_name]
+            else:
+                # Ambiguous or no match, ask user
+                group_list = list(config.functional_groups.keys())
+                if gum.is_available():
+                    selected_group_name = gum.choose(
+                        group_list, header="Select functional group to sync:"
+                    )
+                    if isinstance(selected_group_name, list):
+                        selected_group_name = (
+                            selected_group_name[0] if selected_group_name else None
+                        )
+                else:
+                    typer.secho("Could not infer group. Please select one:", fg=typer.colors.YELLOW)
+                    for idx, g in enumerate(group_list, 1):
+                        typer.echo(f"{idx}. {g}")
+                    choice = typer.prompt("Enter number", type=int)
+                    if 1 <= choice <= len(group_list):
+                        selected_group_name = group_list[choice - 1]
+
+                if not selected_group_name:
+                    typer.secho("No group selected.", fg=typer.colors.RED)
+                    raise typer.Exit(1)
+                selected_group = config.functional_groups[selected_group_name]
+
+        # 2. Get configuration
+        base_branch = selected_group.base_branch
+        cursor_config = selected_group.integration_cursor
+        cursor_branch = cursor_config.branch
+
+        if not cursor_branch:
+            typer.secho(
+                f"No integration cursor defined for group '{selected_group_name}'.",
+                fg=typer.colors.RED,
+            )
+            # Offer to set it? No, keeping it simple as per request.
+            raise typer.Exit(1)
+
+        typer.secho(
+            f"\n🚀 Syncing workflow for '{selected_group_name}'", fg=typer.colors.GREEN, bold=True
+        )
+        typer.echo(f"  Base Branch: {base_branch}")
+        typer.echo(f"  Cursor Branch: {cursor_branch}")
+        typer.echo("")
+
+        def run_step(description: str, command: list[str], check: bool = True):
+            if gum.is_available():
+                should_run = gum.confirm(f"Do you want to {description}?", default=True)
+            else:
+                should_run = typer.confirm(f"Do you want to {description}?", default=True)
+
+            if not should_run:
+                typer.secho("Skipping...", fg=typer.colors.YELLOW)
+                return False
+
+            cmd_str = " ".join(command)
+            typer.secho(f"Running: {cmd_str}", fg=typer.colors.bright_black)
+
+            if dry_run:
+                return True
+
+            try:
+                subprocess.run(command, check=check)
+                typer.secho("✔ Done", fg=typer.colors.GREEN)
+                return True
+            except subprocess.CalledProcessError as e:
+                typer.secho(f"✘ Command failed: {e}", fg=typer.colors.RED)
+                raise typer.Exit(1)
+
+        # Step 3: Checkout Base Branch
+        run_step(f"checkout base branch '{base_branch}'", ["git", "checkout", base_branch])
+
+        # Step 4: Pull Base Branch (from origin)
+        # Using "pull" as requested. Assuming origin.
+        run_step(f"pull latest changes for '{base_branch}'", ["git", "pull", "origin", base_branch])
+
+        # Step 5: Push Base Branch
+        run_step(f"push '{base_branch}' to origin", ["git", "push", "origin", base_branch])
+
+        # Step 6: Checkout Integration Cursor
+        run_step(
+            f"checkout integration cursor '{cursor_branch}'", ["git", "checkout", cursor_branch]
+        )
+
+        # Step 7: Pull from Base Branch into Cursor
+        # "pull the changes from the updated base branch".
+        # This usually implies merging base into cursor.
+        msg_action = f"pull (merge) changes from '{base_branch}' into '{cursor_branch}'"
+        # We can use 'git pull origin base_branch' if we want to pull from remote base,
+        # but we just updated local base in steps 3-4-5. So local base is up to date.
+        # We can just merge local base.
+        # But 'pull' allows fetching + merging.
+        # If the user meant "propagate updates", 'git merge base_branch' is correct.
+        # However, if checking out cursor branch might be behind remote cursor, we should pull cursor first?
+        # The prompt says: "check the integration cursor branch and pull the changes from the updated base branch".
+        # It doesn't explicitly say "pull the cursor branch itself".
+        # But usually you want to pull cursor first.
+        # To strictly follow "pull changes OF that branch" (base) ... "pull changes FROM updated base branch".
+        # I will execute `git pull origin base_branch` while on cursor branch. This fetches base from origin and merges.
+        # Since we just pushed base to origin, this is consistent.
+        # Alternatively: `git merge base_branch`.
+        # I'll stick to `git pull origin base_branch` as it covers fetching too.
+        run_step(msg_action, ["git", "pull", "origin", base_branch])
+
+        typer.secho("\n✨ Sync workflow completed!", fg=typer.colors.GREEN, bold=True)
+
+        # Optional: Switch back to original branch? User didn't ask for it, but it's polite.
+        # "Assume that i have a branch created on..."
+        # I'll ask.
+        if current_branch != base_branch and current_branch != cursor_branch:
+            if gum.is_available():
+                switch_back = gum.confirm(
+                    f"Switch back to original branch '{current_branch}'?", default=True
+                )
+            else:
+                switch_back = typer.confirm(
+                    f"Switch back to original branch '{current_branch}'?", default=True
+                )
+
+            if switch_back:
+                subprocess.run(["git", "checkout", current_branch], check=False)
+
     return {
         "functional_group_status": status,
         "add_functional_group": add_group,
         "set_cursor": set_cursor,
         "remove_functional_group": remove_functional_group,
         "clear_functional_groups": clear_functional_groups,
+        "sync_cursor": sync_cursor,
     }
