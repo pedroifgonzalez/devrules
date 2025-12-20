@@ -527,7 +527,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             # Try to infer from current branch
             matches = []
             for name, data in config.functional_groups.items():
-                pattern = data.get("branch_pattern", "")
+                pattern = data.branch_pattern
                 if pattern and re.match(pattern, current_branch):
                     matches.append(name)
 
