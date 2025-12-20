@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Shell mode** - Interactive shell mode for typing less (`devrules shell`)
+- **Gum integration** - Enhanced terminal UI with gum for interactive prompts and table formatting
 - **Cross-repository card validation** - New `forbid_cross_repo_cards` option to prevent branches from issues belonging to other repos
 - **Branch validation** - New `require_issue_number` option to enforce issue numbers in branch names
 - **Project management commands** - New `add-project` command to add GitHub projects to configuration
