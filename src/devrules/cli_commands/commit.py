@@ -42,8 +42,9 @@ def _build_commit_with_gum(tags: list[str]) -> Optional[str]:
         gum.error(msg.NO_TAG_SELECTED)
         return None
 
-    # Write message
-    message = gum.input_text(
+    # Write message with history
+    message = gum.input_text_with_history(
+        prompt_type=f"commit_message_{tag}",
         placeholder="Describe your changes...",
         header=f"[{tag}] Commit message:",
     )

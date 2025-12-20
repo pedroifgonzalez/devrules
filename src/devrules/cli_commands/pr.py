@@ -386,7 +386,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         # Allow editing the PR title
         if gum.is_available():
-            edited_title = gum.input_text(
+            edited_title = gum.input_text_with_history(
+                prompt_type="pr_title",
                 placeholder=pr_title,
                 header="📝 PR Title (edit or press Enter to accept):",
                 default=pr_title,
