@@ -35,5 +35,3 @@ def add_typer_block_message(
         if indent_block:
             output = indent + output
         typer.echo(output)
-    typer.echo()
-    typer.echo()

@@ -107,6 +107,24 @@ class DocumentationConfig:
 
 
 @dataclass
+class IntegrationCursor:
+    """The current integration point for a functional group."""
+
+    branch: str
+    environment: Optional[str] = None
+
+
+@dataclass
+class FunctionalGroupConfig:
+    """Configuration for a functional group (Functional Feature)."""
+
+    description: str = ""
+    base_branch: str = "develop"
+    branch_pattern: str = ""
+    integration_cursor: Optional[IntegrationCursor] = None
+
+
+@dataclass
 class DeploymentConfig:
     """Deployment workflow configuration."""
 
@@ -132,6 +150,7 @@ class Config:
     deployment: DeploymentConfig = field(default_factory=DeploymentConfig)
     validation: ValidationConfig = field(default_factory=ValidationConfig)
     documentation: DocumentationConfig = field(default_factory=DocumentationConfig)
+    functional_groups: Dict[str, FunctionalGroupConfig] = field(default_factory=dict)
 
 
 DEFAULT_CONFIG = {
@@ -225,6 +244,7 @@ DEFAULT_CONFIG = {
         "show_on_commit": True,
         "show_on_pr": True,
     },
+    "functional_groups": {},
 }
 
 
@@ -350,6 +370,23 @@ def load_config(config_path: Optional[str] = None) -> Config:
         show_on_pr=doc_data.get("show_on_pr", True),
     )
 
+    # Parse functional groups
+    functional_groups_data = config_data.get("functional_groups", {})
+    functional_groups_dict = {}
+    for group_name, group_data in functional_groups_data.items():
+        if isinstance(group_data, dict):
+            cursor_data = group_data.get("integration_cursor")
+            cursor = None
+            if cursor_data:
+                cursor = IntegrationCursor(**cursor_data)
+
+            # Remove cursor from group_data to avoid double passing
+            group_args = {k: v for k, v in group_data.items() if k != "integration_cursor"}
+
+            functional_groups_dict[group_name] = FunctionalGroupConfig(
+                **group_args, integration_cursor=cursor
+            )
+
     return Config(
         branch=BranchConfig(**config_data["branch"]),
         commit=CommitConfig(**{**config_data["commit"], "pattern": commit_pattern}),
@@ -358,4 +395,5 @@ def load_config(config_path: Optional[str] = None) -> Config:
         deployment=deployment_config,
         validation=ValidationConfig(**config_data.get("validation", {})),
         documentation=documentation_config,
+        functional_groups=functional_groups_dict,
     )

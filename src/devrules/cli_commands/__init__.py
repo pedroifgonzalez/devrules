@@ -17,6 +17,7 @@ from devrules.cli_commands import (
     config_cmd,
     dashboard,
     deploy,
+    group,
     hook_commands,
     pr,
     project,
@@ -36,6 +37,8 @@ namespace.update(hook_commands.register(app))
 namespace.update(dashboard.register(app))
 namespace.update(build_cmd.register(app))
 namespace.update(deploy.register(app))
+namespace.update(group.register(app))
+
 
 register_command_aliases(app, namespace)
 
