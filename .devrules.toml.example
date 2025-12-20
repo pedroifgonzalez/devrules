@@ -46,6 +46,7 @@ allowed_targets = ["develop", "main", "staging"]
 # source_pattern = "^feature/.*"
 # allowed_targets = ["develop"]
 # disallowed_message = "Feature branches must target develop, not main"
+auto_push = false
 
 [github]
 # GitHub API settings
