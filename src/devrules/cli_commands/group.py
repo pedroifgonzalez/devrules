@@ -605,13 +605,13 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         run_step(f"checkout base branch '{base_branch}'", ["git", "checkout", base_branch])
         run_step(f"pull latest changes for '{base_branch}'", ["git", "pull", "origin", base_branch])
-        run_step(f"merge changes from '{current_branch}'", ["git", "merge", current_branch])
+        run_step(f"merge changes from '{current_branch}'", ["git", "merge", "--no-ff", current_branch])
         run_step(f"push '{base_branch}' to origin", ["git", "push", "origin", base_branch])
         run_step(
             f"checkout integration cursor '{cursor_branch}'", ["git", "checkout", cursor_branch]
         )
         run_step(f"pull latest changes for '{cursor_branch}'", ["git", "pull", "origin", cursor_branch])
-        run_step(f"merge changes from '{base_branch}' into '{cursor_branch}'", ["git", "merge", base_branch])
+        run_step(f"merge changes from '{base_branch}' into '{cursor_branch}'", ["git", "merge", "--no-ff", base_branch])
 
         typer.secho("\n✨ Sync workflow completed!", fg=typer.colors.GREEN, bold=True)
 
