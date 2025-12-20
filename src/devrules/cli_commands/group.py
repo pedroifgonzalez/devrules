@@ -1,6 +1,6 @@
 """CLI commands for managing Functional Groups."""
 
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Iterable, Optional
 
 import toml
 import typer
@@ -193,10 +193,13 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         # Prompt for name if not provided
         if not name:
             if gum.is_available():
-                name = gum.input_text(
-                    header="Group name",
-                    placeholder="e.g., payments, auth, notifications",
-                ) or ""
+                name = (
+                    gum.input_text(
+                        header="Group name",
+                        placeholder="e.g., payments, auth, notifications",
+                    )
+                    or ""
+                )
             else:
                 name = typer.prompt("Group name")
 
@@ -267,7 +270,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(1)
 
     @app.command("set-cursor")
-    def set_cursor(group_name: str, branch: str, environment: str = "dev"):
+    def set_cursor(
+        group_name: str = typer.Argument(None, help="Functional group name"),
+        branch: str = typer.Argument(None, help="Branch name for the cursor"),
+        environment: str = typer.Option(None, "--env", "-e", help="Environment name"),
+    ):
         """Update the integration cursor for a functional group."""
         config_path = find_config_file()
         if not config_path:
@@ -281,9 +288,74 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             typer.secho(f"Error loading config file: {e}", fg="red")
             raise typer.Exit(1)
 
+        # Handle interactive group selection
+        if not group_name:
+            if "functional_groups" not in data or not data["functional_groups"]:
+                typer.secho(
+                    "No functional groups defined in configuration.", fg=typer.colors.YELLOW
+                )
+                raise typer.Exit(0)
+
+            group_names = list(data["functional_groups"].keys())
+            if gum.is_available():
+                group_name = gum.choose(group_names, header="Select functional group:")
+                if isinstance(group_name, list):
+                    group_name = group_name[0] if group_name else None
+            else:
+                add_typer_block_message(
+                    header="🎯 Set Cursor",
+                    subheader="📋 Select a functional group:",
+                    messages=[f"{idx}. {g}" for idx, g in enumerate(group_names, 1)],
+                )
+                choice = typer.prompt("Enter number", type=int)
+                if 1 <= choice <= len(group_names):
+                    group_name = group_names[choice - 1]
+
+        if not group_name:
+            typer.secho("Group name is required.", fg="red")
+            raise typer.Exit(1)
+
         if "functional_groups" not in data or group_name not in data["functional_groups"]:
             typer.secho(f"Functional group '{group_name}' not found in configuration.", fg="red")
             raise typer.Exit(1)
+
+        # Handle interactive branch input
+        if not branch:
+            if gum.is_available():
+                branch = gum.input_text(
+                    header="Cursor branch",
+                    placeholder="e.g., feature/latest-stable",
+                    default=data["functional_groups"][group_name]
+                    .get("integration_cursor", {})
+                    .get("branch", ""),
+                )
+            else:
+                branch = typer.prompt("Cursor branch")
+
+        if not branch:
+            typer.secho("Branch name is required.", fg="red")
+            raise typer.Exit(1)
+
+        # Determine default environment from configuration
+        current_env = (
+            data["functional_groups"][group_name]
+            .get("integration_cursor", {})
+            .get("environment", "dev")
+        )
+
+        # Handle interactive environment input if not provided
+        if not environment:
+            if gum.is_available():
+                environment = gum.input_text(
+                    header="Integration cursor environment",
+                    placeholder="Environment name",
+                    default=current_env,
+                )
+            else:
+                environment = typer.prompt("Integration cursor environment", default=current_env)
+
+        if not environment:
+            environment = current_env
 
         # Update the cursor
         data["functional_groups"][group_name]["integration_cursor"] = {
@@ -312,13 +384,15 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         if not name:
             config = load_config()
             if not config.functional_groups:
-                typer.secho("No functional groups defined in configuration.", fg=typer.colors.YELLOW)
+                typer.secho(
+                    "No functional groups defined in configuration.", fg=typer.colors.YELLOW
+                )
                 raise typer.Exit(0)
 
             group_names = list(config.functional_groups.keys())
             if gum.is_available():
                 name = gum.choose(group_names, header="Select group to remove:") or ""
-                if isinstance(name, list):
+                if isinstance(name, Iterable):
                     name = name[0] if name else ""
             else:
                 add_typer_block_message(
