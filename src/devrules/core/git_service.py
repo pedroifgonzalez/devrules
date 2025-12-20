@@ -125,13 +125,15 @@ def _get_branch_name_with_gum(config: Config) -> str:
         raise typer.Exit(code=1)
 
     # Step 2: Issue/ticket number (optional)
-    issue_number = gum.input_text(
+    issue_number = gum.input_text_with_history(
+        prompt_type="issue_number",
         placeholder="Enter number or leave empty to skip",
         header="🔢 Issue/ticket number (optional):",
     )
 
     # Step 3: Branch description
-    description = gum.input_text(
+    description = gum.input_text_with_history(
+        prompt_type="branch_description",
         placeholder="Enter a short description of branch intent",
         header="📝 Branch description:",
     )
