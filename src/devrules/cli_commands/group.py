@@ -181,7 +181,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
     @app.command("add-group")
     def add_group(
-        name: str,
+        name: str = "",
         base_branch: str = "develop",
         branch_pattern: str = "",
         description: str = "",
@@ -190,6 +190,20 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         interactive: bool = True,
     ):
         """Add a new functional group to the configuration file."""
+        # Prompt for name if not provided
+        if not name:
+            if gum.is_available():
+                name = gum.input_text(
+                    header="Group name",
+                    placeholder="e.g., payments, auth, notifications",
+                ) or ""
+            else:
+                name = typer.prompt("Group name")
+
+        if not name:
+            typer.secho("Group name is required.", fg="red")
+            raise typer.Exit(1)
+
         config_path = find_config_file()
         if not config_path:
             typer.secho("Configuration file not found", fg="red")
