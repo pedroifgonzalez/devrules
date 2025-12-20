@@ -24,6 +24,7 @@ protected_branch_prefixes = ["staging-"]
 forbidden_patterns = ["*.dump", "*.sql", ".env.local", "*.log", "*.swp", "*~"]
 # Forbidden paths (directories that should not be committed)
 forbidden_paths = ["tmp/", "cache/", "local/", ".vscode/"]
+auto_stage = true
 
 [pr]
 # Pull Request validation
