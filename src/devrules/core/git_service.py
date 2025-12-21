@@ -308,7 +308,9 @@ def delete_branch_local_and_remote(
             raise typer.Exit(code=1)
 
     # Delete remote branch
-    if remote_branch_exists(branch=branch):
+    if not offline_remote_branch_exists(branch=branch):
+        typer.secho("Branch does not exists remotely, skipping...", fg=typer.colors.YELLOW)
+    else:
         try:
             subprocess.run(["git", "push", remote, "--delete", branch], check=True, capture_output=True)
             typer.secho(f"✔ Deleted remote branch '{branch}' from '{remote}'", fg=typer.colors.GREEN)
@@ -385,5 +387,23 @@ def remote_branch_exists(branch: str, remote: str = "origin") -> bool:
             capture_output=True,
         )
         return True
+    except subprocess.CalledProcessError:
+        return False
+
+
+def offline_remote_branch_exists(branch: str, remote: str = "origin") -> bool:
+    """Check if a branch exists on the remote without consulting network"""
+    try:
+        result = subprocess.run(
+            ["git", "branch", "-a"],
+            check=True,
+            capture_output=True,
+        )
+        output_lines = result.stdout.splitlines()
+        output_lines = [output.decode().strip() for output in output_lines]
+        if f"remotes/{remote}/{branch}" in output_lines:
+            return True
+        else:
+            return False
     except subprocess.CalledProcessError:
         return False
