@@ -1,6 +1,6 @@
 [project]
 name = "devrules"
-version = "0.1.6"
+version = "0.1.7"
 description = "CLI tool for enforcing development guidelines"
 readme = "README.md"
 license = {text = "Business Source License 1.1"}

@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.7] - 2024-12-21
+
+### Added
+- **Interactive branch management** - New feature to select and delete merged branches interactively
+- **Yaspin integration** - Added yaspin for better visual feedback during long-running operations
+- **Status validation** - Added warning messages for allowed statuses when updating issue status
+
+### Changed
+- **Refactored PR validation** - Improved PR issue status validation with better error handling
+- **Documentation updates** - Added demo gifs showing forbidden file detection and branch creation
+- **Commit experience** - Enhanced commit user experience with better feedback and error messages
+
+### Fixed
+- **Remote branch detection** - Now checks if a branch has a remote associated branch without network access
+- **Message display** - Fixed header decoration display for large content
+- **Status update flow** - Resolved spinner conflicts during PR issue status validation
+
+### Technical Improvements
+- **Code organization** - Improved code structure for better maintainability
+- **User feedback** - Enhanced status messages and progress indicators with yaspin
+- **Configuration validation** - Added validation when loading GitHub configuration
+
 ## [0.1.6] - 2024-12-18
 
 ### Added
