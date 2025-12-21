@@ -562,16 +562,15 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         # 2. Get configuration
         base_branch = selected_group.base_branch
         cursor_config = selected_group.integration_cursor
-        cursor_branch = cursor_config.branch
 
-        if not cursor_branch:
+        if not cursor_config or not cursor_config.branch:
             typer.secho(
                 f"No integration cursor defined for group '{selected_group_name}'.",
                 fg=typer.colors.RED,
             )
-            # Offer to set it? No, keeping it simple as per request.
             raise typer.Exit(1)
 
+        cursor_branch = cursor_config.branch
         typer.secho(
             f"\n🚀 Syncing workflow for '{selected_group_name}'", fg=typer.colors.GREEN, bold=True
         )
