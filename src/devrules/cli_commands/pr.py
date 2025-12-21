@@ -2,6 +2,7 @@ import re
 from typing import Any, Callable, Dict, Optional
 
 import typer
+from yaspin import yaspin
 
 from devrules.config import load_config
 from devrules.core.git_service import ensure_git_repo, get_current_branch, remote_branch_exists
@@ -164,31 +165,30 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         if config.pr.require_issue_status_check:
             from devrules.validators.pr import validate_pr_issue_status
 
-            typer.echo("\n🔍 Checking issue status...")
-
-            # Use CLI project option if provided, otherwise use config
-            project_override = [project] if project else None
-            is_valid, messages = validate_pr_issue_status(
-                current_branch, config.pr, config.github, project_override=project_override
-            )
-
-            for message in messages:
-                if "✔" in message or "ℹ" in message:
-                    typer.secho(message, fg=typer.colors.GREEN)
-                elif "⚠" in message:
-                    typer.secho(message, fg=typer.colors.YELLOW)
-                else:
-                    typer.secho(message, fg=typer.colors.RED)
-
-            if not is_valid:
-                typer.echo()
-                typer.secho(
-                    "✘ Cannot create PR: Issue status check failed",
-                    fg=typer.colors.RED,
+            with yaspin("🔍 Checking issue status..."):
+                # Use CLI project option if provided, otherwise use config
+                project_override = [project] if project else None
+                is_valid, messages = validate_pr_issue_status(
+                    current_branch, config.pr, config.github, project_override=project_override
                 )
-                raise typer.Exit(code=1)
 
-            typer.echo()
+                for message in messages:
+                    if "✔" in message or "ℹ" in message:
+                        typer.secho(message, fg=typer.colors.GREEN)
+                    elif "⚠" in message:
+                        typer.secho(message, fg=typer.colors.YELLOW)
+                    else:
+                        typer.secho(message, fg=typer.colors.RED)
+
+                if not is_valid:
+                    typer.echo()
+                    typer.secho(
+                        "✘ Cannot create PR: Issue status check failed",
+                        fg=typer.colors.RED,
+                    )
+                    raise typer.Exit(code=1)
+
+                typer.echo()
 
         # Confirm before creating
         if gum.is_available():
@@ -446,30 +446,29 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         if config.pr.require_issue_status_check:
             from devrules.validators.pr import validate_pr_issue_status
 
-            typer.echo("\n🔍 Checking issue status...")
-
-            project_override = [project] if project else None
-            is_valid, messages = validate_pr_issue_status(
-                current_branch, config.pr, config.github, project_override=project_override
-            )
-
-            for message in messages:
-                if "✔" in message or "ℹ" in message:
-                    typer.secho(message, fg=typer.colors.GREEN)
-                elif "⚠" in message:
-                    typer.secho(message, fg=typer.colors.YELLOW)
-                else:
-                    typer.secho(message, fg=typer.colors.RED)
-
-            if not is_valid:
-                typer.echo()
-                typer.secho(
-                    "✘ Cannot create PR: Issue status check failed",
-                    fg=typer.colors.RED,
+            with yaspin("🔍 Checking issue status..."):
+                project_override = [project] if project else None
+                is_valid, messages = validate_pr_issue_status(
+                    current_branch, config.pr, config.github, project_override=project_override
                 )
-                raise typer.Exit(code=1)
 
-            typer.echo()
+                for message in messages:
+                    if "✔" in message or "ℹ" in message:
+                        typer.secho(message, fg=typer.colors.GREEN)
+                    elif "⚠" in message:
+                        typer.secho(message, fg=typer.colors.YELLOW)
+                    else:
+                        typer.secho(message, fg=typer.colors.RED)
+
+                if not is_valid:
+                    typer.echo()
+                    typer.secho(
+                        "✘ Cannot create PR: Issue status check failed",
+                        fg=typer.colors.RED,
+                    )
+                    raise typer.Exit(code=1)
+
+                typer.echo()
 
         # Confirm before creating
         if gum.is_available():
