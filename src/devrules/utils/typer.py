@@ -26,9 +26,12 @@ def add_typer_block_message(
     centered_header = space_to_add + header + space_to_add
 
     typer.echo()
-    typer.secho(separator, fg=typer.colors.GREEN)
-    typer.secho(centered_header, fg=typer.colors.GREEN, bold=True)
-    typer.secho(separator, fg=typer.colors.GREEN)
+    if len(header) > 40:
+        typer.secho(header, fg=typer.colors.GREEN, bold=True)
+    else:
+        typer.secho(separator, fg=typer.colors.GREEN)
+        typer.secho(centered_header, fg=typer.colors.GREEN, bold=True)
+        typer.secho(separator, fg=typer.colors.GREEN)
     typer.echo(f"\n{subheader}")
     for message in messages:
         output = message
