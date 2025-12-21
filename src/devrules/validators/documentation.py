@@ -125,7 +125,7 @@ def format_documentation_message(
             rule_groups[rule_key] = {"rule": rule, "files": []}
         rule_groups[rule_key]["files"].append(file_path)
 
-    # Use table format if gum is available
+    # Always use list format for documentation display
     return _format_docs_list(rule_groups, show_files)
 
 
