@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.7] - 2024-12-21
 
 ### Added
+- **Functional Groups** - New command group for managing feature branches with integration cursors
+  - `functional-group-status` - View status of all functional groups
+  - `add-functional-group` - Create a new functional group
+  - `set-cursor` - Update integration cursor for a functional group
+  - `remove-functional-group` - Remove a functional group
+  - `sync-cursor` - Sync changes through the integration workflow
+- **Prompt History** - New history management system for interactive prompts
+  - Remembers previous inputs for branch names, commit messages, and more
+  - Offers suggestions based on past inputs
+  - Persists history between sessions
 - **Interactive branch management** - New feature to select and delete merged branches interactively
 - **Yaspin integration** - Added yaspin for better visual feedback during long-running operations
 - **Status validation** - Added warning messages for allowed statuses when updating issue status
@@ -16,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Refactored PR validation** - Improved PR issue status validation with better error handling
 - **Documentation updates** - Added demo gifs showing forbidden file detection and branch creation
 - **Commit experience** - Enhanced commit user experience with better feedback and error messages
+- **Interactive workflows** - Improved CLI workflows with better prompts and suggestions
 
 ### Fixed
 - **Remote branch detection** - Now checks if a branch has a remote associated branch without network access
@@ -26,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Code organization** - Improved code structure for better maintainability
 - **User feedback** - Enhanced status messages and progress indicators with yaspin
 - **Configuration validation** - Added validation when loading GitHub configuration
+- **History management** - Added persistent storage for command history and suggestions
 
 ## [0.1.6] - 2024-12-18
 
