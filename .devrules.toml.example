@@ -24,6 +24,7 @@ protected_branch_prefixes = ["staging-"]
 forbidden_patterns = ["*.dump", "*.sql", ".env.local", "*.log", "*.swp", "*~"]
 # Forbidden paths (directories that should not be committed)
 forbidden_paths = ["tmp/", "cache/", "local/", ".vscode/"]
+auto_stage = true
 
 [pr]
 # Pull Request validation
@@ -45,11 +46,24 @@ allowed_targets = ["develop", "main", "staging"]
 # source_pattern = "^feature/.*"
 # allowed_targets = ["develop"]
 # disallowed_message = "Feature branches must target develop, not main"
+auto_push = false
 
 [github]
 # GitHub API settings
 api_url = "https://api.github.com"
 timeout = 30
+owner = "pedroifgonzalez"
+repo = "devrules"
+valid_statuses = [ "Backlog", "Ready", "In progress", "Waiting Integration", "In review", "Done",]
+integration_comment_status = "Waiting Integration"
+
+[github.status_emojis]
+backlog = "📋"
+ready = "🚀"
+in_progress = "⏳"
+in_review = "👀"
+done = "✅"
+
 
 [deployment]
 # Jenkins configuration

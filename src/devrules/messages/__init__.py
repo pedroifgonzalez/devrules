@@ -18,6 +18,8 @@ class BranchMessages:
     NO_OWNED_MERGED_BRANCHES = (
         "No owned merged branches available to delete (filtered protected/current)."
     )
+    NO_SELECTED_BRANCHES_TO_DELETE = "No branches were selected nor provided to be deleted"
+    DELETE_BRANCHES_STATEMENT = "You are about to delete the following branches:"
 
     # Error messages
     INVALID_CHOICE = "✘ Invalid choice"

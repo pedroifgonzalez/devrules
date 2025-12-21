@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import toml
+import typer
 
 
 @dataclass
@@ -35,6 +36,7 @@ class CommitConfig:
     protected_branch_prefixes: list = field(default_factory=list)
     forbidden_patterns: list = field(default_factory=list)
     forbidden_paths: list = field(default_factory=list)
+    auto_stage: bool = False
 
 
 @dataclass
@@ -50,6 +52,7 @@ class PRConfig:
     project_for_status_check: list = field(default_factory=list)
     allowed_targets: list = field(default_factory=list)
     target_rules: list = field(default_factory=list)
+    auto_push: bool = False
 
 
 @dataclass
@@ -62,7 +65,20 @@ class GitHubConfig:
     repo: Optional[str] = None
     projects: dict = field(default_factory=dict)
     valid_statuses: list = field(default_factory=list)
+    integration_comment_status: str = "Waiting Integration"
     status_emojis: dict = field(default_factory=dict)
+
+    def _validate(self):
+        if (
+            self.integration_comment_status
+            and self.valid_statuses
+            and self.integration_comment_status not in self.valid_statuses
+        ):
+            typer.secho(
+                f"Invalid integration comment status: {self.integration_comment_status}",
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(code=1)
 
 
 @dataclass
@@ -105,6 +121,24 @@ class DocumentationConfig:
 
 
 @dataclass
+class IntegrationCursor:
+    """The current integration point for a functional group."""
+
+    branch: str
+    environment: Optional[str] = None
+
+
+@dataclass
+class FunctionalGroupConfig:
+    """Configuration for a functional group (Functional Feature)."""
+
+    description: str = ""
+    base_branch: str = "develop"
+    branch_pattern: str = ""
+    integration_cursor: Optional[IntegrationCursor] = None
+
+
+@dataclass
 class DeploymentConfig:
     """Deployment workflow configuration."""
 
@@ -130,6 +164,7 @@ class Config:
     deployment: DeploymentConfig = field(default_factory=DeploymentConfig)
     validation: ValidationConfig = field(default_factory=ValidationConfig)
     documentation: DocumentationConfig = field(default_factory=DocumentationConfig)
+    functional_groups: Dict[str, FunctionalGroupConfig] = field(default_factory=dict)
 
 
 DEFAULT_CONFIG = {
@@ -168,6 +203,7 @@ DEFAULT_CONFIG = {
         "max_length": 100,
         "append_issue_number": True,
         "allow_hook_bypass": False,
+        "auto_stage": True,
     },
     "pr": {
         "max_loc": 400,
@@ -177,6 +213,7 @@ DEFAULT_CONFIG = {
         "require_issue_status_check": False,
         "allowed_pr_statuses": [],
         "project_for_status_check": [],
+        "auto_push": False,
     },
     "github": {
         "api_url": "https://api.github.com",
@@ -184,6 +221,7 @@ DEFAULT_CONFIG = {
         "owner": None,
         "repo": None,
         "projects": {},
+        "integration_comment_status": "Waiting Integration",
         "valid_statuses": [
             "Backlog",
             "Blocked",
@@ -221,6 +259,7 @@ DEFAULT_CONFIG = {
         "show_on_commit": True,
         "show_on_pr": True,
     },
+    "functional_groups": {},
 }
 
 
@@ -346,12 +385,34 @@ def load_config(config_path: Optional[str] = None) -> Config:
         show_on_pr=doc_data.get("show_on_pr", True),
     )
 
+    # Parse functional groups
+    functional_groups_data = config_data.get("functional_groups", {})
+    functional_groups_dict = {}
+    for group_name, group_data in functional_groups_data.items():
+        if isinstance(group_data, dict):
+            cursor_data = group_data.get("integration_cursor")
+            cursor = None
+            if cursor_data:
+                cursor = IntegrationCursor(**cursor_data)
+
+            # Remove cursor from group_data to avoid double passing
+            group_args = {k: v for k, v in group_data.items() if k != "integration_cursor"}
+
+            functional_groups_dict[group_name] = FunctionalGroupConfig(
+                **group_args, integration_cursor=cursor
+            )
+
+    # validated configs
+    validated_github_config = GitHubConfig(**config_data.get("github", {}))
+    validated_github_config._validate()
+
     return Config(
         branch=BranchConfig(**config_data["branch"]),
         commit=CommitConfig(**{**config_data["commit"], "pattern": commit_pattern}),
         pr=PRConfig(**{**config_data["pr"], "title_pattern": pr_pattern}),
-        github=GitHubConfig(**config_data.get("github", {})),
+        github=validated_github_config,
         deployment=deployment_config,
         validation=ValidationConfig(**config_data.get("validation", {})),
         documentation=documentation_config,
+        functional_groups=functional_groups_dict,
     )

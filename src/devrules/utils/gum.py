@@ -8,6 +8,8 @@ import shutil
 import subprocess
 from typing import Optional
 
+from devrules.utils.history import get_history_manager
+
 # Check if gum is available
 GUM_AVAILABLE = shutil.which("gum") is not None
 
@@ -131,6 +133,97 @@ def write(
         return result.stdout.strip()
     except Exception:
         return None
+
+
+def input_text_with_history(
+    prompt_type: str,
+    placeholder: str = "",
+    header: str = "",
+    default: str = "",
+    char_limit: int = 0,
+    save_to_history: bool = True,
+) -> Optional[str]:
+    """Get text input from user with history suggestions.
+
+    Shows recent history entries as suggestions using gum filter if history exists,
+    otherwise falls back to regular input.
+
+    Args:
+        prompt_type: Type of prompt for history tracking (e.g., 'branch_description')
+        placeholder: Placeholder text
+        header: Header text
+        default: Default value
+        char_limit: Maximum characters (0 for unlimited)
+        save_to_history: Whether to save the result to history
+
+    Returns:
+        User input or None if cancelled
+    """
+    if not GUM_AVAILABLE:
+        return None
+
+    history_manager = get_history_manager()
+    recent = history_manager.get_recent(prompt_type, limit=10)
+
+    # If we have history, use filter for suggestions
+    if recent:
+        # Add a special option to enter new value
+        options = ["[Enter new value]"] + recent
+
+        # Show filter with history
+        cmd = ["gum", "filter", "--placeholder", placeholder or "Search or type new value..."]
+        if header:
+            cmd.extend(["--header", header])
+
+        try:
+            result = subprocess.run(
+                cmd,
+                input="\n".join(options),
+                stdout=subprocess.PIPE,
+                text=True,
+            )
+
+            if result.returncode != 0:
+                return None
+
+            selected = result.stdout.strip()
+
+            # Determine default value for input
+            input_default = default
+            if selected != "[Enter new value]":
+                input_default = selected
+
+            # Always show input prompt, pre-filled with selected history item (or default)
+            new_value = input_text(
+                placeholder=placeholder,
+                header=header or "Edit value:",
+                default=input_default,
+                char_limit=char_limit,
+            )
+
+            if new_value and save_to_history:
+                history_manager.add_entry(prompt_type, new_value)
+
+            return new_value
+
+        except Exception:
+            # Fall back to regular input
+            pass
+
+    # No history or filter failed - use regular input
+    regular_input_result = input_text(
+        placeholder=placeholder,
+        header=header,
+        default=default,
+        char_limit=char_limit,
+    )
+
+    if regular_input_result and save_to_history:
+        history_manager.add_entry(prompt_type, regular_input_result)
+
+    if regular_input_result:
+        return str(regular_input_result)
+    return None
 
 
 def confirm(message: str, default: bool = False) -> Optional[bool]:
@@ -413,3 +506,14 @@ def print_table(
         border_foreground: Border color
     """
     print(table(rows, headers, border, border_foreground))
+
+
+def print_stick_header(header: str):
+    print(style(header, foreground=81, bold=True))
+    print(style("=" * 50, foreground=81))
+
+
+def print_list(header: str, items: list[str]):
+    print_styled(header)
+    for item in items:
+        print_styled(item)

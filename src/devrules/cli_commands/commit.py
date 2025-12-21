@@ -42,8 +42,9 @@ def _build_commit_with_gum(tags: list[str]) -> Optional[str]:
         gum.error(msg.NO_TAG_SELECTED)
         return None
 
-    # Write message
-    message = gum.input_text(
+    # Write message with history
+    message = gum.input_text_with_history(
+        prompt_type=f"commit_message_{tag}",
         placeholder="Describe your changes...",
         header=f"[{tag}] Commit message:",
     )
@@ -123,6 +124,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         config = load_config(config_file)
 
+        typer.secho("Checking commit requirements...", fg=typer.colors.BLUE)
+
         # Check for forbidden files (unless skipped)
         if not skip_checks and (config.commit.forbidden_patterns or config.commit.forbidden_paths):
             is_valid, validation_message = validate_no_forbidden_files(
@@ -138,6 +141,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                     messages=["💡 Suggestions:"]
                     + [f"• {suggestion}" for suggestion in get_forbidden_file_suggestions()],
                     indent_block=False,
+                    use_separator=False,
                 )
                 raise typer.Exit(code=1)
 
@@ -187,6 +191,17 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             if not has_docs:
                 doc_message = None
 
+        if config.commit.auto_stage:
+            typer.secho("Auto staging files...", fg=typer.colors.GREEN)
+            subprocess.run(
+                [
+                    "git",
+                    "add",
+                    "--all",
+                ],
+                check=True,
+            )
+
         options = []
         if config.commit.gpg_sign:
             options.append("-S")
@@ -227,6 +242,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config = load_config(config_file)
         ensure_git_repo()
 
+        typer.secho("Checking commit requirements...", fg=typer.colors.BLUE)
+
         # Check for forbidden files (unless skipped)
         if not skip_checks and (config.commit.forbidden_patterns or config.commit.forbidden_paths):
             is_valid, validation_message = validate_no_forbidden_files(
@@ -242,6 +259,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                     messages=["💡 Suggestions:"]
                     + [f"• {suggestion}" for suggestion in get_forbidden_file_suggestions()],
                     indent_block=False,
+                    use_separator=False,
                 )
                 raise typer.Exit(code=1)
 
@@ -307,6 +325,17 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             if not typer.confirm("Proceed with commit?", default=True):
                 typer.secho(msg.COMMIT_CANCELLED, fg=typer.colors.YELLOW)
                 raise typer.Exit(code=0)
+
+        if config.commit.auto_stage:
+            typer.secho("Auto staging files...", fg=typer.colors.GREEN)
+            subprocess.run(
+                [
+                    "git",
+                    "add",
+                    "--all",
+                ],
+                check=True,
+            )
 
         options = []
         if config.commit.gpg_sign:

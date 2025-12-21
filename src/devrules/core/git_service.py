@@ -3,6 +3,7 @@ import string
 import subprocess
 
 import typer
+from yaspin import yaspin
 
 from devrules.config import Config
 from devrules.dtos.github import ProjectItem
@@ -125,13 +126,15 @@ def _get_branch_name_with_gum(config: Config) -> str:
         raise typer.Exit(code=1)
 
     # Step 2: Issue/ticket number (optional)
-    issue_number = gum.input_text(
+    issue_number = gum.input_text_with_history(
+        prompt_type="issue_number",
         placeholder="Enter number or leave empty to skip",
         header="🔢 Issue/ticket number (optional):",
     )
 
     # Step 3: Branch description
-    description = gum.input_text(
+    description = gum.input_text_with_history(
+        prompt_type="branch_description",
         placeholder="Enter a short description of branch intent",
         header="📝 Branch description:",
     )
@@ -295,7 +298,8 @@ def delete_branch_local_and_remote(
     # Delete local branch
     delete_flag = "-D" if force else "-d"
     try:
-        subprocess.run(["git", "branch", delete_flag, branch], check=True, capture_output=True)
+        with yaspin(text=f"Deleting local branch '{branch}'"):
+            subprocess.run(["git", "branch", delete_flag, branch], check=True, capture_output=True)
         typer.secho(f"✔ Deleted local branch '{branch}'", fg=typer.colors.GREEN)
     except subprocess.CalledProcessError as e:
         typer.secho(
@@ -306,18 +310,107 @@ def delete_branch_local_and_remote(
             raise typer.Exit(code=1)
 
     # Delete remote branch
+    if not offline_remote_branch_exists(branch=branch):
+        typer.secho("Branch does not exists remotely, skipping...", fg=typer.colors.YELLOW)
+    else:
+        try:
+            with yaspin(text=f"Deleting remote branch '{branch}' from '{remote}'"):
+                subprocess.run(
+                    ["git", "push", remote, "--delete", branch], check=True, capture_output=True
+                )
+            typer.secho(
+                f"✔ Deleted remote branch '{branch}' from '{remote}'", fg=typer.colors.GREEN
+            )
+        except subprocess.CalledProcessError as e:
+            if ignore_remote_error:
+                typer.secho(
+                    f"⚠ Could not delete remote branch '{branch}' (maybe it doesn't exist?)",
+                    fg=typer.colors.YELLOW,
+                )
+            else:
+                typer.secho(
+                    f"✘ Failed to delete remote branch '{branch}' from '{remote}': {e.stderr.decode().strip()}",
+                    fg=typer.colors.RED,
+                )
+                raise typer.Exit(code=1)
+
+
+def checkout_branch_interactive(config: Config) -> None:
+    """Interactively select and checkout a branch."""
+    ensure_git_repo()
+
+    current_branch = get_current_branch()
+    branches = get_existing_branches()
+
+    # Filter out current branch from candidates
+    candidates = [b for b in branches if b != current_branch]
+
+    if not candidates:
+        typer.secho("✘ No other branches found to switch to.", fg=typer.colors.YELLOW)
+        raise typer.Exit(code=0)
+
+    selected_branch = None
+
+    # Use gum if available
+    if gum.is_available():
+        print(gum.style("🔀 Switch Branch", foreground=81, bold=True))
+        print(gum.style(f"Current: {current_branch}", foreground=240))
+
+        # Use filter so user can search
+        selected_branch = gum.filter_list(
+            candidates, placeholder="Select branch to checkout...", header="Branches"
+        )
+    else:
+        # Fallback to typer prompt
+        add_typer_block_message(
+            header="🔀 Switch Branch",
+            subheader=f"Current: {current_branch}",
+            messages=[f"{idx}. {b}" for idx, b in enumerate(candidates, 1)],
+        )
+
+        choice = typer.prompt("Enter number", type=int)
+
+        if 1 <= choice <= len(candidates):
+            selected_branch = candidates[choice - 1]
+
+    if not selected_branch:
+        typer.echo("Cancelled.")
+        raise typer.Exit(code=0)
+
     try:
-        subprocess.run(["git", "push", remote, "--delete", branch], check=True, capture_output=True)
-        typer.secho(f"✔ Deleted remote branch '{branch}' from '{remote}'", fg=typer.colors.GREEN)
+        subprocess.run(["git", "checkout", selected_branch], check=True)
+        typer.secho(f"\n✔ Switched to branch '{selected_branch}'", fg=typer.colors.GREEN)
     except subprocess.CalledProcessError as e:
-        if ignore_remote_error:
-            typer.secho(
-                f"⚠ Could not delete remote branch '{branch}' (maybe it doesn't exist?)",
-                fg=typer.colors.YELLOW,
-            )
+        typer.secho(f"\n✘ Failed to checkout branch: {e}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+
+def remote_branch_exists(branch: str, remote: str = "origin") -> bool:
+    """Check if a branch exists on the remote."""
+    try:
+        subprocess.run(
+            ["git", "ls-remote", "--exit-code", "--heads", remote, branch],
+            check=True,
+            capture_output=True,
+        )
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+
+def offline_remote_branch_exists(branch: str, remote: str = "origin") -> bool:
+    """Check if a branch exists on the remote without consulting network"""
+    try:
+        result = subprocess.run(
+            ["git", "branch", "-a"],
+            check=True,
+            capture_output=True,
+        )
+        output_lines = result.stdout.splitlines()
+        str_output_lines = [output.decode().strip() for output in output_lines]
+        if f"remotes/{remote}/{branch}" in str_output_lines:
+            return True
         else:
-            typer.secho(
-                f"✘ Failed to delete remote branch '{branch}' from '{remote}': {e.stderr.decode().strip()}",
-                fg=typer.colors.RED,
-            )
-            raise typer.Exit(code=1)
+            return False
+    except subprocess.CalledProcessError:
+        return False

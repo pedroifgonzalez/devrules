@@ -1,6 +1,6 @@
 [project]
 name = "devrules"
-version = "0.1.6"
+version = "0.1.7"
 description = "CLI tool for enforcing development guidelines"
 readme = "README.md"
 license = {text = "Business Source License 1.1"}
@@ -11,6 +11,7 @@ dependencies = [
     "toml>=0.10.2",
     "typer>=0.20.0",
     "cryptography>=41.0.0",
+    "yaspin>=3.4.0",
 ]
 authors = [
     {name = "Pedro Iván Fernández González", email = "pedroifgonzalez@gmail.com"}

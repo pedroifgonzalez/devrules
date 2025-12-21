@@ -5,6 +5,8 @@ import subprocess
 from pathlib import Path
 from typing import List, Tuple
 
+import typer
+
 
 def get_staged_files() -> List[str]:
     """Get list of staged files in the current commit.
@@ -144,7 +146,7 @@ def validate_no_forbidden_files(
     )
 
     if has_forbidden:
-        files_list = "\n  • ".join(forbidden_files)
+        files_list = typer.style("\n  • ".join(forbidden_files), fg=typer.colors.RED, bold=True)
         message = (
             f"Found {len(forbidden_files)} forbidden file(s) {context}:\n"
             f"  • {files_list}\n\n"
