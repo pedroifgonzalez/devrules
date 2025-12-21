@@ -126,10 +126,7 @@ def format_documentation_message(
         rule_groups[rule_key]["files"].append(file_path)
 
     # Use table format if gum is available
-    if gum.is_available():
-        return _format_docs_table(rule_groups, show_files)
-    else:
-        return _format_docs_list(rule_groups, show_files)
+    return _format_docs_list(rule_groups, show_files)
 
 
 def _format_docs_table(rule_groups: dict, show_files: bool) -> str:
