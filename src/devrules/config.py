@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import toml
+import typer
 
 
 @dataclass
@@ -66,6 +67,18 @@ class GitHubConfig:
     valid_statuses: list = field(default_factory=list)
     integration_comment_status: str = "Waiting Integration"
     status_emojis: dict = field(default_factory=dict)
+
+    def _validate(self):
+        if (
+            self.integration_comment_status
+            and self.valid_statuses
+            and self.integration_comment_status not in self.valid_statuses
+        ):
+            typer.secho(
+                f"Invalid integration comment status: {self.integration_comment_status}",
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(code=1)
 
 
 @dataclass
@@ -208,6 +221,7 @@ DEFAULT_CONFIG = {
         "owner": None,
         "repo": None,
         "projects": {},
+        "integration_comment_status": "Waiting Integration",
         "valid_statuses": [
             "Backlog",
             "Blocked",
@@ -388,11 +402,15 @@ def load_config(config_path: Optional[str] = None) -> Config:
                 **group_args, integration_cursor=cursor
             )
 
+    # validated configs
+    validated_github_config = GitHubConfig(**config_data.get("github", {}))
+    validated_github_config._validate()
+
     return Config(
         branch=BranchConfig(**config_data["branch"]),
         commit=CommitConfig(**{**config_data["commit"], "pattern": commit_pattern}),
         pr=PRConfig(**{**config_data["pr"], "title_pattern": pr_pattern}),
-        github=GitHubConfig(**config_data.get("github", {})),
+        github=validated_github_config,
         deployment=deployment_config,
         validation=ValidationConfig(**config_data.get("validation", {})),
         documentation=documentation_config,
