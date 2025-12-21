@@ -165,12 +165,13 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         if config.pr.require_issue_status_check:
             from devrules.validators.pr import validate_pr_issue_status
 
-            with yaspin("🔍 Checking issue status..."):
+            with yaspin(text="🔍 Checking issue status...") as spinner:
                 # Use CLI project option if provided, otherwise use config
                 project_override = [project] if project else None
                 is_valid, messages = validate_pr_issue_status(
                     current_branch, config.pr, config.github, project_override=project_override
                 )
+                spinner.stop()
 
                 for message in messages:
                     if "✔" in message or "ℹ" in message:
@@ -446,12 +447,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         if config.pr.require_issue_status_check:
             from devrules.validators.pr import validate_pr_issue_status
 
-            with yaspin("🔍 Checking issue status..."):
+            with yaspin(text="🔍 Checking issue status...") as spinner:
                 project_override = [project] if project else None
                 is_valid, messages = validate_pr_issue_status(
                     current_branch, config.pr, config.github, project_override=project_override
                 )
-
+                spinner.stop()
                 for message in messages:
                     if "✔" in message or "ℹ" in message:
                         typer.secho(message, fg=typer.colors.GREEN)
@@ -468,7 +469,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                     )
                     raise typer.Exit(code=1)
 
-                typer.echo()
+            typer.echo()
 
         # Confirm before creating
         if gum.is_available():
