@@ -308,21 +308,22 @@ def delete_branch_local_and_remote(
             raise typer.Exit(code=1)
 
     # Delete remote branch
-    try:
-        subprocess.run(["git", "push", remote, "--delete", branch], check=True, capture_output=True)
-        typer.secho(f"✔ Deleted remote branch '{branch}' from '{remote}'", fg=typer.colors.GREEN)
-    except subprocess.CalledProcessError as e:
-        if ignore_remote_error:
-            typer.secho(
-                f"⚠ Could not delete remote branch '{branch}' (maybe it doesn't exist?)",
-                fg=typer.colors.YELLOW,
-            )
-        else:
-            typer.secho(
-                f"✘ Failed to delete remote branch '{branch}' from '{remote}': {e.stderr.decode().strip()}",
-                fg=typer.colors.RED,
-            )
-            raise typer.Exit(code=1)
+    if remote_branch_exists(branch=branch):
+        try:
+            subprocess.run(["git", "push", remote, "--delete", branch], check=True, capture_output=True)
+            typer.secho(f"✔ Deleted remote branch '{branch}' from '{remote}'", fg=typer.colors.GREEN)
+        except subprocess.CalledProcessError as e:
+            if ignore_remote_error:
+                typer.secho(
+                    f"⚠ Could not delete remote branch '{branch}' (maybe it doesn't exist?)",
+                    fg=typer.colors.YELLOW,
+                )
+            else:
+                typer.secho(
+                    f"✘ Failed to delete remote branch '{branch}' from '{remote}': {e.stderr.decode().strip()}",
+                    fg=typer.colors.RED,
+                )
+                raise typer.Exit(code=1)
 
 
 def checkout_branch_interactive(config: Config) -> None:
