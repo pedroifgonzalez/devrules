@@ -88,7 +88,7 @@ def validate_pr_issue_status(
         messages.append(
             f"✘ Issue #{issue_number} has status '{current_status}' which is not allowed for PR creation"
         )
-        messages.append(f"  Allowed statuses: {', '.join(allowed_statuses)}")
+        messages.append(f"⚠ Allowed statuses: {', '.join(allowed_statuses)}")
         return False, messages
 
 
