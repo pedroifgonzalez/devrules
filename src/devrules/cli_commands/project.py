@@ -154,7 +154,7 @@ def _get_repo_owner_and_name(config, owner, issue_repo) -> tuple[str, str]:
 def _get_status_interactively(valid_statuses: list[str], current_item_status: str) -> Optional[str]:
     """Get the new status interactively."""
     statuses_to_choose = valid_statuses.copy()
-    if current_item_status:
+    if current_item_status and current_item_status in statuses_to_choose:
         statuses_to_choose.remove(current_item_status)
     if GUM_AVAILABLE:
         output = gum.choose(
