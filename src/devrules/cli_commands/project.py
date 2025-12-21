@@ -201,11 +201,17 @@ def _get_issue_and_status_interactively(items: list[Dict]) -> dict:
             options=options,
             header="Select an issue to update",
         )
-        assert isinstance(selected, str), "No issue selected"
+        if not isinstance(selected, str):
+            typer.secho("No issue selected.", fg=typer.colors.YELLOW)
+            raise typer.Exit(0)
         issue = int(selected.split(" ")[0][1:])
         selected_item = next(
-            item for item in items if str(item.get("content", {}).get("number")) == str(issue)
+            (item for item in items if str(item.get("content", {}).get("number")) == str(issue)),
+            None,
         )
+        if selected_item is None:
+            typer.secho("Could not find selected issue.", fg=typer.colors.RED)
+            raise typer.Exit(1)
         item_title = selected_item.get("title")
         item_status = selected_item.get("status")
     else:
@@ -221,10 +227,11 @@ def _get_issue_and_status_interactively(items: list[Dict]) -> dict:
                 selection = typer.prompt("\nEnter the number of the issue", type=int)
                 if 1 <= selection <= len(items):
                     selected_item = items[selection - 1]
-                    issue = selected_item["content"]["number"]
-                    item_title = selected_item["title"]
-                    item_status = selected_item.get("status", "No status")
-                    break
+                    if selected_item:
+                        issue = selected_item["content"]["number"]
+                        item_title = selected_item["title"]
+                        item_status = selected_item.get("status", "No status")
+                        break
                 typer.secho("Invalid selection. Please try again.", fg=typer.colors.YELLOW)
             except ValueError:
                 typer.secho("Please enter a valid number.", fg=typer.colors.YELLOW)
