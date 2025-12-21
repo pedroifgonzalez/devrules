@@ -484,8 +484,12 @@ def list_project_items(
             capture_output=True,
             text=True,
         )
+        try:
+            output = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            typer.echo(result.stdout)
+            raise typer.Exit(code=1)
 
-        output = json.loads(result.stdout)
         items = output.get("items", [])
 
         # Filter out items with the excluded status if specified
@@ -501,7 +505,7 @@ def list_project_items(
         )
         if e.stderr:
             typer.echo(e.stderr)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 def print_project_items(
