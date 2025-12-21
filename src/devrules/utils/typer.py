@@ -2,7 +2,10 @@ import typer
 
 
 def add_typer_block_message(
-    header: str, subheader: str, messages: list[str], indent_block: bool = True
+    header: str,
+    subheader: str,
+    messages: list[str],
+    indent_block: bool = True,
 ):
     indent = " " * 4
     all_messages = []
@@ -10,8 +13,11 @@ def add_typer_block_message(
     all_messages.append(subheader)
     messages_output = [indent + message for message in messages] if indent_block else messages
     all_messages.extend(messages_output)
+    extended_messages = []
+    for message in all_messages:
+        extended_messages.extend(message.split("\n"))
     longest_message = ""
-    for m in all_messages:
+    for m in extended_messages:
         if len(m) > len(longest_message):
             longest_message = m
 
