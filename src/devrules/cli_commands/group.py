@@ -392,7 +392,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             group_names = list(config.functional_groups.keys())
             if gum.is_available():
                 name = gum.choose(group_names, header="Select group to remove:") or ""
-                if isinstance(name, Iterable):
+                if isinstance(name, list):
                     name = name[0] if name else ""
             else:
                 add_typer_block_message(
