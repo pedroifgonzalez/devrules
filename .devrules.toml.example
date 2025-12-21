@@ -52,6 +52,18 @@ auto_push = false
 # GitHub API settings
 api_url = "https://api.github.com"
 timeout = 30
+owner = "pedroifgonzalez"
+repo = "devrules"
+valid_statuses = [ "Backlog", "Ready", "In progress", "Waiting Integration", "In review", "Done",]
+integration_comment_status = "Waiting Integration"
+
+[github.status_emojis]
+backlog = "📋"
+ready = "🚀"
+in_progress = "⏳"
+in_review = "👀"
+done = "✅"
+
 
 [deployment]
 # Jenkins configuration
