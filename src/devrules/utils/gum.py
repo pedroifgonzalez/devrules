@@ -506,3 +506,14 @@ def print_table(
         border_foreground: Border color
     """
     print(table(rows, headers, border, border_foreground))
+
+
+def print_stick_header(header: str):
+    print(style(header, foreground=81, bold=True))
+    print(style("=" * 50, foreground=81))
+
+
+def print_list(header: str, items: list[str]):
+    print_styled(header)
+    for item in items:
+        print_styled(item)

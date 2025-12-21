@@ -3,6 +3,7 @@ import string
 import subprocess
 
 import typer
+from yaspin import yaspin
 
 from devrules.config import Config
 from devrules.dtos.github import ProjectItem
@@ -297,7 +298,8 @@ def delete_branch_local_and_remote(
     # Delete local branch
     delete_flag = "-D" if force else "-d"
     try:
-        subprocess.run(["git", "branch", delete_flag, branch], check=True, capture_output=True)
+        with yaspin(text=f"Deleting local branch '{branch}'"):
+            subprocess.run(["git", "branch", delete_flag, branch], check=True, capture_output=True)
         typer.secho(f"✔ Deleted local branch '{branch}'", fg=typer.colors.GREEN)
     except subprocess.CalledProcessError as e:
         typer.secho(
@@ -312,8 +314,13 @@ def delete_branch_local_and_remote(
         typer.secho("Branch does not exists remotely, skipping...", fg=typer.colors.YELLOW)
     else:
         try:
-            subprocess.run(["git", "push", remote, "--delete", branch], check=True, capture_output=True)
-            typer.secho(f"✔ Deleted remote branch '{branch}' from '{remote}'", fg=typer.colors.GREEN)
+            with yaspin(text=f"Deleting remote branch '{branch}' from '{remote}'"):
+                subprocess.run(
+                    ["git", "push", remote, "--delete", branch], check=True, capture_output=True
+                )
+            typer.secho(
+                f"✔ Deleted remote branch '{branch}' from '{remote}'", fg=typer.colors.GREEN
+            )
         except subprocess.CalledProcessError as e:
             if ignore_remote_error:
                 typer.secho(
@@ -400,8 +407,8 @@ def offline_remote_branch_exists(branch: str, remote: str = "origin") -> bool:
             capture_output=True,
         )
         output_lines = result.stdout.splitlines()
-        output_lines = [output.decode().strip() for output in output_lines]
-        if f"remotes/{remote}/{branch}" in output_lines:
+        str_output_lines = [output.decode().strip() for output in output_lines]
+        if f"remotes/{remote}/{branch}" in str_output_lines:
             return True
         else:
             return False
