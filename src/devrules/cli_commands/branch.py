@@ -275,7 +275,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             is_release_branch = selected_branch.startswith("release/")
             if selected_branch in protected_branches or is_release_branch:
                 typer.secho(
-                    msg.REFUSING_TO_DELETE_SHARED_BRANCH.format(branch), fg=typer.colors.RED
+                    msg.REFUSING_TO_DELETE_SHARED_BRANCH.format(selected_branch), fg=typer.colors.RED
                 )
                 raise typer.Exit(code=1)
 
@@ -286,7 +286,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
             # Enforce ownership rules before allowing delete using the same logic
             if selected_branch not in owned_branches:
-                typer.secho(msg.NOT_ALLOWED_TO_DELETE_BRANCH.format(branch), fg=typer.colors.RED)
+                typer.secho(msg.NOT_ALLOWED_TO_DELETE_BRANCH.format(selected_branch), fg=typer.colors.RED)
                 raise typer.Exit(code=1)
 
         if branches:
