@@ -451,6 +451,59 @@ def add_issue_comment(owner: str, repo: str, issue: int, comment: str) -> None:
         )
 
 
+def list_project_items(
+    owner: str, project_number: str, exclude_status: Optional[str] = None
+) -> list[dict]:
+    """List all items in a GitHub project, optionally excluding items with a specific status.
+
+    Args:
+        owner: The repository owner
+        project_number: The project number
+        exclude_status: Optional status to exclude (e.g., "Done")
+
+    Returns:
+        List of project items with their details
+    """
+    cmd = [
+        "gh",
+        "project",
+        "item-list",
+        project_number,
+        "--owner",
+        owner,
+        "--format",
+        "json",
+        "--limit",
+        "100",
+    ]
+
+    try:
+        result = subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        output = json.loads(result.stdout)
+        items = output.get("items", [])
+
+        # Filter out items with the excluded status if specified
+        if exclude_status is not None:
+            items = [item for item in items if item.get("status") != exclude_status]
+
+        return items
+
+    except subprocess.CalledProcessError as e:
+        typer.secho(
+            f"✘ Failed to list project items: {e}",
+            fg=typer.colors.RED,
+        )
+        if e.stderr:
+            typer.echo(e.stderr)
+        raise typer.Exit(code=1)
+
+
 def print_project_items(
     stdout: str,
     assignee: Optional[str],
