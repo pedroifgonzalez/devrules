@@ -298,7 +298,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             status = _get_status_interactively(valid_statuses, item_status)
 
         # Validate the status
-        assert status is not None, "Status cannot be None"
+        if status is None:
+            typer.secho("Status is required.", fg=typer.colors.RED)
+            raise typer.Exit(1)
         _validate_status(status, valid_statuses)
 
         # If we got here with an issue number but no item_id, look up the item
