@@ -9,12 +9,15 @@ from devrules.core.project_service import (
     add_issue_comment,
     find_project_item_for_issue,
     get_project_id,
-    get_project_item_title_by_id,
     get_status_field_id,
     get_status_option_id,
+    list_project_items,
     print_project_items,
     resolve_project_number,
 )
+from devrules.utils import gum
+from devrules.utils.gum import GUM_AVAILABLE
+from devrules.utils.typer import add_typer_block_message
 
 
 def _get_valid_statuses() -> list[str]:
@@ -40,10 +43,12 @@ def _get_valid_statuses() -> list[str]:
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command()
     def update_issue_status(
-        issue: int = typer.Argument(..., help="Issue number (e.g. 123)"),
-        status: str = typer.Option(..., "--status", "-s", help="New project status value"),
-        project: str = typer.Option(
-            ...,
+        issue: Optional[int] = typer.Argument(None, help="Issue number (e.g. 123)"),
+        status: Optional[str] = typer.Option(
+            None, "--status", "-s", help="New project status value"
+        ),
+        project: Optional[str] = typer.Option(
+            None,
             "--project",
             "-p",
             help="GitHub project number or key (uses 'gh project item-list')",
@@ -54,14 +59,115 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             help="Direct GitHub Project item id (skips searching by issue number)",
         ),
     ):
-        """Update the Status field of a GitHub Project item for a given issue."""
+        """Update the Status field of a GitHub Project item for a given issue.
 
+        If no issue or status is provided, an interactive prompt will be shown to select them.
+        """
         ensure_gh_installed()
-
-        # Load config to validate allowed statuses
         config = load_config(None)
         valid_statuses = _get_valid_statuses()
 
+        projects_keys = list(config.github.projects.keys())
+        if project is None:
+            if GUM_AVAILABLE:
+                print(gum.style("Update issue status", foreground=81, bold=True))
+                print(gum.style("=" * 50, foreground=81))
+                project_key = gum.choose(
+                    options=projects_keys,
+                    header="Select a project",
+                )
+            else:
+                add_typer_block_message(
+                    header="Select a project",
+                    subheader="Available projects:",
+                    messages=[f"{idx}. {b}" for idx, b in enumerate(projects_keys, 1)],
+                )
+                project_number = typer.prompt("Enter number", type=int)
+                if project_number < 1 or project_number > len(projects_keys):
+                    typer.secho("✘ Invalid choice", fg=typer.colors.RED)
+                    raise typer.Exit(code=1)
+                project_key = projects_keys[project_number - 1]
+
+        # Resolve project owner and number using existing logic
+        owner, project_number = resolve_project_number(project_key)
+
+        # If no issue is provided, show interactive selection
+        if issue is None and item_id is None:
+            typer.echo("\n🔍 Fetching project items...")
+            typer.echo()
+            items = list_project_items(owner, project_number, exclude_status="Done")
+            if not items:
+                typer.secho("✘ No items found in the project", fg=typer.colors.RED)
+                raise typer.Exit(code=1)
+
+            item_status = None
+            if GUM_AVAILABLE:
+                # Format items for gum selection
+                options = [
+                    f"#{item.get('content', {}).get('number')} - {item.get('title', 'No title')} [{item.get('status', 'No status')}]"
+                    for item in items
+                ]
+                selected = gum.choose(
+                    options=options,
+                    header="Select an issue to update",
+                )
+                # Extract the issue number from the selected option
+                issue = int(selected.split(" ")[0][1:])
+                # Find the selected item to set item_title
+                selected_item = next(
+                    item
+                    for item in items
+                    if str(item.get("content", {}).get("number")) == str(issue)
+                )
+                item_title = selected_item.get("title")
+                item_status = selected_item.get("status")
+            else:
+                typer.echo("\n📋 Select an issue to update:")
+                for i, item in enumerate(items, 1):
+                    issue_num = item.get("content", {}).get("number")
+                    title = item.get("title", "No title")
+                    it_status = item.get("status", "No status")
+                    typer.echo(f"{i}. #{issue_num} - {title} [{it_status}]")
+
+                while True:
+                    try:
+                        selection = typer.prompt("\nEnter the number of the issue", type=int)
+                        if 1 <= selection <= len(items):
+                            selected_item = items[selection - 1]
+                            issue = selected_item["content"]["number"]
+                            item_title = selected_item["title"]
+                            item_status = selected_item.get("status", "No status")
+                            break
+                        typer.secho("Invalid selection. Please try again.", fg=typer.colors.YELLOW)
+                    except ValueError:
+                        typer.secho("Please enter a valid number.", fg=typer.colors.YELLOW)
+
+        # If no status is provided, show interactive status selection
+        if status is None:
+            statuses_to_choose = valid_statuses.copy()
+            if item_status:
+                statuses_to_choose.remove(item_status)
+            if GUM_AVAILABLE:
+                status = gum.choose(
+                    options=statuses_to_choose,
+                    header="Select the new status",
+                )
+            else:
+                typer.echo("\n📋 Select the new status:")
+                for i, status_option in enumerate(statuses_to_choose, 1):
+                    typer.echo(f"{i}. {status_option}")
+
+                while True:
+                    try:
+                        selection = typer.prompt("\nEnter the number of the status", type=int)
+                        if 1 <= selection <= len(statuses_to_choose):
+                            status = statuses_to_choose[selection - 1]
+                            break
+                        typer.secho("Invalid selection. Please try again.", fg=typer.colors.YELLOW)
+                    except ValueError:
+                        typer.secho("Please enter a valid number.", fg=typer.colors.YELLOW)
+
+        # Validate the status
         if status not in valid_statuses:
             allowed = ", ".join(valid_statuses)
             typer.secho(
@@ -70,14 +176,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             )
             raise typer.Exit(code=1)
 
-        # Resolve project owner and number using existing logic
-        owner, project_number = resolve_project_number(project)
-
-        # Determine which project item to update: direct item id or lookup by issue
+        # If we got here with an issue number but no item_id, look up the item
         issue_repo = None
-        if item_id is not None:
-            item_title = get_project_item_title_by_id(owner, project_number, item_id)
-        else:
+        if item_id is None:
             project_item = find_project_item_for_issue(owner, project_number, issue)
             item_id, item_title = project_item.id, project_item.title
             if project_item.repository:
@@ -138,12 +239,20 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         ]
 
         try:
-            subprocess.run(
-                cmd,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+            # Use gum spin if available, otherwise run normally
+            if GUM_AVAILABLE:
+                # Use the full command list as is
+                gum.spin(
+                    title="Updating status...",
+                    command=cmd,
+                )
+            else:
+                subprocess.run(
+                    cmd,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
         except subprocess.CalledProcessError as e:
             typer.secho(
                 f"✘ Failed to update project item status: {e}",
