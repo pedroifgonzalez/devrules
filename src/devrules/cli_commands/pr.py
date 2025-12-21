@@ -210,21 +210,24 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         # Auto-push if enabled
         # check branch is not already in remote
-        if config.pr.auto_push:
-            if not remote_branch_exists(current_branch):
-                typer.secho(
-                    f"\n🚀 Pushing branch '{current_branch}' to origin...", fg=typer.colors.CYAN
-                )
-                try:
-                    subprocess.run(
-                        ["git", "push", "-u", "origin", current_branch],
-                        check=True,
-                        capture_output=False,  # Let user see push progress
-                    )
-                except subprocess.CalledProcessError as e:
-                    typer.secho(f"✘ Failed to push branch: {e}", fg=typer.colors.RED)
-                    if not typer.confirm("Continue creating PR anyway?", default=False):
-                        raise typer.Exit(code=1)
+        if config.pr.auto_push or auto_push:
+            with yaspin(text=f"Checking if branch '{current_branch}' exists on remote..."):
+                exists_remotely = remote_branch_exists(current_branch)
+            if not exists_remotely:
+                with yaspin(
+                    text=f"🚀 Pushing branch '{current_branch}' to origin...",
+                    color=typer.colors.CYAN,
+                ):
+                    try:
+                        subprocess.run(
+                            ["git", "push", "-u", "origin", current_branch],
+                            check=True,
+                            capture_output=False,  # Let user see push progress
+                        )
+                    except subprocess.CalledProcessError as e:
+                        typer.secho(f"✘ Failed to push branch: {e}", fg=typer.colors.RED)
+                        if not typer.confirm("Continue creating PR anyway?", default=False):
+                            raise typer.Exit(code=1)
             else:
                 typer.secho(
                     f"\nℹ Branch '{current_branch}' already exists on remote, skipping push.",
