@@ -263,7 +263,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             with open(config_path, "w") as f:
                 toml.dump(data, f)
             typer.secho(
-                f"Added functional group '{name}' with base branch '{base_branch}'", fg="green"
+                f"Added functional group '{name}' with base branch '{group_data['base_branch']}'", fg="green"
             )
         except Exception as e:
             typer.secho(f"Error writing to config file: {e}", fg="red")
