@@ -6,6 +6,7 @@ def add_typer_block_message(
     subheader: str,
     messages: list[str],
     indent_block: bool = True,
+    use_separator: bool = True,
 ):
     indent = " " * 4
     all_messages = []
@@ -32,7 +33,7 @@ def add_typer_block_message(
     centered_header = space_to_add + header + space_to_add
 
     typer.echo()
-    if len(header) > 40:
+    if len(header) > 40 or not use_separator:
         typer.secho(header, fg=typer.colors.GREEN, bold=True)
     else:
         typer.secho(separator, fg=typer.colors.GREEN)
