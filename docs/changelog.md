@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.7] - 2024-12-21
+## [0.1.7] - 2025-12-21
 
 ### Added
 - **Functional Groups** - New command group for managing feature branches with integration cursors
@@ -39,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Configuration validation** - Added validation when loading GitHub configuration
 - **History management** - Added persistent storage for command history and suggestions
 
-## [0.1.6] - 2024-12-18
+## [0.1.6] - 2025-12-18
 
 ### Added
 - **Shell mode** - Interactive shell mode for typing less (`devrules shell`)
@@ -72,7 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Standardized CLI message formatting across all commands
 - Improved code organization and consistency
 
-## [0.1.5] - 2024-12-06
+## [0.1.5] - 2025-12-06
 
 ### Added
 - **Repository state validation** - Check for uncommitted changes and if local branch is behind remote before branch creation
