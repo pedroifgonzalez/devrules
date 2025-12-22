@@ -2,8 +2,9 @@ import os
 from typing import Any, Callable, Dict, Optional
 
 import typer
+from typer_di import Depends
 
-from devrules.config import load_config
+from devrules.config import Config, load_config
 from devrules.core.git_service import get_current_branch, get_current_issue_number
 from devrules.messages import commit as msg
 from devrules.utils import gum
@@ -88,12 +89,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @ensure_git_repo()
     def check_commit(
         file: str,
-        config_file: Optional[str] = typer.Option(
-            None, "--config", "-c", help="Path to config file"
-        ),
+        config: Config = Depends(load_config),
     ):
         """Validate commit message format."""
-        config = load_config(config_file)
 
         if not os.path.exists(file):
             typer.secho(msg.COMMIT_MESSAGE_FILE_NOT_FOUND.format(file), fg=typer.colors.RED)
@@ -115,17 +113,13 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @ensure_git_repo()
     def commit(
         message: str,
-        config_file: Optional[str] = typer.Option(
-            None, "--config", "-c", help="Path to config file"
-        ),
         skip_checks: bool = typer.Option(
             False, "--skip-checks", help="Skip file validation and documentation checks"
         ),
+        config: Config = Depends(load_config),
     ):
         """Validate and commit changes with a properly formatted message."""
         import subprocess
-
-        config = load_config(config_file)
 
         typer.secho("Checking commit requirements...", fg=typer.colors.BLUE)
 
@@ -232,17 +226,13 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command()
     @ensure_git_repo()
     def icommit(
-        config_file: Optional[str] = typer.Option(
-            None, "--config", "-c", help="Path to config file"
-        ),
         skip_checks: bool = typer.Option(
             False, "--skip-checks", help="Skip file validation and documentation checks"
         ),
+        config: Config = Depends(load_config),
     ):
         """Interactive commit - build commit message with guided prompts."""
         import subprocess
-
-        config = load_config(config_file)
 
         typer.secho("Checking commit requirements...", fg=typer.colors.BLUE)
 
