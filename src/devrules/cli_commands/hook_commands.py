@@ -3,11 +3,13 @@
 from typing import Any, Callable, Dict, Optional
 
 import typer
+from typer_di import Depends
 
-from devrules.config import load_config
+from devrules.config import Config
 from devrules.core.git_service import get_current_branch
 from devrules.messages import commit as msg
 from devrules.utils.decorators import ensure_git_repo
+from devrules.utils.dependencies import get_config
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.branch import validate_branch
 from devrules.validators.forbidden_files import (
@@ -21,12 +23,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command()
     @ensure_git_repo()
     def pre_commit_check(
-        config_file: Optional[str] = typer.Option(
-            None, "--config", "-c", help="Path to config file"
-        ),
+        config: Config = Depends(get_config),
     ):
         """Run pre-commit validations (called by git pre-commit hook)."""
-        config = load_config(config_file)
 
         # Check for forbidden files
         if config.commit.forbidden_patterns or config.commit.forbidden_paths:
@@ -72,12 +71,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         branch: Optional[str] = typer.Option(
             None, "--branch", "-b", help="Branch to validate (defaults to current)"
         ),
-        config_file: Optional[str] = typer.Option(
-            None, "--config", "-c", help="Path to config file"
-        ),
+        config: Config = Depends(get_config),
     ):
         """Run pre-push validations (called by git pre-push hook)."""
-        config = load_config(config_file)
         # Get current branch if not specified
         if not branch:
             branch = get_current_branch()
@@ -115,12 +111,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         branch: Optional[str] = typer.Option(
             None, "--branch", "-b", help="Branch to show context for (defaults to current)"
         ),
-        config_file: Optional[str] = typer.Option(
-            None, "--config", "-c", help="Path to config file"
-        ),
+        config: Config = Depends(get_config),
     ):
         """Show branch context information (called by git post-checkout hook)."""
-        config = load_config(config_file)
         # Get current branch if not specified
         if not branch:
             branch = get_current_branch()

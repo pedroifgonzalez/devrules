@@ -278,7 +278,7 @@ def find_config_file() -> Optional[Path]:
     return None
 
 
-def load_config(config_path: Optional[str] = None) -> Config:
+def load_config(config_path: Optional[Path] = None) -> Config:
     """Load configuration from TOML file or use defaults.
 
     Configuration priority (highest to lowest):

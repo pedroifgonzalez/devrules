@@ -4,8 +4,9 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 import typer
+from typer_di import Depends
 
-from devrules.config import load_config
+from devrules.config import Config, load_config
 from devrules.core.deployment_service import (
     check_deployment_readiness,
     check_migration_conflicts,
@@ -41,6 +42,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             "-f",
             help="Force deployment without confirmation",
         ),
+        config: Config = Depends(load_config),
     ):
         """Deploy a solution to a specific environment.
 
@@ -51,7 +53,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         4. Execute Jenkins deployment job
         5. Handle failures with rollback option
         """
-        config = load_config(None)
 
         # Validate environment configuration
         if environment not in config.deployment.environments:
@@ -222,6 +223,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             "-b",
             help="Branch to check (defaults to current branch)",
         ),
+        config: Config = Depends(load_config),
     ):
         """Check if a branch is ready for deployment without deploying.
 
@@ -230,7 +232,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         - Deployment readiness validation
         - Currently deployed branch information
         """
-        config = load_config(None)
 
         # Validate environment
         if environment not in config.deployment.environments:
