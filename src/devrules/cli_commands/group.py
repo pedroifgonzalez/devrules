@@ -1,6 +1,6 @@
 """CLI commands for managing Functional Groups."""
 
-from typing import Any, Callable, Dict, Iterable, Optional
+from typing import Any, Callable, Dict, Optional
 
 import toml
 import typer
@@ -263,7 +263,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             with open(config_path, "w") as f:
                 toml.dump(data, f)
             typer.secho(
-                f"Added functional group '{name}' with base branch '{group_data['base_branch']}'", fg="green"
+                f"Added functional group '{name}' with base branch '{group_data['base_branch']}'",
+                fg="green",
             )
         except Exception as e:
             typer.secho(f"Error writing to config file: {e}", fg="red")
@@ -391,9 +392,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
             group_names = list(config.functional_groups.keys())
             if gum.is_available():
-                name = gum.choose(group_names, header="Select group to remove:") or ""
-                if isinstance(name, list):
-                    name = name[0] if name else ""
+                choice = gum.choose(group_names, header="Select group to remove:")
+                name = ""
+                if isinstance(choice, list):
+                    name = choice[0] if choice else ""
+                elif isinstance(choice, str):
+                    name = choice
             else:
                 add_typer_block_message(
                     header="🗑 Remove Functional Group",
@@ -604,13 +608,20 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         run_step(f"checkout base branch '{base_branch}'", ["git", "checkout", base_branch])
         run_step(f"pull latest changes for '{base_branch}'", ["git", "pull", "origin", base_branch])
-        run_step(f"merge changes from '{current_branch}'", ["git", "merge", "--no-ff", current_branch])
+        run_step(
+            f"merge changes from '{current_branch}'", ["git", "merge", "--no-ff", current_branch]
+        )
         run_step(f"push '{base_branch}' to origin", ["git", "push", "origin", base_branch])
         run_step(
             f"checkout integration cursor '{cursor_branch}'", ["git", "checkout", cursor_branch]
         )
-        run_step(f"pull latest changes for '{cursor_branch}'", ["git", "pull", "origin", cursor_branch])
-        run_step(f"merge changes from '{base_branch}' into '{cursor_branch}'", ["git", "merge", "--no-ff", base_branch])
+        run_step(
+            f"pull latest changes for '{cursor_branch}'", ["git", "pull", "origin", cursor_branch]
+        )
+        run_step(
+            f"merge changes from '{base_branch}' into '{cursor_branch}'",
+            ["git", "merge", "--no-ff", base_branch],
+        )
 
         typer.secho("\n✨ Sync workflow completed!", fg=typer.colors.GREEN, bold=True)
 

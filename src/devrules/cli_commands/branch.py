@@ -25,7 +25,7 @@ from devrules.utils.typer import add_typer_block_message
 from devrules.validators.branch import (
     validate_branch,
     validate_cross_repo_card,
-    validate_single_branch_per_issue_env,
+    validate_single_branch_per_issue_env
 )
 from devrules.validators.ownership import list_user_owned_branches
 from devrules.validators.repo_state import display_repo_state_issues, validate_repo_state
@@ -275,7 +275,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             is_release_branch = selected_branch.startswith("release/")
             if selected_branch in protected_branches or is_release_branch:
                 typer.secho(
-                    msg.REFUSING_TO_DELETE_SHARED_BRANCH.format(selected_branch), fg=typer.colors.RED
+                    msg.REFUSING_TO_DELETE_SHARED_BRANCH.format(selected_branch),
+                    fg=typer.colors.RED,
                 )
                 raise typer.Exit(code=1)
 
@@ -286,7 +287,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
             # Enforce ownership rules before allowing delete using the same logic
             if selected_branch not in owned_branches:
-                typer.secho(msg.NOT_ALLOWED_TO_DELETE_BRANCH.format(selected_branch), fg=typer.colors.RED)
+                typer.secho(
+                    msg.NOT_ALLOWED_TO_DELETE_BRANCH.format(selected_branch), fg=typer.colors.RED
+                )
                 raise typer.Exit(code=1)
 
         if branches:
