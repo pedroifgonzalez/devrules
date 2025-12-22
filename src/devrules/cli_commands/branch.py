@@ -25,7 +25,7 @@ from devrules.utils.typer import add_typer_block_message
 from devrules.validators.branch import (
     validate_branch,
     validate_cross_repo_card,
-    validate_single_branch_per_issue_env
+    validate_single_branch_per_issue_env,
 )
 from devrules.validators.ownership import list_user_owned_branches
 from devrules.validators.repo_state import display_repo_state_issues, validate_repo_state
