@@ -5,8 +5,9 @@ from typing import Any, Callable, Dict, Optional
 import typer
 
 from devrules.config import load_config
-from devrules.core.git_service import ensure_git_repo, get_current_branch
+from devrules.core.git_service import get_current_branch
 from devrules.messages import commit as msg
+from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.branch import validate_branch
 from devrules.validators.forbidden_files import (
@@ -18,6 +19,7 @@ from devrules.validators.ownership import validate_branch_ownership
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command()
+    @ensure_git_repo()
     def pre_commit_check(
         config_file: Optional[str] = typer.Option(
             None, "--config", "-c", help="Path to config file"
@@ -65,6 +67,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         typer.secho("✔ DevRules Pre-commit checks passed", fg=typer.colors.GREEN)
 
     @app.command()
+    @ensure_git_repo()
     def pre_push_check(
         branch: Optional[str] = typer.Option(
             None, "--branch", "-b", help="Branch to validate (defaults to current)"
@@ -75,8 +78,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     ):
         """Run pre-push validations (called by git pre-push hook)."""
         config = load_config(config_file)
-        ensure_git_repo()
-
         # Get current branch if not specified
         if not branch:
             branch = get_current_branch()
@@ -109,6 +110,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         )
 
     @app.command()
+    @ensure_git_repo()
     def branch_context(
         branch: Optional[str] = typer.Option(
             None, "--branch", "-b", help="Branch to show context for (defaults to current)"
@@ -119,8 +121,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     ):
         """Show branch context information (called by git post-checkout hook)."""
         config = load_config(config_file)
-        ensure_git_repo()
-
         # Get current branch if not specified
         if not branch:
             branch = get_current_branch()
