@@ -1,8 +1,9 @@
 from typing import Any, Callable, Dict, Optional
 
 import typer
+from typer_di import Depends
 
-from devrules.config import load_config
+from devrules.config import Config, load_config
 from devrules.core.git_service import (
     checkout_branch_interactive,
     create_and_checkout_branch,
@@ -20,6 +21,7 @@ from devrules.core.project_service import find_project_item_for_issue, resolve_p
 from devrules.messages import branch as msg
 from devrules.utils import gum
 from devrules.utils.decorators import ensure_git_repo
+from devrules.utils.dependencies import get_config
 from devrules.utils.gum import GUM_AVAILABLE
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.branch import (
@@ -86,9 +88,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command()
     @ensure_git_repo()
     def create_branch(
-        config_file: Optional[str] = typer.Option(
-            None, "--config", "-c", help="Path to config file"
-        ),
         branch_name: Optional[str] = typer.Argument(
             None, help="Branch name (if not provided, interactive mode)"
         ),
@@ -104,9 +103,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         skip_checks: bool = typer.Option(
             False, "--skip-checks", help="Skip repository state validation"
         ),
+        config: Config = Depends(get_config),
     ):
         """Create a new Git branch with validation (interactive mode)."""
-        config = load_config(config_file)
 
         def at_least_one_validation_repo_state_set():
             return any((config.validation.check_uncommitted, config.validation.check_behind_remote))
