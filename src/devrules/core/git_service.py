@@ -3,10 +3,12 @@ import string
 import subprocess
 
 import typer
+from typing_extensions import Optional
 from yaspin import yaspin
 
 from devrules.config import Config
 from devrules.dtos.github import ProjectItem
+from devrules.messages import commit as commit_msg
 from devrules.messages import git as msg
 from devrules.utils import gum
 from devrules.utils.typer import add_typer_block_message
@@ -414,3 +416,30 @@ def offline_remote_branch_exists(branch: str, remote: str = "origin") -> bool:
             return False
     except subprocess.CalledProcessError:
         return False
+
+
+def commit(options: list[str], message: str, doc_message: Optional[str] = None):
+    try:
+        subprocess.run(["git", "commit", "-m", message, *options], check=True)
+        typer.secho(f"{commit_msg.COMMITTED_CHANGES}", fg=typer.colors.GREEN)
+
+        if doc_message:
+            typer.secho(f"{doc_message}", fg=typer.colors.YELLOW)
+    except subprocess.CalledProcessError as e:
+        typer.secho(f"{commit_msg.FAILED_TO_COMMIT_CHANGES.format(e)}", fg=typer.colors.RED)
+        raise typer.Exit(code=1) from e
+
+
+def stage_all_files():
+    try:
+        subprocess.run(
+            [
+                "git",
+                "add",
+                "--all",
+            ],
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        typer.secho(f"{msg.FAILED_TO_STAGE_FILES.format(e)}", fg=typer.colors.RED)
+        raise typer.Exit(code=1) from e

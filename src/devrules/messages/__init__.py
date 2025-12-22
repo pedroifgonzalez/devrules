@@ -105,6 +105,7 @@ class GitMessages:
     BRANCH_NAME_ALREADY_EXISTS = "\n✘ Branch '{}' already exists!"
     FAILED_TO_CREATE_BRANCH = "\n✘ Failed to create branch: {}"
     DESCRIPTION_CAN_NOT_BE_EMPTY = "✘ Description cannot be empty"
+    FAILED_TO_STAGE_FILES = "✘ Failed to stage files: {}"
 
 
 # Singleton instances for easy access
