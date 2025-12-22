@@ -5,10 +5,11 @@ import typer
 from yaspin import yaspin
 
 from devrules.config import load_config
-from devrules.core.git_service import ensure_git_repo, get_current_branch, remote_branch_exists
+from devrules.core.git_service import get_current_branch, remote_branch_exists
 from devrules.core.github_service import ensure_gh_installed, fetch_pr_info
 from devrules.messages import pr as msg
 from devrules.utils import gum
+from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.documentation import display_documentation_guidance
 from devrules.validators.pr import validate_pr
@@ -52,6 +53,7 @@ def select_base_branch_interactive(allowed_targets: list[str], suggested: str = 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command()
+    @ensure_git_repo()
     def create_pr(
         base: str = typer.Option(
             "develop", "--base", "-b", help="Base branch for the pull request"
@@ -76,7 +78,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         import subprocess
 
         ensure_gh_installed()
-        ensure_git_repo()
 
         # Load config first
         config = load_config(config_file)
@@ -317,6 +318,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         raise typer.Exit(code=0 if is_valid else 1)
 
     @app.command()
+    @ensure_git_repo()
     def ipr(
         config_file: Optional[str] = typer.Option(
             None, "--config", "-c", help="Path to config file"
@@ -335,7 +337,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         import subprocess
 
         ensure_gh_installed()
-        ensure_git_repo()
 
         config = load_config(config_file)
         current_branch = get_current_branch()

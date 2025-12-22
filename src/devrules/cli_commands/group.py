@@ -6,7 +6,9 @@ import toml
 import typer
 
 from devrules.config import find_config_file, load_config
+from devrules.core.git_service import get_current_branch
 from devrules.utils import gum
+from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
 
 
@@ -498,6 +500,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(1)
 
     @app.command("sync-cursor")
+    @ensure_git_repo()
     def sync_cursor(
         group_name: str = typer.Argument(None, help="Functional group name (inferred if omitted)"),
         dry_run: bool = typer.Option(
@@ -508,9 +511,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         import re
         import subprocess
 
-        from devrules.core.git_service import ensure_git_repo, get_current_branch
-
-        ensure_git_repo()
         current_branch = get_current_branch()
         config = load_config()
 

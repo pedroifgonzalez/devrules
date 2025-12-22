@@ -9,7 +9,6 @@ from devrules.core.git_service import (
     create_staging_branch_name,
     delete_branch_local_and_remote,
     detect_scope,
-    ensure_git_repo,
     get_branch_name_interactive,
     get_current_branch,
     get_existing_branches,
@@ -20,6 +19,7 @@ from devrules.core.git_service import (
 from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
 from devrules.messages import branch as msg
 from devrules.utils import gum
+from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.gum import GUM_AVAILABLE
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.branch import (
@@ -65,6 +65,7 @@ def _handle_forbidden_cross_repo_card(gh_project_item: Any, config: Any, repo_me
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command()
+    @ensure_git_repo()
     def check_branch(
         branch: str,
         config_file: Optional[str] = typer.Option(
@@ -83,6 +84,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(code=1)
 
     @app.command()
+    @ensure_git_repo()
     def create_branch(
         config_file: Optional[str] = typer.Option(
             None, "--config", "-c", help="Path to config file"
@@ -105,7 +107,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     ):
         """Create a new Git branch with validation (interactive mode)."""
         config = load_config(config_file)
-        ensure_git_repo()
 
         def at_least_one_validation_repo_state_set():
             return any((config.validation.check_uncommitted, config.validation.check_behind_remote))
@@ -194,6 +195,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         create_and_checkout_branch(final_branch_name)
 
     @app.command()
+    @ensure_git_repo()
     def list_owned_branches():
         """Show all local Git branches owned by the current user."""
 
@@ -217,6 +219,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         raise typer.Exit(code=0)
 
     @app.command()
+    @ensure_git_repo()
     def delete_branch(
         branch: Optional[str] = typer.Argument(
             None, help="Name of the branch to delete (omit for interactive mode)"
@@ -225,7 +228,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         force: bool = typer.Option(False, "--force", "-f", help="Force delete even if not merged"),
     ):
         """Delete a branch locally and on the remote, enforcing ownership rules."""
-        ensure_git_repo()
 
         # Load owned branches first (used for interactive and validation)
         try:
@@ -317,12 +319,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         raise typer.Exit(code=0)
 
     @app.command()
+    @ensure_git_repo()
     def delete_merged(
         remote: str = typer.Option("origin", "--remote", "-r", help="Remote name"),
     ):
         """Delete branches that have been merged into develop (interactive)."""
-
-        ensure_git_repo()
 
         if GUM_AVAILABLE:
             gum.print_stick_header(header="Delete merged branches")
@@ -416,6 +417,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         raise typer.Exit(code=0)
 
     @app.command(name="switch-branch")
+    @ensure_git_repo()
     def switch_branch(
         config_file: Optional[str] = typer.Option(
             None, "--config", "-c", help="Path to config file"
@@ -427,6 +429,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
     # Alias for switch-branch
     @app.command(name="sb", hidden=True)
+    @ensure_git_repo()
     def sb(
         config_file: Optional[str] = typer.Option(
             None, "--config", "-c", help="Path to config file"

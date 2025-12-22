@@ -13,13 +13,15 @@ from devrules.core.deployment_service import (
     get_deployed_branch,
     rollback_deployment,
 )
-from devrules.core.git_service import ensure_git_repo, get_current_branch
+from devrules.core.git_service import get_current_branch
 from devrules.messages import deploy as msg
+from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command()
+    @ensure_git_repo()
     def deploy(
         environment: str = typer.Argument(..., help="Target environment (dev, staging, prod)"),
         branch: Optional[str] = typer.Option(
@@ -49,7 +51,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         4. Execute Jenkins deployment job
         5. Handle failures with rollback option
         """
-        ensure_git_repo()
         config = load_config(None)
 
         # Validate environment configuration
@@ -212,6 +213,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(code=1)
 
     @app.command()
+    @ensure_git_repo()
     def check_deployment(
         environment: str = typer.Argument(..., help="Target environment"),
         branch: Optional[str] = typer.Option(
@@ -228,7 +230,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         - Deployment readiness validation
         - Currently deployed branch information
         """
-        ensure_git_repo()
         config = load_config(None)
 
         # Validate environment
