@@ -103,6 +103,7 @@ def write(
     placeholder: str = "",
     header: str = "",
     char_limit: int = 0,
+    default: str = "",
 ) -> Optional[str]:
     """Multi-line text input.
 
@@ -110,6 +111,7 @@ def write(
         placeholder: Placeholder text
         header: Header text
         char_limit: Maximum characters (0 for unlimited)
+        default: Default value to pre-fill
 
     Returns:
         User input or None if cancelled
@@ -127,12 +129,101 @@ def write(
 
     try:
         # Don't capture stderr so user sees the interactive UI
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
+        if default:
+            result = subprocess.run(cmd, input=default, stdout=subprocess.PIPE, text=True)
+        else:
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
         if result.returncode != 0:
             return None
         return result.stdout.strip()
     except Exception:
         return None
+
+
+def write_with_history(
+    prompt_type: str,
+    placeholder: str = "",
+    header: str = "",
+    char_limit: int = 0,
+    save_to_history: bool = True,
+) -> Optional[str]:
+    """Multi-line text input with history support.
+
+    Shows recent history entries as suggestions using gum filter if history exists,
+    otherwise falls back to regular write input.
+
+    Args:
+        prompt_type: Type of prompt for history tracking (e.g., 'commit_message')
+        placeholder: Placeholder text
+        header: Header text
+        char_limit: Maximum characters (0 for unlimited)
+        save_to_history: Whether to save the result to history
+
+    Returns:
+        User input or None if cancelled
+    """
+    if not GUM_AVAILABLE:
+        return None
+
+    history_manager = get_history_manager()
+    recent = history_manager.get_recent(prompt_type, limit=10)
+
+    # If we have history, use filter for suggestions
+    if recent:
+        # Add a special option to enter new value
+        options = ["[Enter new value]"] + recent
+
+        # Show filter with history
+        cmd = ["gum", "filter", "--placeholder", placeholder or "Search or type new value..."]
+        if header:
+            cmd.extend(["--header", header])
+
+        try:
+            result = subprocess.run(
+                cmd,
+                input="\n".join(options),
+                stdout=subprocess.PIPE,
+                text=True,
+            )
+
+            if result.returncode != 0:
+                return None
+
+            selected = result.stdout.strip()
+
+            # Determine default value for write input
+            write_default = ""
+            if selected != "[Enter new value]":
+                write_default = selected
+
+            # Always show write prompt, pre-filled with selected history item
+            new_value = write(
+                placeholder=placeholder,
+                header=header or "Edit value:",
+                char_limit=char_limit,
+                default=write_default,
+            )
+
+            if new_value and save_to_history:
+                history_manager.add_entry(prompt_type, new_value)
+
+            return new_value
+
+        except Exception:
+            # Fall back to regular write input
+            pass
+
+    # No history or filter failed - use regular write input
+    regular_write_result = write(
+        placeholder=placeholder,
+        header=header,
+        char_limit=char_limit,
+    )
+
+    if regular_write_result and save_to_history:
+        history_manager.add_entry(prompt_type, regular_write_result)
+
+    return regular_write_result
 
 
 def input_text_with_history(

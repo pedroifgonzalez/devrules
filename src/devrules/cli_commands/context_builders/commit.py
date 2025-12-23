@@ -151,7 +151,7 @@ class CommitCtxBuilder(BaseCtxBuilder):
             return None
 
         # Write message with history
-        message = gum.input_text_with_history(
+        message = gum.write_with_history(
             prompt_type=f"commit_message_{tag}",
             placeholder="Describe your changes...",
             header=f"[{tag}] Commit message:",
