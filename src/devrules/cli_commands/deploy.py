@@ -1,5 +1,6 @@
 """Deployment CLI commands for DevRules."""
 
+import urllib.parse
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
@@ -177,7 +178,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 bold=True,
             )
             typer.echo(
-                f"\n💡 Monitor the deployment at: {config.deployment.jenkins_url}/job/{env_config.jenkins_job_name}"
+                f"\n💡 Monitor the deployment at: {config.deployment.jenkins_url}/job/{env_config.jenkins_job_name.split('/')[0]}/job/{urllib.parse.quote(branch, safe='')}/"
             )
         else:
             typer.secho(
