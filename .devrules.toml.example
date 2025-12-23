@@ -89,16 +89,19 @@ name = "dev"
 default_branch = "develop"
 # jenkins_job_name is optional - if not set, uses github.repo name
 jenkins_job_name = "deploy-backend-dev"
+pattern = "^(?!(main|staging)).*$"
 
 [deployment.environments.staging]
 name = "staging"
 default_branch = "staging"
 jenkins_job_name = "deploy-backend-staging"
+pattern = "^[staging-].+$"
 
 [deployment.environments.prod]
 name = "prod"
 default_branch = "main"
 jenkins_job_name = "deploy-backend-prod"
+pattern = "^main$"
 
 [validation]
 # Check for uncommitted changes before branch creation
