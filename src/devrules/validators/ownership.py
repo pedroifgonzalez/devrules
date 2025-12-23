@@ -4,6 +4,8 @@ import os
 import subprocess
 from typing import Tuple
 
+import typer
+
 
 def validate_branch_ownership(current_branch: str) -> Tuple[bool, str]:
     """Validate that the current user is allowed to commit on the given branch.
@@ -169,11 +171,15 @@ def list_user_owned_branches() -> list:
             "Set it via 'git config --global user.name \"Your Name\"'."
         )
 
-    branches_result = subprocess.run(
-        ["git", "for-each-ref", "--format=%(refname:short)", "refs/heads/"],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        branches_result = subprocess.run(
+            ["git", "for-each-ref", "--format=%(refname:short)", "refs/heads/"],
+            capture_output=True,
+            text=True,
+        )
+    except RuntimeError as e:
+        typer.secho(f"✘ {e}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
 
     branches = branches_result.stdout.splitlines()
     owned_branches = []

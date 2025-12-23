@@ -337,13 +337,10 @@ def delete_branch_local_and_remote(
                 raise typer.Exit(code=1)
 
 
-def checkout_branch_interactive(config: Config) -> None:
+def checkout_branch_interactive() -> None:
     """Interactively select and checkout a branch."""
-    ensure_git_repo()
-
     current_branch = get_current_branch()
     branches = get_existing_branches()
-
     # Filter out current branch from candidates
     candidates = [b for b in branches if b != current_branch]
 
