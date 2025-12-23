@@ -88,6 +88,7 @@ class EnvironmentConfig:
     name: str
     default_branch: str
     jenkins_job_name: Optional[str] = None  # If None, uses repo name from github.repo
+    pattern: Optional[str] = None
 
 
 @dataclass
