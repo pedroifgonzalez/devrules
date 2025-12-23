@@ -3,80 +3,45 @@ from typing import Any, Callable, Dict, Optional
 import typer
 from typer_di import Depends
 
-from devrules.cli_commands.context_builders.branch import CreateBranchCtx, create_branch_context
-from devrules.config import Config
+from devrules.cli_commands.context_builders.branch import BranchCtxBuilder
 from devrules.core.git_service import (
     checkout_branch_interactive,
     create_and_checkout_branch,
     delete_branch_local_and_remote,
     get_current_branch,
-    get_existing_branches,
     get_merged_branches,
     handle_existing_branch,
 )
 from devrules.messages import branch as msg
 from devrules.utils import gum
 from devrules.utils.decorators import ensure_git_repo
-from devrules.utils.dependencies import get_config
 from devrules.utils.gum import GUM_AVAILABLE
 from devrules.utils.typer import add_typer_block_message
-from devrules.validators.branch import validate_branch, validate_single_branch_per_issue_env
 from devrules.validators.ownership import list_user_owned_branches
 
-
-def _validate_branch(branch: str, config: Config):
-    is_valid, message = validate_branch(branch, config.branch)
-    if is_valid:
-        typer.secho(f"✔ {message}", fg=typer.colors.GREEN)
-        raise typer.Exit(code=0)
-    else:
-        typer.secho(f"✘ {message}", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
-
-
-def confirm_branch_creation(final_branch_name: str):
-    typer.echo(f"\n📌 Ready to create branch: {final_branch_name}")
-    if not typer.confirm("\n  Create and checkout?", default=True):
-        typer.echo("Cancelled.")
-        raise typer.Exit(code=0)
-
-
-def enforce_one_branch_per_issue_if_enabled(final_branch_name: str, config: Config):
-    if config.branch.enforce_single_branch_per_issue_env:
-        existing_branches = get_existing_branches()
-        is_unique, uniqueness_message = validate_single_branch_per_issue_env(
-            final_branch_name, existing_branches
-        )
-        if not is_unique:
-            typer.secho(f"✘ {uniqueness_message}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+builder = BranchCtxBuilder()
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command()
     @ensure_git_repo()
     def check_branch(
-        branch: str,
-        config: Config = Depends(get_config),
+        ctx: BranchCtxBuilder = Depends(builder.build_create_branch_context),
     ):
         """Validate branch naming convention."""
-        _validate_branch(branch, config)
+        ctx._validate_branch()
 
     @app.command()
     @ensure_git_repo()
     def create_branch(
-        ctx: CreateBranchCtx = Depends(create_branch_context),
+        ctx: BranchCtxBuilder = Depends(builder.build_create_branch_context),
     ):
         """Create a new Git branch with validation (interactive mode)."""
-
-        final_branch_name = ctx["final_branch_name"]
-        config = ctx["config"]
-
-        _validate_branch(final_branch_name, config)
-        enforce_one_branch_per_issue_if_enabled(final_branch_name, config)
-        handle_existing_branch(final_branch_name)
-        confirm_branch_creation(final_branch_name)
-        create_and_checkout_branch(final_branch_name)
+        ctx._validate_branch()
+        ctx.enforce_one_branch_per_issue_if_enabled()
+        handle_existing_branch(ctx.final_branch_name)
+        ctx.confirm_branch_creation()
+        create_and_checkout_branch(ctx.final_branch_name)
 
     @app.command()
     @ensure_git_repo()

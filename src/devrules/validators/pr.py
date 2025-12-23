@@ -56,7 +56,12 @@ def validate_pr_issue_status(
 
     for project_key in projects_to_check:
         try:
-            owner, project_number = resolve_project_number(project_key)
+            owner, project_number, message = resolve_project_number(project_key)
+
+            if not owner:
+                messages.append(message)
+                continue
+
             checked_projects.append(project_key)
 
             # Try to fetch project item for issue

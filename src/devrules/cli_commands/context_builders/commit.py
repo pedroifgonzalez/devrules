@@ -5,7 +5,8 @@ from typing import Annotated, Optional, Self
 import typer
 from yaspin import yaspin
 
-from devrules.config import Config, load_config
+from devrules.cli_commands.context_builders.base import BaseCtxBuilder
+from devrules.config import load_config
 from devrules.core.git_service import get_current_branch, get_current_issue_number, stage_all_files
 from devrules.messages import commit as msg
 from devrules.utils import gum
@@ -19,13 +20,7 @@ from devrules.validators.forbidden_files import (
 from devrules.validators.ownership import validate_branch_ownership
 
 
-class CommitCtxBuilder:
-    def set_config(self, config: Config):
-        self.config = config
-
-    def set_current_branch(self, current_branch: str):
-        self.current_branch = current_branch
-
+class CommitCtxBuilder(BaseCtxBuilder):
     def set_commit_message_file(self, file: str):
         self.commit_message_file = file
 
@@ -63,8 +58,11 @@ class CommitCtxBuilder:
             Optional[Path], typer.Option("--config", "-c", help="Path to config file")
         ] = None,
     ) -> Self:
-        self.set_config(load_config(config_file))
-        self.set_current_branch(get_current_branch())
+        config = load_config(config_file)
+        self.set_config(config)
+
+        current_branch = get_current_branch()
+        self.set_current_branch(current_branch)
 
         self.print_header()
         self._validate_pre_requisites()

@@ -8,7 +8,7 @@ from devrules.config import load_config
 from devrules.dtos.github import ProjectItem
 
 
-def resolve_project_number(project: str) -> Tuple[str, str]:
+def resolve_project_number(project: str) -> Tuple[str, str, str]:
     """Resolve project key/number to (owner, project_number) using config.
 
     Logic is copied from cli._resolve_project_number to keep behavior
@@ -17,13 +17,11 @@ def resolve_project_number(project: str) -> Tuple[str, str]:
 
     config = load_config(None)
     owner = getattr(config.github, "owner", None)
+    message = "Project number resolved successfully"
 
     if not owner:
-        typer.secho(
-            "✘ GitHub owner must be configured in the config file under the [github] section to use --project.",
-            fg=typer.colors.RED,
-        )
-        raise typer.Exit(code=1)
+        message = "✘ GitHub owner must be configured in the config file under the [github] section to use --project."
+        return "", "", message
 
     project_str = str(project)
     project_number: Optional[str] = None
@@ -36,11 +34,8 @@ def resolve_project_number(project: str) -> Tuple[str, str]:
 
         if raw_value is None:
             available = ", ".join(sorted(projects_map.keys())) or "<none>"
-            typer.secho(
-                f"✘ Unknown project key '{project_str}'. Available keys: {available}",
-                fg=typer.colors.RED,
-            )
-            raise typer.Exit(code=1)
+            message = f"✘ Unknown project key '{project_str}'. Available keys: {available}"
+            return "", "", message
 
         match = __import__("re").search(r"(\d+)", str(raw_value))
         if match:
@@ -51,13 +46,10 @@ def resolve_project_number(project: str) -> Tuple[str, str]:
                 project_number = raw_str
 
     if project_number is None:
-        typer.secho(
-            f"✘ Unable to determine numeric project ID from '{project}'. Configure it as a number or include '#<id>' in the value.",
-            fg=typer.colors.RED,
-        )
-        raise typer.Exit(code=1)
+        message = f"✘ Unable to determine numeric project ID from '{project}'. Configure it as a number or include '#<id>' in the value."
+        return "", "", message
 
-    return owner, project_number
+    return owner, project_number, message
 
 
 def parse_project_items(stdout: str):

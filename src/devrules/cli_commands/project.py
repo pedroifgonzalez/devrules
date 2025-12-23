@@ -442,7 +442,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                     raise typer.Exit(code=1)
 
                 for key, label in sorted(projects_map.items()):
-                    owner_for_key, project_number_for_key = resolve_project_number(key)
+                    owner_for_key, project_number_for_key, message = resolve_project_number(key)
+
+                    if not owner_for_key:
+                        typer.secho(message, fg=typer.colors.RED)
+                        raise typer.Exit(code=1)
 
                     cmd = [
                         "gh",
@@ -477,7 +481,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
                 return
 
-            owner, project_number = resolve_project_number(project)
+            owner, project_number, message = resolve_project_number(project)
+
+            if not owner:
+                typer.secho(message, fg=typer.colors.RED)
+                raise typer.Exit(code=1)
 
             cmd = [
                 "gh",
