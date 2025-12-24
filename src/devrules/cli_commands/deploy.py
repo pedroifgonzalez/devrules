@@ -174,15 +174,15 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         success, message = execute_deployment(branch, environment, config)
 
         if success:
-            typer.echo()
-            typer.secho("\n💬 Emitting deployment event...", fg=typer.colors.BLUE)
-            emit(DeployEvent(branch=branch, environment=environment, author="user"))
-            typer.secho("✅ Deployment event emitted successfully", fg=typer.colors.GREEN)
             typer.secho(
                 f"\n✔ {message}",
                 fg=typer.colors.GREEN,
                 bold=True,
             )
+            typer.echo()
+            typer.secho("\n💬 Emitting deployment event...", fg=typer.colors.BLUE)
+            emit(DeployEvent(branch=branch, environment=environment, author="user"))
+            typer.secho("✅ Deployment event emitted successfully", fg=typer.colors.GREEN)
             typer.echo(
                 f"\n💡 Monitor the deployment at: {config.deployment.jenkins_url}/job/{env_config.jenkins_job_name.split('/')[0]}/job/{urllib.parse.quote(branch, safe='')}/"
             )
