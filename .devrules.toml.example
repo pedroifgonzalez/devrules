@@ -147,3 +147,12 @@ show_on_pr = true
 # file_pattern = "auth/**"
 # docs_url = "https://wiki.company.com/security-guidelines"
 # message = "Security-sensitive code detected. Extra review required."
+
+[channel.slack]
+enabled = true
+token = "SLACK_BOT_TOKEN"
+
+[channel.slack.channels]
+dev = "#dev-deploys"
+staging = "#staging-deploys"
+prod = "#prod-deploys"
