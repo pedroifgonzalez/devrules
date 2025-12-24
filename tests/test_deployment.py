@@ -139,6 +139,8 @@ def test_get_deployed_branch_success(mock_get):
         deployment=DeploymentConfig(
             jenkins_url="https://jenkins.example.com",
             environments={"dev": env_config},
+            jenkins_user="pedroifgonzalez",
+            jenkins_token="test",
         ),
     )
 

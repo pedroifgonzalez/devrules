@@ -415,6 +415,20 @@ def offline_remote_branch_exists(branch: str, remote: str = "origin") -> bool:
         return False
 
 
+def get_author() -> str:
+    """Get the current git author name."""
+    try:
+        result = subprocess.run(
+            ["git", "config", "user.name"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip()
+    except subprocess.CalledProcessError:
+        return "Unknown Author"
+
+
 def commit(options: list[str], message: str, doc_message: Optional[str] = None):
     try:
         subprocess.run(["git", "commit", "-m", message, *options], check=True)
