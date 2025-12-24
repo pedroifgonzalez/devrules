@@ -7,6 +7,10 @@ from typing import Any, Dict, Optional
 import toml
 import typer
 
+from devrules.notifications import configure
+from devrules.notifications.channels.slack import SlackChannel, resolve_slack_channel
+from devrules.notifications.dispatcher import NotificationDispatcher
+
 
 @dataclass
 class BranchConfig:
@@ -155,6 +159,22 @@ class DeploymentConfig:
 
 
 @dataclass
+class SlackChannelConfig:
+    """Configuration for Slack notifications."""
+
+    enabled: bool = False
+    token: str = ""
+    channels: dict = field(default_factory=dict)  # env / event → channel name
+
+
+@dataclass
+class ChannelConfig:
+    """Configuration for notification channels."""
+
+    slack: SlackChannelConfig = field(default_factory=SlackChannelConfig)
+
+
+@dataclass
 class Config:
     """Main configuration container."""
 
@@ -166,6 +186,7 @@ class Config:
     validation: ValidationConfig = field(default_factory=ValidationConfig)
     documentation: DocumentationConfig = field(default_factory=DocumentationConfig)
     functional_groups: Dict[str, FunctionalGroupConfig] = field(default_factory=dict)
+    channel: ChannelConfig = field(default_factory=ChannelConfig)
 
 
 DEFAULT_CONFIG = {
@@ -407,6 +428,29 @@ def load_config(config_path: Optional[Path] = None) -> Config:
     validated_github_config = GitHubConfig(**config_data.get("github", {}))
     validated_github_config._validate()
 
+    # Parse channel / notification config
+    channel_data = config_data.get("channel", {})
+    slack_data = channel_data.get("slack", {})
+
+    slack_config = SlackChannelConfig(
+        enabled=slack_data.get("enabled", False),
+        token=slack_data.get("token", ""),
+        channels=slack_data.get("channels", {}),
+    )
+
+    channel_config = ChannelConfig(slack=slack_config)
+
+    for channel_type, channel in channel_config.__dict__.items():
+        match channel_type:
+            case "slack":
+                if not channel.enabled:
+                    continue
+                slack_channel = SlackChannel(
+                    token=channel.token,
+                    channel_resolver=resolve_slack_channel,
+                )
+                configure(NotificationDispatcher(channels=[slack_channel]))
+
     return Config(
         branch=BranchConfig(**config_data["branch"]),
         commit=CommitConfig(**{**config_data["commit"], "pattern": commit_pattern}),
@@ -416,4 +460,5 @@ def load_config(config_path: Optional[Path] = None) -> Config:
         validation=ValidationConfig(**config_data.get("validation", {})),
         documentation=documentation_config,
         functional_groups=functional_groups_dict,
+        channel=channel_config,
     )

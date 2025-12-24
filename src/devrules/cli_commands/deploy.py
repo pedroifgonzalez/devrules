@@ -17,6 +17,8 @@ from devrules.core.deployment_service import (
 )
 from devrules.core.git_service import get_current_branch
 from devrules.messages import deploy as msg
+from devrules.notifications import emit
+from devrules.notifications.events import DeployEvent
 from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
 
@@ -172,6 +174,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         success, message = execute_deployment(branch, environment, config)
 
         if success:
+            typer.echo()
+            typer.secho("\n💬 Emitting deployment event...", fg=typer.colors.BLUE)
+            emit(DeployEvent(branch=branch, environment=environment, author="user"))
+            typer.secho("✅ Deployment event emitted successfully", fg=typer.colors.GREEN)
             typer.secho(
                 f"\n✔ {message}",
                 fg=typer.colors.GREEN,
