@@ -164,7 +164,7 @@ class SlackChannelConfig:
 
     enabled: bool = False
     token: str = ""
-    channels: dict = field(default_factory=dict)  # env / event → channel name
+    channels: dict = field(default_factory=dict)  # event type → channel name
 
 
 @dataclass
@@ -448,6 +448,7 @@ def load_config(config_path: Optional[Path] = None) -> Config:
                 slack_channel = SlackChannel(
                     token=channel.token,
                     channel_resolver=resolve_slack_channel,
+                    channels_map=channel.channels,
                 )
                 configure(NotificationDispatcher(channels=[slack_channel]))
 

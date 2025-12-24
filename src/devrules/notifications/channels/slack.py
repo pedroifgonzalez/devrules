@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import urllib.request
-from typing import Callable
+from typing import Callable, Dict, Optional
 
 from yaspin import yaspin
 
@@ -38,32 +38,38 @@ class SlackClient:
                 raise RuntimeError(f"Slack API error: {body}")
 
 
-def resolve_slack_channel(event: NotificationEvent) -> str:
+def resolve_slack_channel(event: NotificationEvent, channels_map: Dict[str, str]) -> Optional[str]:
     if isinstance(event, DeployEvent):
-        return {
-            "dev": "general",
-            "staging": "#staging-deploys",
-            "prod": "#prod-deploys",
-        }.get(event.environment, "#deployments")
-
-    return "#general"
+        channel = channels_map.get(event.type)
+        if not channel:
+            raise ValueError(f"No Slack channel configured for event type: {event.type}")
+        return channel
+    return None
 
 
 class SlackChannel(NotificationChannel):
     def __init__(
         self,
         token: str,
-        channel_resolver: Callable[[NotificationEvent], str],
+        channel_resolver: Callable[[NotificationEvent, Dict[str, str]], Optional[str]],
+        channels_map: Dict[str, str],
     ):
         self.client = SlackClient(token)
         self.channel_resolver = channel_resolver
+        self.channels_map = channels_map
 
     def supports(self, event: NotificationEvent) -> bool:
         return isinstance(event, DeployEvent)
 
     def send(self, event: NotificationEvent) -> None:
         with yaspin(text="Resolving channel...", color="green") as spinner:
-            channel = self.channel_resolver(event)
+            try:
+                channel = self.channel_resolver(event, self.channels_map)
+            except ValueError as e:
+                raise RuntimeError(f"Failed to resolve Slack channel: {e}")
+            if not channel:
+                spinner.fail("✘ Channel not configured, skipping message")
+                raise RuntimeError("Slack channel not configured for this event type")
             spinner.ok("✔")
 
         with yaspin(text="Formatting message...", color="green") as spinner:

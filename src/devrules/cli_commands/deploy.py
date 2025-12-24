@@ -15,7 +15,7 @@ from devrules.core.deployment_service import (
     get_deployed_branch,
     rollback_deployment,
 )
-from devrules.core.git_service import get_current_branch
+from devrules.core.git_service import get_author, get_current_branch
 from devrules.messages import deploy as msg
 from devrules.notifications import emit
 from devrules.notifications.events import DeployEvent
@@ -181,8 +181,16 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             )
             typer.echo()
             typer.secho("\n💬 Emitting deployment event...", fg=typer.colors.BLUE)
-            emit(DeployEvent(branch=branch, environment=environment, author="user"))
-            typer.secho("✅ Deployment event emitted successfully", fg=typer.colors.GREEN)
+            author = get_author()
+            try:
+                emit(DeployEvent(branch=branch, environment=environment, author=author))
+            except RuntimeError as e:
+                typer.secho(f"⚠ Failed to emit deployment event: {e}", fg=typer.colors.YELLOW)
+                typer.secho(
+                    "⚠ Deployment will continue without event emission", fg=typer.colors.YELLOW
+                )
+            else:
+                typer.secho("✅ Deployment event emitted successfully", fg=typer.colors.GREEN)
             typer.echo(
                 f"\n💡 Monitor the deployment at: {config.deployment.jenkins_url}/job/{env_config.jenkins_job_name.split('/')[0]}/job/{urllib.parse.quote(branch, safe='')}/"
             )
