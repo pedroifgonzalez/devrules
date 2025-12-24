@@ -6,6 +6,7 @@ from yaspin import yaspin
 
 from devrules.config import load_config
 from devrules.core.github_service import ensure_gh_installed
+from devrules.core.permission_service import can_transition_status
 from devrules.core.project_service import (
     add_issue_comment,
     find_project_item_for_issue,
@@ -257,6 +258,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             "--item-id",
             help="Direct GitHub Project item id (skips searching by issue number)",
         ),
+        force: bool = typer.Option(
+            False,
+            "--force",
+            "-f",
+            help="Bypass permission check (only for privileged roles or disabled permissions)",
+        ),
     ):
         """Update the Status field of a GitHub Project item for a given issue.
 
@@ -302,6 +309,16 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             typer.secho("Status is required.", fg=typer.colors.RED)
             raise typer.Exit(1)
         _validate_status(status, valid_statuses)
+
+        # Permission check for status transition
+        if not force:
+            is_permitted, permission_msg = can_transition_status(status, config)
+            if permission_msg and is_permitted:
+                # Warning case - allowed but with warning
+                typer.secho(f"⚠ {permission_msg}", fg=typer.colors.YELLOW)
+            elif not is_permitted:
+                typer.secho(f"✘ {permission_msg}", fg=typer.colors.RED)
+                raise typer.Exit(code=1)
 
         # If we got here with an issue number but no item_id, look up the item
         issue_repo, item_title = None, None
