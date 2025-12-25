@@ -1,11 +1,13 @@
 """Deployment CLI commands for DevRules."""
 
+import urllib.parse
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 import typer
+from typer_di import Depends
 
-from devrules.config import load_config
+from devrules.config import Config, load_config
 from devrules.core.deployment_service import (
     check_deployment_readiness,
     check_migration_conflicts,
@@ -13,13 +15,18 @@ from devrules.core.deployment_service import (
     get_deployed_branch,
     rollback_deployment,
 )
-from devrules.core.git_service import ensure_git_repo, get_current_branch
+from devrules.core.git_service import get_author, get_current_branch
+from devrules.core.permission_service import can_deploy_to_environment
 from devrules.messages import deploy as msg
+from devrules.notifications import emit
+from devrules.notifications.events import DeployEvent
+from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command()
+    @ensure_git_repo()
     def deploy(
         environment: str = typer.Argument(..., help="Target environment (dev, staging, prod)"),
         branch: Optional[str] = typer.Option(
@@ -39,6 +46,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             "-f",
             help="Force deployment without confirmation",
         ),
+        config: Config = Depends(load_config),
     ):
         """Deploy a solution to a specific environment.
 
@@ -49,8 +57,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         4. Execute Jenkins deployment job
         5. Handle failures with rollback option
         """
-        ensure_git_repo()
-        config = load_config(None)
 
         # Validate environment configuration
         if environment not in config.deployment.environments:
@@ -63,6 +69,18 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(code=1)
 
         env_config = config.deployment.environments[environment]
+
+        # Permission check for deployment (--force does NOT bypass this)
+        is_permitted, permission_msg = can_deploy_to_environment(environment, config)
+        if permission_msg and is_permitted:
+            # Warning case - allowed but with warning
+            typer.secho(f"⚠ {permission_msg}", fg=typer.colors.YELLOW)
+        elif not is_permitted:
+            typer.secho(f"✘ {permission_msg}", fg=typer.colors.RED)
+            typer.echo(
+                "\n💡 Note: --force flag bypasses readiness checks only, not role-based permissions."
+            )
+            raise typer.Exit(code=1)
 
         # Determine branch to deploy
         if branch is None:
@@ -174,8 +192,20 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 fg=typer.colors.GREEN,
                 bold=True,
             )
+            typer.echo()
+            typer.secho("\n💬 Emitting deployment event...", fg=typer.colors.BLUE)
+            author = get_author()
+            try:
+                emit(DeployEvent(branch=branch, environment=environment, author=author))
+            except RuntimeError as e:
+                typer.secho(f"⚠ Failed to emit deployment event: {e}", fg=typer.colors.YELLOW)
+                typer.secho(
+                    "⚠ Deployment will continue without event emission", fg=typer.colors.YELLOW
+                )
+            else:
+                typer.secho("✅ Deployment event emitted successfully", fg=typer.colors.GREEN)
             typer.echo(
-                f"\n💡 Monitor the deployment at: {config.deployment.jenkins_url}/job/{env_config.jenkins_job_name}"
+                f"\n💡 Monitor the deployment at: {config.deployment.jenkins_url}/job/{env_config.jenkins_job_name.split('/')[0]}/job/{urllib.parse.quote(branch, safe='')}/"
             )
         else:
             typer.secho(
@@ -212,6 +242,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(code=1)
 
     @app.command()
+    @ensure_git_repo()
     def check_deployment(
         environment: str = typer.Argument(..., help="Target environment"),
         branch: Optional[str] = typer.Option(
@@ -220,6 +251,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             "-b",
             help="Branch to check (defaults to current branch)",
         ),
+        config: Config = Depends(load_config),
     ):
         """Check if a branch is ready for deployment without deploying.
 
@@ -228,8 +260,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         - Deployment readiness validation
         - Currently deployed branch information
         """
-        ensure_git_repo()
-        config = load_config(None)
 
         # Validate environment
         if environment not in config.deployment.environments:

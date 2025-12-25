@@ -7,6 +7,10 @@ from typing import Any, Dict, Optional
 import toml
 import typer
 
+from devrules.notifications import configure
+from devrules.notifications.channels.slack import SlackChannel, resolve_slack_channel
+from devrules.notifications.dispatcher import NotificationDispatcher
+
 
 @dataclass
 class BranchConfig:
@@ -88,6 +92,7 @@ class EnvironmentConfig:
     name: str
     default_branch: str
     jenkins_job_name: Optional[str] = None  # If None, uses repo name from github.repo
+    pattern: Optional[str] = None
 
 
 @dataclass
@@ -154,6 +159,41 @@ class DeploymentConfig:
 
 
 @dataclass
+class SlackChannelConfig:
+    """Configuration for Slack notifications."""
+
+    enabled: bool = False
+    token: str = ""
+    channels: dict = field(default_factory=dict)  # event type → channel name
+
+
+@dataclass
+class ChannelConfig:
+    """Configuration for notification channels."""
+
+    slack: SlackChannelConfig = field(default_factory=SlackChannelConfig)
+
+
+@dataclass
+class RoleConfig:
+    """Configuration for a role's permissions."""
+
+    allowed_statuses: list = field(default_factory=list)  # Statuses this role can transition to
+    deployable_environments: list = field(
+        default_factory=list
+    )  # Environments this role can deploy to
+
+
+@dataclass
+class PermissionsConfig:
+    """Role-based permissions configuration."""
+
+    roles: Dict[str, RoleConfig] = field(default_factory=dict)
+    default_role: Optional[str] = None  # Fallback role when user not assigned
+    user_assignments: Dict[str, str] = field(default_factory=dict)  # username → role_name
+
+
+@dataclass
 class Config:
     """Main configuration container."""
 
@@ -165,6 +205,8 @@ class Config:
     validation: ValidationConfig = field(default_factory=ValidationConfig)
     documentation: DocumentationConfig = field(default_factory=DocumentationConfig)
     functional_groups: Dict[str, FunctionalGroupConfig] = field(default_factory=dict)
+    channel: ChannelConfig = field(default_factory=ChannelConfig)
+    permissions: PermissionsConfig = field(default_factory=PermissionsConfig)
 
 
 DEFAULT_CONFIG = {
@@ -260,6 +302,11 @@ DEFAULT_CONFIG = {
         "show_on_pr": True,
     },
     "functional_groups": {},
+    "permissions": {
+        "roles": {},
+        "default_role": None,
+        "user_assignments": {},
+    },
 }
 
 
@@ -278,7 +325,7 @@ def find_config_file() -> Optional[Path]:
     return None
 
 
-def load_config(config_path: Optional[str] = None) -> Config:
+def load_config(config_path: Optional[Path] = None) -> Config:
     """Load configuration from TOML file or use defaults.
 
     Configuration priority (highest to lowest):
@@ -406,6 +453,39 @@ def load_config(config_path: Optional[str] = None) -> Config:
     validated_github_config = GitHubConfig(**config_data.get("github", {}))
     validated_github_config._validate()
 
+    # Parse channel / notification config
+    channel_data = config_data.get("channel", {})
+    slack_data = channel_data.get("slack", {})
+
+    slack_config = SlackChannelConfig(
+        enabled=slack_data.get("enabled", False),
+        token=slack_data.get("token", ""),
+        channels=slack_data.get("channels", {}),
+    )
+
+    channel_config = ChannelConfig(slack=slack_config)
+
+    if channel_config.slack.enabled:
+        slack_channel = SlackChannel(
+            token=channel_config.slack.token,
+            channel_resolver=resolve_slack_channel,
+            channels_map=channel_config.slack.channels,
+        )
+        configure(NotificationDispatcher(channels=[slack_channel]))
+
+    # Parse permissions config
+    permissions_data = config_data.get("permissions", {})
+    roles_dict = {}
+    for role_name, role_data in permissions_data.get("roles", {}).items():
+        if isinstance(role_data, dict):
+            roles_dict[role_name] = RoleConfig(**role_data)
+
+    permissions_config = PermissionsConfig(
+        roles=roles_dict,
+        default_role=permissions_data.get("default_role"),
+        user_assignments=permissions_data.get("user_assignments", {}),
+    )
+
     return Config(
         branch=BranchConfig(**config_data["branch"]),
         commit=CommitConfig(**{**config_data["commit"], "pattern": commit_pattern}),
@@ -415,4 +495,6 @@ def load_config(config_path: Optional[str] = None) -> Config:
         validation=ValidationConfig(**config_data.get("validation", {})),
         documentation=documentation_config,
         functional_groups=functional_groups_dict,
+        channel=channel_config,
+        permissions=permissions_config,
     )

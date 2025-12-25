@@ -1,7 +1,7 @@
 import pytest
 
+from devrules.core.git_service import get_author, resolve_issue_branch
 from devrules.dtos.github import ProjectItem
-from src.devrules.core.git_service import resolve_issue_branch
 
 
 @pytest.mark.parametrize(
@@ -23,3 +23,10 @@ from src.devrules.core.git_service import resolve_issue_branch
 def test_resolve_issue_branch(title, branch_name):
     output = resolve_issue_branch(scope="feature", project_item=ProjectItem(title=title), issue=12)
     assert output == branch_name
+
+
+def test_get_author():
+    # This test just checks that the function doesn't crash
+    author = get_author()
+    assert isinstance(author, str)
+    assert len(author) > 0

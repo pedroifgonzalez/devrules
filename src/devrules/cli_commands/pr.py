@@ -2,13 +2,15 @@ import re
 from typing import Any, Callable, Dict, Optional
 
 import typer
+from typer_di import Depends
 from yaspin import yaspin
 
-from devrules.config import load_config
-from devrules.core.git_service import ensure_git_repo, get_current_branch, remote_branch_exists
+from devrules.config import Config, load_config
+from devrules.core.git_service import get_current_branch, remote_branch_exists
 from devrules.core.github_service import ensure_gh_installed, fetch_pr_info
 from devrules.messages import pr as msg
 from devrules.utils import gum
+from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.documentation import display_documentation_guidance
 from devrules.validators.pr import validate_pr
@@ -52,12 +54,10 @@ def select_base_branch_interactive(allowed_targets: list[str], suggested: str = 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command()
+    @ensure_git_repo()
     def create_pr(
         base: str = typer.Option(
             "develop", "--base", "-b", help="Base branch for the pull request"
-        ),
-        config_file: Optional[str] = typer.Option(
-            None, "--config", "-c", help="Path to config file"
         ),
         project: Optional[str] = typer.Option(
             None,
@@ -71,15 +71,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         auto_push: Optional[bool] = typer.Option(
             None, "--auto-push/--no-auto-push", help="Push branch before creating PR"
         ),
+        config: Config = Depends(load_config),
     ):
         """Create a GitHub pull request for the current branch against the base branch."""
         import subprocess
-
-        ensure_gh_installed()
-        ensure_git_repo()
-
-        # Load config first
-        config = load_config(config_file)
 
         # Determine current branch
         current_branch = get_current_branch()
@@ -260,13 +255,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         pr_number: int,
         owner: Optional[str] = typer.Option(None, "--owner", "-o", help="GitHub repository owner"),
         repo: Optional[str] = typer.Option(None, "--repo", "-r", help="GitHub repository name"),
-        config_file: Optional[str] = typer.Option(
-            None, "--config", "-c", help="Path to config file"
-        ),
+        config: Config = Depends(load_config),
     ):
         """Validate PR size and title format."""
-        config = load_config(config_file)
-
         # Use CLI arguments if provided, otherwise fall back to config
         github_owner = owner or config.github.owner
         github_repo = repo or config.github.repo
@@ -317,10 +308,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         raise typer.Exit(code=0 if is_valid else 1)
 
     @app.command()
+    @ensure_git_repo()
     def ipr(
-        config_file: Optional[str] = typer.Option(
-            None, "--config", "-c", help="Path to config file"
-        ),
         project: Optional[str] = typer.Option(
             None,
             "--project",
@@ -330,14 +319,13 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         skip_checks: bool = typer.Option(
             False, "--skip-checks", help="Skip target validation and documentation checks"
         ),
+        config: Config = Depends(load_config),
     ):
         """Interactive PR creation - select target branch with guided prompts."""
         import subprocess
 
         ensure_gh_installed()
-        ensure_git_repo()
 
-        config = load_config(config_file)
         current_branch = get_current_branch()
 
         # Header

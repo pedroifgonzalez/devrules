@@ -8,7 +8,7 @@ compatibility.
 
 from typing import Any, Callable, Dict
 
-import typer
+from typer_di import TyperDI
 
 from devrules.cli_commands import (
     branch,
@@ -24,7 +24,7 @@ from devrules.cli_commands import (
 )
 from devrules.utils.aliases import register_command_aliases
 
-app = typer.Typer(help="DevRules - Development guidelines enforcement tool")
+app = TyperDI(help="DevRules - Development guidelines enforcement tool")
 
 # Register all commands
 namespace: Dict[str, Callable[..., Any]] = {}

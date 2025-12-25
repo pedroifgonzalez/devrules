@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import subprocess
 import urllib.parse
 from pathlib import Path
@@ -139,6 +140,12 @@ def get_deployed_branch(environment: str, config: Config) -> Optional[str]:
         return None
 
     jenkins_url = config.deployment.jenkins_url
+    if not jenkins_url:
+        typer.secho(
+            "✘ Jenkins URL not configured in .devrules.toml",
+            fg=typer.colors.RED,
+        )
+        return None
 
     # Use jenkins_job_name if set, otherwise use repo name
     job_name = env_config.jenkins_job_name
@@ -153,33 +160,15 @@ def get_deployed_branch(environment: str, config: Config) -> Optional[str]:
 
     user, token = get_jenkins_auth(config)
 
-    if not jenkins_url:
-        typer.secho(
-            "✘ Jenkins URL not configured in .devrules.toml",
-            fg=typer.colors.RED,
-        )
-        return None
-
-    # Build Jenkins API URL based on multibranch_pipeline setting
-    # For multibranch pipelines, we want the last successful build of the *job*,
-    # regardless of which branch it was for. The branch is then inferred from
-    # the build parameters/SCM info below.
-
     try:
         auth = (user, token) if user and token else None
 
-        # Debug: Show if auth is being used
-        if auth:
-            typer.secho(
-                f"🔑 Using authentication for user: {user}",
-                fg=typer.colors.CYAN,
-                dim=True,
-            )
-        else:
+        if not auth:
             typer.secho(
                 "⚠ No authentication credentials found",
                 fg=typer.colors.YELLOW,
             )
+            raise typer.Exit(1)
 
         if config.deployment.multibranch_pipeline:
             api_url = (
@@ -189,38 +178,40 @@ def get_deployed_branch(environment: str, config: Config) -> Optional[str]:
 
             response = requests.get(api_url, auth=auth, timeout=30)
             response.raise_for_status()
-
             job_info = response.json()
 
-            def classify_env(branch_name: str) -> str:
-                if branch_name == "main":
-                    return "prod"
-                if "staging" in branch_name:
-                    return "staging"
-                return "dev"
+            def classify_env(branch_name: str) -> Optional[str]:
+                for env in config.deployment.environments.values():
+                    if env.pattern and re.match(env.pattern, branch_name):
+                        return env.name
+                return None
 
             target_env = environment
-            if target_env == "production":
-                target_env = "prod"
+            candidates: list[dict] = []
 
-            candidate_jobs = []
             for job in job_info.get("jobs", []):
-                raw_name = job.get("name") or ""
-                name = urllib.parse.unquote(raw_name)
-                env_for_branch = classify_env(name)
-                last_build = job.get("lastSuccessfulBuild") or {}
-                if env_for_branch == target_env and last_build.get("result") == "SUCCESS":
-                    candidate_jobs.append(last_build | {"branch_name": name})
+                branch_name = urllib.parse.unquote(job.get("name", ""))
+                env_for_branch = classify_env(branch_name)
 
-            if candidate_jobs:
-                selected = max(candidate_jobs, key=lambda j: j.get("timestamp", 0))
-                return selected["branch_name"]
+                if not env_for_branch or env_for_branch != target_env:
+                    continue
 
-            typer.secho(
-                "⚠ Could not determine deployed branch from multibranch jobs",
-                fg=typer.colors.YELLOW,
-            )
-            return env_config.default_branch
+                build = job.get("lastSuccessfulBuild")
+                if not build:
+                    continue
+
+                candidates.append(
+                    {
+                        "branch": branch_name,
+                        "timestamp": build.get("timestamp", 0),
+                    }
+                )
+
+            if not candidates:
+                return env_config.default_branch
+
+            selected = max(candidates, key=lambda x: x["timestamp"])
+            return selected["branch"]
         else:
             api_url = f"{jenkins_url}/job/{job_name}/lastSuccessfulBuild/api/json"
 

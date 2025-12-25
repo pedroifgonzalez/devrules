@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import toml
 import typer
+from yaspin import yaspin
 
 from devrules.config import load_config
 from devrules.enterprise.builder import EnterpriseBuilder
@@ -138,7 +139,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
                 # Success message
                 typer.secho(
-                    "\n✅ Enterprise build completed successfully!",
+                    "\n✔ Enterprise build completed successfully!",
                     fg=typer.colors.GREEN,
                     bold=True,
                 )
@@ -440,7 +441,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 toml.dump(config_data, f)
 
             typer.secho(
-                f"\n✅ Successfully added {added_count} projects to {config_path}",
+                f"\n✔ Successfully added {added_count} projects to {config_path}",
                 fg=typer.colors.GREEN,
                 bold=True,
             )
@@ -472,7 +473,347 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             typer.secho(f"\n✘ Error: {e}", fg=typer.colors.RED)
             raise typer.Exit(code=1)
 
+    @app.command()
+    def add_role(
+        role_name: str = typer.Argument(..., help="Name of the role to add or edit"),
+        config_file: Optional[str] = typer.Option(
+            None, "--config", "-c", help="Path to configuration file"
+        ),
+    ):
+        """Add or update a role and its permissions interactively.
+
+        This command allows you to define which statuses a role can transition to
+        and which environments it can deploy to.
+        """
+        try:
+            # Determine config file path
+            if config_file:
+                config_path = Path(config_file)
+            else:
+                from devrules.config import find_config_file
+
+                config_path = find_config_file()
+                if not config_path:
+                    config_path = Path(".devrules.toml")
+                    if not config_path.exists():
+                        typer.secho(
+                            "✘ Configuration file not found. Run 'devrules init-config' first.",
+                            fg=typer.colors.RED,
+                        )
+                        raise typer.Exit(code=1)
+
+            # Load current config to preserve formatting as much as possible
+            with open(config_path, "r") as f:
+                config_data = toml.load(f)
+
+            if "permissions" not in config_data:
+                config_data["permissions"] = {}
+            if "roles" not in config_data["permissions"]:
+                config_data["permissions"]["roles"] = {}
+
+            # Get existing role data if it exists
+            existing_role = config_data["permissions"]["roles"].get(role_name, {})
+
+            typer.secho(f"\n🛠️  Configuring permissions for role: {role_name}", fg=typer.colors.CYAN)
+
+            # Get available statuses (from config or defaults)
+            from devrules.cli_commands.project import _get_valid_statuses
+
+            valid_statuses = _get_valid_statuses()
+
+            # Select allowed statuses
+            from devrules.utils import gum
+            from devrules.utils.gum import GUM_AVAILABLE
+
+            selected_statuses: list[str] | str = []
+            if GUM_AVAILABLE:
+                result = gum.choose(
+                    options=valid_statuses,
+                    header=f"Select allowed statuses for '{role_name}'",
+                    limit=0,
+                )
+                if result is None:
+                    selected_statuses = []
+                elif isinstance(result, str):
+                    selected_statuses = [result]
+                else:
+                    selected_statuses = result
+            else:
+                typer.echo("\nAvailable statuses:")
+                for idx, status in enumerate(valid_statuses, 1):
+                    typer.echo(f"  {idx}. {status}")
+                selection = typer.prompt(
+                    "\nEnter status numbers (e.g. 1,2,5) or 'all'",
+                    default=",".join(
+                        [
+                            str(valid_statuses.index(s) + 1)
+                            for s in existing_role.get("allowed_statuses", [])
+                        ]
+                    ),
+                )
+                if selection.lower() == "all":
+                    selected_statuses = valid_statuses
+                elif selection:
+                    indices = [int(i.strip()) for i in selection.split(",")]
+                    selected_statuses = [
+                        valid_statuses[i - 1] for i in indices if 1 <= i <= len(valid_statuses)
+                    ]
+
+            # Get available environments
+            environments = list(config_data.get("deployment", {}).get("environments", {}).keys())
+            if not environments:
+                environments = ["dev", "staging", "prod"]
+
+            selected_envs: list[str] | str = []
+            if GUM_AVAILABLE:
+                result = gum.choose(
+                    options=environments,
+                    header=f"Select deployable environments for '{role_name}'",
+                    limit=0,
+                )
+                if result is None:
+                    selected_envs = []
+                elif isinstance(result, str):
+                    selected_envs = [result]
+                else:
+                    selected_envs = result
+            else:
+                typer.echo("\nAvailable environments:")
+                for idx, env in enumerate(environments, 1):
+                    typer.echo(f"  {idx}. {env}")
+                selection = typer.prompt(
+                    "\nEnter environment numbers (e.g. 1,2) or 'all'",
+                    default=",".join(
+                        [
+                            str(environments.index(e) + 1)
+                            for e in existing_role.get("deployable_environments", [])
+                        ]
+                    ),
+                )
+                if selection.lower() == "all":
+                    selected_envs = environments
+                elif selection:
+                    indices = [int(i.strip()) for i in selection.split(",")]
+                    selected_envs = [
+                        environments[i - 1] for i in indices if 1 <= i <= len(environments)
+                    ]
+
+            # Update the role
+            config_data["permissions"]["roles"][role_name] = {
+                "allowed_statuses": selected_statuses,
+                "deployable_environments": selected_envs,
+            }
+
+            # Save back to config
+            with open(config_path, "w") as f:
+                toml.dump(config_data, f)
+
+            typer.secho(
+                f"\n✔ Role '{role_name}' updated successfully in {config_path}",
+                fg=typer.colors.GREEN,
+            )
+
+        except Exception as e:
+            typer.secho(f"\n✘ Error configuring role: {e}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+
+    @app.command()
+    def assign_role(
+        user: Optional[str] = typer.Option(
+            None, "--user", "-u", help="GitHub username to assign role to"
+        ),
+        role: Optional[str] = typer.Option(None, "--role", "-r", help="Role name to assign"),
+        config_file: Optional[str] = typer.Option(
+            None, "--config", "-c", help="Path to configuration file"
+        ),
+    ):
+        """Interactively assign a role to a GitHub user.
+
+        Fetches users from current GitHub repository and roles from configuration.
+        """
+        try:
+            from devrules.config import find_config_file
+
+            # Determine config path
+            if config_file:
+                config_path = Path(config_file)
+            else:
+                config_path = find_config_file()
+                if not config_path:
+                    config_path = Path(".devrules.toml")
+
+            # Load config data
+            with open(config_path, "r") as f:
+                config_data = toml.load(f)
+
+            # Get available roles
+            roles = list(config_data.get("permissions", {}).get("roles", {}).keys())
+            if not roles:
+                typer.secho(
+                    "✘ No roles defined in configuration. Run 'add-role' first.",
+                    fg=typer.colors.RED,
+                )
+                raise typer.Exit(code=1)
+
+            # Fetch users from GitHub
+            selected_user = user
+            if not selected_user:
+                typer.echo("")
+                with yaspin(
+                    text="🔍 Fetching collaborators from GitHub...", color="cyan"
+                ) as spinner:
+                    import json
+                    import subprocess
+
+                    try:
+                        # Get github repo info from config
+                        owner = config_data.get("github", {}).get("owner")
+                        repo = config_data.get("github", {}).get("repo")
+
+                        if not owner or not repo:
+                            # Try to get from git remote if not in config
+                            result = subprocess.run(
+                                ["gh", "repo", "view", "--json", "owner,name"],
+                                capture_output=True,
+                                text=True,
+                            )
+                            if result.returncode == 0:
+                                repo_info = json.loads(result.stdout)
+                                owner = repo_info["owner"]["login"]
+                                repo = repo_info["name"]
+
+                        if not owner or not repo:
+                            typer.secho(
+                                "✘ Could not determine GitHub owner/repo", fg=typer.colors.RED
+                            )
+                            raise typer.Exit(code=1)
+
+                        # Fetch collaborators with full names using GraphQL
+                        query = """
+                        query($owner: String!, $repo: String!) {
+                        repository(owner: $owner, name: $repo) {
+                            collaborators(first: 100) {
+                            nodes {
+                                login
+                                name
+                            }
+                            }
+                        }
+                        }
+                        """
+                        result = subprocess.run(
+                            [
+                                "gh",
+                                "api",
+                                "graphql",
+                                "-f",
+                                f"owner={owner}",
+                                "-f",
+                                f"repo={repo}",
+                                "-f",
+                                f"query={query}",
+                            ],
+                            capture_output=True,
+                            text=True,
+                        )
+                    except Exception as e:
+                        typer.secho(
+                            f"✘ Error fetching collaborators from GitHub: {e}", fg=typer.colors.RED
+                        )
+                        raise typer.Exit(code=1)
+                    spinner.ok("✔")
+
+                if result.returncode != 0:
+                    typer.secho("✘ Failed to fetch collaborators from GitHub", fg=typer.colors.RED)
+                    if result.stderr:
+                        typer.echo(result.stderr)
+                    raise typer.Exit(code=1)
+
+                data = json.loads(result.stdout)
+                nodes = (
+                    data.get("data", {})
+                    .get("repository", {})
+                    .get("collaborators", {})
+                    .get("nodes", [])
+                )
+
+                if not nodes:
+                    typer.secho(
+                        "✘ No collaborators found for this repository", fg=typer.colors.YELLOW
+                    )
+                    selected_user = typer.prompt(
+                        "Enter GitHub full name manually (should match git config user.name)"
+                    )
+                else:
+                    # Create mapping for selection
+                    # display_string -> {full_name, login}
+                    user_map = {}
+                    for node in nodes:
+                        login = node["login"]
+                        name = node.get("name") or login
+                        display = f"{name} ({login})" if node.get("name") else login
+                        user_map[display] = {"name": name, "login": login}
+
+                    options = list(user_map.keys())
+                    from devrules.utils import gum
+                    from devrules.utils.gum import GUM_AVAILABLE
+
+                    if GUM_AVAILABLE:
+                        display_choice = gum.choose(options, header="Select user to assign role")
+                    else:
+                        typer.echo("\nAvailable users:")
+                        for idx, opt in enumerate(options, 1):
+                            typer.echo(f"  {idx}. {opt}")
+                        choice_idx = typer.prompt("Select user number", type=int)
+                        if choice_idx < 1 or choice_idx > len(options):
+                            typer.secho("✘ Invalid selection", fg=typer.colors.RED)
+                            raise typer.Exit(code=1)
+                        display_choice = options[choice_idx - 1]
+
+                    selected_user = user_map[display_choice]["name"]
+
+            # Selection role
+            selected_role = role
+            if not selected_role:
+                from devrules.utils import gum
+                from devrules.utils.gum import GUM_AVAILABLE
+
+                if GUM_AVAILABLE:
+                    selected_role = gum.choose(roles, header=f"Assign role to '{selected_user}'")
+                else:
+                    typer.echo("\nAvailable roles:")
+                    for idx, r in enumerate(roles, 1):
+                        typer.echo(f"  {idx}. {r}")
+                    choice_idx = typer.prompt("Select role number", type=int)
+                    if choice_idx < 1 or choice_idx > len(roles):
+                        typer.secho("✘ Invalid selection", fg=typer.colors.RED)
+                        raise typer.Exit(code=1)
+                    selected_role = roles[choice_idx - 1]
+
+            # Update assignments
+            if "permissions" not in config_data:
+                config_data["permissions"] = {}
+            if "user_assignments" not in config_data["permissions"]:
+                config_data["permissions"]["user_assignments"] = {}
+
+            config_data["permissions"]["user_assignments"][selected_user] = selected_role
+
+            # Save back to config
+            with open(config_path, "w") as f:
+                toml.dump(config_data, f)
+
+            typer.secho(
+                f"\n✔ User '{selected_user}' assigned to role '{selected_role}'",
+                fg=typer.colors.GREEN,
+            )
+
+        except Exception as e:
+            typer.secho(f"\n✘ Error assigning role: {e}", fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+
     return {
         "build_enterprise": build_enterprise,
         "add_github_projects": add_github_projects,
+        "add_role": add_role,
+        "assign_role": assign_role,
     }

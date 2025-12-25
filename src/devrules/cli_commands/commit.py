@@ -2,11 +2,13 @@ import os
 from typing import Any, Callable, Dict, Optional
 
 import typer
+from typer_di import Depends
 
-from devrules.config import load_config
-from devrules.core.git_service import ensure_git_repo, get_current_branch, get_current_issue_number
+from devrules.config import Config, load_config
+from devrules.core.git_service import get_current_branch, get_current_issue_number
 from devrules.messages import commit as msg
 from devrules.utils import gum
+from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.commit import validate_commit
 from devrules.validators.forbidden_files import (
@@ -84,14 +86,12 @@ def _build_commit_with_typer(tags: list[str]) -> Optional[str]:
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command()
+    @ensure_git_repo()
     def check_commit(
         file: str,
-        config_file: Optional[str] = typer.Option(
-            None, "--config", "-c", help="Path to config file"
-        ),
+        config: Config = Depends(load_config),
     ):
         """Validate commit message format."""
-        config = load_config(config_file)
 
         if not os.path.exists(file):
             typer.secho(msg.COMMIT_MESSAGE_FILE_NOT_FOUND.format(file), fg=typer.colors.RED)
@@ -107,22 +107,19 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(code=0)
         else:
             typer.secho(f"✘ {result_message}", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
+            raise typer.Exit(code=1)
 
     @app.command()
+    @ensure_git_repo()
     def commit(
         message: str,
-        config_file: Optional[str] = typer.Option(
-            None, "--config", "-c", help="Path to config file"
-        ),
         skip_checks: bool = typer.Option(
             False, "--skip-checks", help="Skip file validation and documentation checks"
         ),
+        config: Config = Depends(load_config),
     ):
         """Validate and commit changes with a properly formatted message."""
         import subprocess
-
-        config = load_config(config_file)
 
         typer.secho("Checking commit requirements...", fg=typer.colors.BLUE)
 
@@ -152,7 +149,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             typer.secho(f"\n✘ {result_message}", fg=typer.colors.RED)
             raise typer.Exit(code=1)
 
-        ensure_git_repo()
         current_branch = get_current_branch()
 
         # Check if current branch is protected (e.g., staging branches for merging)
@@ -228,19 +224,15 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(code=1) from e
 
     @app.command()
+    @ensure_git_repo()
     def icommit(
-        config_file: Optional[str] = typer.Option(
-            None, "--config", "-c", help="Path to config file"
-        ),
         skip_checks: bool = typer.Option(
             False, "--skip-checks", help="Skip file validation and documentation checks"
         ),
+        config: Config = Depends(load_config),
     ):
         """Interactive commit - build commit message with guided prompts."""
         import subprocess
-
-        config = load_config(config_file)
-        ensure_git_repo()
 
         typer.secho("Checking commit requirements...", fg=typer.colors.BLUE)
 

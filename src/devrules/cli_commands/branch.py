@@ -1,15 +1,15 @@
 from typing import Any, Callable, Dict, Optional
 
 import typer
+from typer_di import Depends
 
-from devrules.config import load_config
+from devrules.config import Config, load_config
 from devrules.core.git_service import (
     checkout_branch_interactive,
     create_and_checkout_branch,
     create_staging_branch_name,
     delete_branch_local_and_remote,
     detect_scope,
-    ensure_git_repo,
     get_branch_name_interactive,
     get_current_branch,
     get_existing_branches,
@@ -20,6 +20,8 @@ from devrules.core.git_service import (
 from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
 from devrules.messages import branch as msg
 from devrules.utils import gum
+from devrules.utils.decorators import ensure_git_repo
+from devrules.utils.dependencies import get_config
 from devrules.utils.gum import GUM_AVAILABLE
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.branch import (
@@ -65,14 +67,12 @@ def _handle_forbidden_cross_repo_card(gh_project_item: Any, config: Any, repo_me
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command()
+    @ensure_git_repo()
     def check_branch(
         branch: str,
-        config_file: Optional[str] = typer.Option(
-            None, "--config", "-c", help="Path to config file"
-        ),
+        config: Config = Depends(load_config),
     ):
         """Validate branch naming convention."""
-        config = load_config(config_file)
         is_valid, message = validate_branch(branch, config.branch)
 
         if is_valid:
@@ -83,10 +83,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(code=1)
 
     @app.command()
+    @ensure_git_repo()
     def create_branch(
-        config_file: Optional[str] = typer.Option(
-            None, "--config", "-c", help="Path to config file"
-        ),
         branch_name: Optional[str] = typer.Argument(
             None, help="Branch name (if not provided, interactive mode)"
         ),
@@ -102,10 +100,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         skip_checks: bool = typer.Option(
             False, "--skip-checks", help="Skip repository state validation"
         ),
+        config: Config = Depends(get_config),
     ):
         """Create a new Git branch with validation (interactive mode)."""
-        config = load_config(config_file)
-        ensure_git_repo()
 
         def at_least_one_validation_repo_state_set():
             return any((config.validation.check_uncommitted, config.validation.check_behind_remote))
@@ -194,6 +191,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         create_and_checkout_branch(final_branch_name)
 
     @app.command()
+    @ensure_git_repo()
     def list_owned_branches():
         """Show all local Git branches owned by the current user."""
 
@@ -217,6 +215,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         raise typer.Exit(code=0)
 
     @app.command()
+    @ensure_git_repo()
     def delete_branch(
         branch: Optional[str] = typer.Argument(
             None, help="Name of the branch to delete (omit for interactive mode)"
@@ -225,7 +224,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         force: bool = typer.Option(False, "--force", "-f", help="Force delete even if not merged"),
     ):
         """Delete a branch locally and on the remote, enforcing ownership rules."""
-        ensure_git_repo()
 
         # Load owned branches first (used for interactive and validation)
         try:
@@ -275,7 +273,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             is_release_branch = selected_branch.startswith("release/")
             if selected_branch in protected_branches or is_release_branch:
                 typer.secho(
-                    msg.REFUSING_TO_DELETE_SHARED_BRANCH.format(selected_branch), fg=typer.colors.RED
+                    msg.REFUSING_TO_DELETE_SHARED_BRANCH.format(selected_branch),
+                    fg=typer.colors.RED,
                 )
                 raise typer.Exit(code=1)
 
@@ -286,7 +285,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
             # Enforce ownership rules before allowing delete using the same logic
             if selected_branch not in owned_branches:
-                typer.secho(msg.NOT_ALLOWED_TO_DELETE_BRANCH.format(selected_branch), fg=typer.colors.RED)
+                typer.secho(
+                    msg.NOT_ALLOWED_TO_DELETE_BRANCH.format(selected_branch), fg=typer.colors.RED
+                )
                 raise typer.Exit(code=1)
 
         if branches:
@@ -314,12 +315,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         raise typer.Exit(code=0)
 
     @app.command()
+    @ensure_git_repo()
     def delete_merged(
         remote: str = typer.Option("origin", "--remote", "-r", help="Remote name"),
     ):
         """Delete branches that have been merged into develop (interactive)."""
-
-        ensure_git_repo()
 
         if GUM_AVAILABLE:
             gum.print_stick_header(header="Delete merged branches")
@@ -413,24 +413,20 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         raise typer.Exit(code=0)
 
     @app.command(name="switch-branch")
+    @ensure_git_repo()
     def switch_branch(
-        config_file: Optional[str] = typer.Option(
-            None, "--config", "-c", help="Path to config file"
-        ),
+        config: Config = Depends(get_config),
     ):
         """Interactively switch to another branch (alias: sb)."""
-        config = load_config(config_file)
         checkout_branch_interactive(config)
 
     # Alias for switch-branch
     @app.command(name="sb", hidden=True)
+    @ensure_git_repo()
     def sb(
-        config_file: Optional[str] = typer.Option(
-            None, "--config", "-c", help="Path to config file"
-        ),
+        config: Config = Depends(get_config),
     ):
         """Alias for switch-branch."""
-        config = load_config(config_file)
         checkout_branch_interactive(config)
 
     return {

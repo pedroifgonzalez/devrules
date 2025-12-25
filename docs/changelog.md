@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2025-12-24
+
+### Added
+- **Role-based access control** - New system to restrict operations with roles and permissions
+  - `add_role` - Command to add new roles
+  - `assign_role` - Command to assign roles to users
+- **Slack notifications** - Integration for sending notifications via Slack for deployment events
+- **Dependency injection** - Implemented using typer_di library for better CLI command structure
+- **Code refactoring** - Added decorators to reduce code duplication in command functions
+
+### Changed
+- **Validation refactoring** - Refactored ensure_git_repo validation using decorators
+- **Configuration loading** - Replaced direct config file loading with injected values
+
+### Fixed
+- Various bug fixes including exception handling, JSON decode errors, runtime validations, status validations, message formatting, and deployment detection
+- Improved multibranch pipeline deployment detection and URL generation
+
+### Technical Improvements
+- Enhanced error handling and defensive programming
+- Better code organization and maintainability
+
 ## [0.1.7] - 2025-12-21
 
 ### Added
