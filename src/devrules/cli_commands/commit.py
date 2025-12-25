@@ -17,10 +17,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         ctx: CommitCtxBuilder = Depends(builder.build_check_commit_context),
     ):
         """Validate commit message format."""
-
-        ctx.check_commit_message_file()
-        message = ctx.read_file_content()
-        ctx.validate_commit_message(message)
+        ctx.validate_commit_message()
 
     @app.command()
     @ensure_git_repo()

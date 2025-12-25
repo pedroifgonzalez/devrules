@@ -1,11 +1,13 @@
 import os
 import shutil
+import subprocess
 
 import requests
 import typer
 
 from devrules.config import GitHubConfig
 from devrules.dtos.github import PRInfo
+from devrules.messages import pr as msg
 
 
 def ensure_gh_installed() -> None:
@@ -40,3 +42,23 @@ def fetch_pr_info(owner: str, repo: str, pr_number: int, github_config: GitHubCo
         changed_files=data.get("changed_files", 0),
         title=data.get("title", ""),
     )
+
+
+def gh_create_pr(base: str, current_branch: str, pr_title: str):
+    cmd = [
+        "gh",
+        "pr",
+        "create",
+        "--base",
+        base,
+        "--head",
+        current_branch,
+        "--title",
+        pr_title,
+        "--fill",
+    ]
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        typer.secho(msg.FAILED_TO_CREATE_PR.format(e), fg=typer.colors.RED)
+        raise typer.Exit(code=1)

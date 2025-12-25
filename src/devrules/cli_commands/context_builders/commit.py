@@ -34,8 +34,10 @@ class CommitCtxBuilder(BaseCtxBuilder):
             Optional[Path], typer.Option("--config", "-c", help="Path to config file")
         ] = None,
     ) -> Self:
-        self.set_config(load_config(config_file))
         self.set_commit_message_file(file)
+        self.check_commit_message_file()
+        self.set_config(load_config(config_file))
+        self.set_message(self.read_file_content())
         return self
 
     def _validate_pre_requisites(self):

@@ -454,3 +454,14 @@ def stage_all_files():
     except subprocess.CalledProcessError as e:
         typer.secho(f"{msg.FAILED_TO_STAGE_FILES.format(e)}", fg=typer.colors.RED)
         raise typer.Exit(code=1) from e
+
+
+def push_branch(branch: str):
+    try:
+        subprocess.run(
+            ["git", "push", "-u", "origin", branch],
+            check=True,
+            capture_output=False,  # Let user see push progress
+        )
+    except subprocess.CalledProcessError as e:
+        typer.secho(f"✘ Failed to push branch: {e}", fg=typer.colors.RED)
