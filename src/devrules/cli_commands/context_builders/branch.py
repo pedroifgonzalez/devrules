@@ -14,6 +14,7 @@ from devrules.core.git_service import (
     get_branch_name_interactive,
     get_current_branch,
     get_existing_branches,
+    get_merged_branches,
     resolve_issue_branch,
 )
 from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
@@ -215,6 +216,11 @@ class BranchCtxBuilder(BaseCtxBuilder):
     def validate_selected_branches_to_delete(self):
         # Basic safety: don't delete main shared branches through this command
         current_branch = get_current_branch()
+
+        if not self.branches_to_delete:
+            typer.secho(message=msg.CANCELLED, fg=typer.colors.RED)
+            raise typer.Exit(1)
+
         for selected_branch in self.branches_to_delete:
             protected_branches = ("main", "master", "develop")
             is_release_branch = selected_branch.startswith("release/")
@@ -237,41 +243,53 @@ class BranchCtxBuilder(BaseCtxBuilder):
                 )
                 raise typer.Exit(code=1)
 
-    def select_branches_to_delete(self, branch: Optional[str] = None):
+    def select_branches_to_delete(self, branch: Optional[str] = None, merged: bool = False):
         # Interactive selection if branch not provided
-        branches = [branch] if branch else []
-        if not branches:
-            if gum.is_available():
-                print(gum.style("🗑 Delete branches", foreground=81, bold=True))
-                print(gum.style("=" * 50, foreground=81))
-                branches = gum.choose(
-                    options=self.owned_branches, header="Select branches to be deleted:", limit=0
-                )
-            else:
-                add_typer_block_message(
-                    header="🗑 Delete Branches",
-                    subheader="📋 Select branches to be deleted:",
-                    messages=[f"{idx}. {b}" for idx, b in enumerate(self.owned_branches, 1)],
-                )
-                typer.echo()
-                choices = typer.prompt("Enter number, multiple separated by a space", type=str)
-                choices = choices.split(" ")
-                try:
-                    choices = [int(choice) for choice in choices]
-                except ValueError:
+        branches = [branch] if branch else self.owned_branches
+        merged_branches = get_merged_branches(base_branch="develop")
+
+        if merged:
+            set_branches = set(branches)
+            set_merged_branches = set(merged_branches)
+            branches_to_delete = set_branches.intersection(set_merged_branches)
+            branches = list(branches_to_delete)
+
+            if not branches:
+                typer.secho("No found owned and merged branches to delete", fg=typer.colors.RED)
+                raise typer.Exit(1)
+
+        delete_branches = []
+        if gum.is_available():
+            print(gum.style("🗑 Delete branches", foreground=81, bold=True))
+            print(gum.style("=" * 50, foreground=81))
+            delete_branches = gum.choose(
+                options=branches, header="Select branches to be deleted:", limit=0
+            )
+        else:
+            add_typer_block_message(
+                header="🗑 Delete Branches",
+                subheader="📋 Select branches to be deleted:",
+                messages=[f"{idx}. {b}" for idx, b in enumerate(branches, 1)],
+            )
+            typer.echo()
+            choices = typer.prompt("Enter number, multiple separated by a space", type=str)
+            choices = choices.split(" ")
+            try:
+                choices = [int(choice) for choice in choices]
+            except ValueError:
+                typer.secho(msg.INVALID_CHOICE, fg=typer.colors.RED)
+                raise typer.Exit(code=1)
+            for choice in choices:
+                if choice < 1 or choice > len(branches):
                     typer.secho(msg.INVALID_CHOICE, fg=typer.colors.RED)
                     raise typer.Exit(code=1)
-                for choice in choices:
-                    if choice < 1 or choice > len(self.owned_branches):
-                        typer.secho(msg.INVALID_CHOICE, fg=typer.colors.RED)
-                        raise typer.Exit(code=1)
-                    to_delete = self.owned_branches[choice - 1]
-                    branches.append(to_delete)
+                to_delete = self.owned_branches[choice - 1]
+                delete_branches.append(to_delete)
 
-        if isinstance(branches, list):
-            self.set_branches_to_delete(branches)
-        elif isinstance(branches, str):
-            self.set_branches_to_delete([branches])
+        if isinstance(delete_branches, list):
+            self.set_branches_to_delete(delete_branches)
+        elif isinstance(delete_branches, str):
+            self.set_branches_to_delete([delete_branches])
 
     def set_remote(self, remote: str):
         self.remote = remote
@@ -286,11 +304,13 @@ class BranchCtxBuilder(BaseCtxBuilder):
         ),
         remote: str = typer.Option("origin", "--remote", "-r", help="Remote name"),
         force: bool = typer.Option(False, "--force", "-f", help="Force delete even if not merged"),
+        merged: bool = typer.Option(False, "--merged", "-m", help="Delete merged branches"),
     ):
+        self.set_branches_to_delete([])
         self.set_remote(remote)
         self.set_force(force)
         self._validate_user_has_deletable_branches()
-        self.select_branches_to_delete(branch)
+        self.select_branches_to_delete(branch, merged)
         return self
 
     def delete_branches(self):

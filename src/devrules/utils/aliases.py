@@ -11,7 +11,7 @@ ALIAS_MAP = {
     "ipr": ["ipr"],
     "list_owned_branches": ["lob"],
     "delete_branch": ["db"],
-    "delete_merged": ["dm"],
+    "switch_branch": ["sb"],
     "update_issue_status": ["uis"],
     "list_issues": ["li"],
     "describe_issue": ["di"],
