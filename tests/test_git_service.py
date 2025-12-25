@@ -1,7 +1,7 @@
 import pytest
 
+from devrules.core.git_service import get_author, resolve_issue_branch
 from devrules.dtos.github import ProjectItem
-from src.devrules.core.git_service import get_author, resolve_issue_branch
 
 
 @pytest.mark.parametrize(

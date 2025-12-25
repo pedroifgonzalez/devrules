@@ -175,6 +175,25 @@ class ChannelConfig:
 
 
 @dataclass
+class RoleConfig:
+    """Configuration for a role's permissions."""
+
+    allowed_statuses: list = field(default_factory=list)  # Statuses this role can transition to
+    deployable_environments: list = field(
+        default_factory=list
+    )  # Environments this role can deploy to
+
+
+@dataclass
+class PermissionsConfig:
+    """Role-based permissions configuration."""
+
+    roles: Dict[str, RoleConfig] = field(default_factory=dict)
+    default_role: Optional[str] = None  # Fallback role when user not assigned
+    user_assignments: Dict[str, str] = field(default_factory=dict)  # username → role_name
+
+
+@dataclass
 class Config:
     """Main configuration container."""
 
@@ -187,6 +206,7 @@ class Config:
     documentation: DocumentationConfig = field(default_factory=DocumentationConfig)
     functional_groups: Dict[str, FunctionalGroupConfig] = field(default_factory=dict)
     channel: ChannelConfig = field(default_factory=ChannelConfig)
+    permissions: PermissionsConfig = field(default_factory=PermissionsConfig)
 
 
 DEFAULT_CONFIG = {
@@ -282,6 +302,11 @@ DEFAULT_CONFIG = {
         "show_on_pr": True,
     },
     "functional_groups": {},
+    "permissions": {
+        "roles": {},
+        "default_role": None,
+        "user_assignments": {},
+    },
 }
 
 
@@ -440,17 +465,26 @@ def load_config(config_path: Optional[Path] = None) -> Config:
 
     channel_config = ChannelConfig(slack=slack_config)
 
-    for channel_type, channel in channel_config.__dict__.items():
-        match channel_type:
-            case "slack":
-                if not channel.enabled:
-                    continue
-                slack_channel = SlackChannel(
-                    token=channel.token,
-                    channel_resolver=resolve_slack_channel,
-                    channels_map=channel.channels,
-                )
-                configure(NotificationDispatcher(channels=[slack_channel]))
+    if channel_config.slack.enabled:
+        slack_channel = SlackChannel(
+            token=channel_config.slack.token,
+            channel_resolver=resolve_slack_channel,
+            channels_map=channel_config.slack.channels,
+        )
+        configure(NotificationDispatcher(channels=[slack_channel]))
+
+    # Parse permissions config
+    permissions_data = config_data.get("permissions", {})
+    roles_dict = {}
+    for role_name, role_data in permissions_data.get("roles", {}).items():
+        if isinstance(role_data, dict):
+            roles_dict[role_name] = RoleConfig(**role_data)
+
+    permissions_config = PermissionsConfig(
+        roles=roles_dict,
+        default_role=permissions_data.get("default_role"),
+        user_assignments=permissions_data.get("user_assignments", {}),
+    )
 
     return Config(
         branch=BranchConfig(**config_data["branch"]),
@@ -462,4 +496,5 @@ def load_config(config_path: Optional[Path] = None) -> Config:
         documentation=documentation_config,
         functional_groups=functional_groups_dict,
         channel=channel_config,
+        permissions=permissions_config,
     )

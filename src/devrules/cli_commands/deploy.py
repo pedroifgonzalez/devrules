@@ -16,6 +16,7 @@ from devrules.core.deployment_service import (
     rollback_deployment,
 )
 from devrules.core.git_service import get_author, get_current_branch
+from devrules.core.permission_service import can_deploy_to_environment
 from devrules.messages import deploy as msg
 from devrules.notifications import emit
 from devrules.notifications.events import DeployEvent
@@ -68,6 +69,18 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(code=1)
 
         env_config = config.deployment.environments[environment]
+
+        # Permission check for deployment (--force does NOT bypass this)
+        is_permitted, permission_msg = can_deploy_to_environment(environment, config)
+        if permission_msg and is_permitted:
+            # Warning case - allowed but with warning
+            typer.secho(f"⚠ {permission_msg}", fg=typer.colors.YELLOW)
+        elif not is_permitted:
+            typer.secho(f"✘ {permission_msg}", fg=typer.colors.RED)
+            typer.echo(
+                "\n💡 Note: --force flag bypasses readiness checks only, not role-based permissions."
+            )
+            raise typer.Exit(code=1)
 
         # Determine branch to deploy
         if branch is None:

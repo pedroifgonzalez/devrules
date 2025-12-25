@@ -150,7 +150,8 @@ show_on_pr = true
 
 [channel.slack]
 enabled = true
-token = "SLACK_BOT_TOKEN"
+# Keep actual tokens out of version control!
+token = "SLACK_BOT_TOKEN"  # Replace with actual token
 
 [channel.slack.channels]
 dev = "#dev-deploys"

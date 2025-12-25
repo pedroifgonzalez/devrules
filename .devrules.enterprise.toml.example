@@ -16,6 +16,9 @@ sensitive_fields = [
     "github.api_url",
     "github.owner",
     "github.repo",
+    # Encrypt role assignments for compliance scenarios
+    # This hides which users have which roles in the distributed config
+    "permissions.user_assignments",
 ]
 
 [branch]
@@ -75,3 +78,40 @@ ready = "🚀"
 in_progress = "⏳"
 in_review = "👀"
 done = "✅"
+
+# =============================================================================
+# Role-Based Permissions
+# =============================================================================
+# Controls who can transition issue statuses and deploy to environments.
+# If no permissions are configured, the system defaults to permissive mode.
+
+[permissions]
+# Fallback role when a user is not explicitly assigned a role.
+# If null and user is not assigned, system allows action with warning.
+default_role = "developer"
+
+# Role definitions with allowed statuses and environments
+# Each role can specify which statuses they can transition issues to,
+# and which environments they can deploy to.
+
+[permissions.roles.developer]
+# Statuses this role can transition issues to
+allowed_statuses = ["In progress", "In review"]
+# Environments this role can deploy to
+deployable_environments = ["dev"]
+
+[permissions.roles.maintainer]
+# Maintainers have full access to all statuses and environments
+allowed_statuses = ["Backlog", "Ready", "In progress", "In review", "Done"]
+deployable_environments = ["dev", "staging", "prod"]
+
+[permissions.roles.viewer]
+# Viewers have read-only access (no status transitions or deployments)
+allowed_statuses = []
+deployable_environments = []
+
+# Map git usernames (from git config user.name) to role names.
+# Users not listed will use default_role if set.
+[permissions.user_assignments]
+"John Doe" = "maintainer"
+"Jane Smith" = "developer"
