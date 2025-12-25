@@ -1,7 +1,10 @@
+import logging
 from typing import Iterable
 
 from devrules.notifications.channels.base import NotificationChannel
 from devrules.notifications.events import NotificationEvent
+
+logger = logging.getLogger(__name__)
 
 
 class NotificationDispatcher:
@@ -14,4 +17,4 @@ class NotificationDispatcher:
                 try:
                     channel.send(event)
                 except Exception:
-                    pass  # TODO: log the error
+                    logger.exception("Failed to send notification via %s", type(channel).__name__)
