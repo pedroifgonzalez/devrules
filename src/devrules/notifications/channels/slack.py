@@ -32,7 +32,7 @@ class SlackClient:
             method="POST",
         )
 
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, timeout=30) as response:
             body = json.loads(response.read().decode("utf-8"))
             if not body.get("ok"):
                 raise RuntimeError(f"Slack API error: {body}")
@@ -66,7 +66,7 @@ class SlackChannel(NotificationChannel):
             try:
                 channel = self.channel_resolver(event, self.channels_map)
             except ValueError as e:
-                raise RuntimeError(f"Failed to resolve Slack channel: {e}")
+                raise RuntimeError(f"Failed to resolve Slack channel: {e}") from e
             if not channel:
                 spinner.fail("✘ Channel not configured, skipping message")
                 raise RuntimeError("Slack channel not configured for this event type")

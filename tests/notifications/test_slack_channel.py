@@ -23,7 +23,7 @@ def test_slack_channel_send_deploy_event_real():
 
     channel = SlackChannel(
         token=token,
-        channel_resolver=lambda e: channel_name,
+        channel_resolver=lambda _: channel_name,
     )
 
     event = DeployEvent(

@@ -1,8 +1,9 @@
 from dataclasses import dataclass
+from typing import Protocol
 
 
-class NotificationEvent:
-    """Base class for all notification events."""
+class NotificationEvent(Protocol):
+    """Protocol for all notification events."""
 
     type: str
 

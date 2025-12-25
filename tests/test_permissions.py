@@ -14,6 +14,40 @@ from devrules.validators.deployment_permission import validate_deployment_permis
 from devrules.validators.status_permission import validate_status_transition
 
 
+@pytest.fixture
+def base_config_components():
+    from devrules.config import BranchConfig, CommitConfig, PRConfig
+
+    return {
+        "branch": BranchConfig(pattern=".*", prefixes=["feature"]),
+        "commit": CommitConfig(tags=["FIX"], pattern=".*"),
+        "pr": PRConfig(),
+    }
+
+
+@pytest.fixture
+def config_with_roles(base_config_components):
+    """Create a config with permissions."""
+    from devrules.config import BranchConfig, CommitConfig, PRConfig
+
+    developer_role = RoleConfig(allowed_statuses=["In Progress"], deployable_environments=["dev"])
+    maintainer_role = RoleConfig(
+        allowed_statuses=["In Progress", "Done"],
+        deployable_environments=["dev", "staging", "prod"],
+    )
+
+    return Config(
+        branch=BranchConfig(pattern=".*", prefixes=["feature"]),
+        commit=CommitConfig(tags=["FIX"], pattern=".*"),
+        pr=PRConfig(),
+        permissions=PermissionsConfig(
+            roles={"developer": developer_role, "maintainer": maintainer_role},
+            default_role="developer",
+            user_assignments={"John Doe": "maintainer"},
+        ),
+    )
+
+
 class TestPermissionsConfig:
     """Test permission configuration loading."""
 
@@ -58,30 +92,6 @@ class TestGetUserRole:
     """Test user role resolution."""
 
     @pytest.fixture
-    def config_with_roles(self):
-        """Create a config with permissions."""
-        from devrules.config import BranchConfig, CommitConfig, PRConfig
-
-        developer_role = RoleConfig(
-            allowed_statuses=["In Progress"], deployable_environments=["dev"]
-        )
-        maintainer_role = RoleConfig(
-            allowed_statuses=["In Progress", "Done"],
-            deployable_environments=["dev", "staging", "prod"],
-        )
-
-        return Config(
-            branch=BranchConfig(pattern=".*", prefixes=["feature"]),
-            commit=CommitConfig(tags=["FIX"], pattern=".*"),
-            pr=PRConfig(),
-            permissions=PermissionsConfig(
-                roles={"developer": developer_role, "maintainer": maintainer_role},
-                default_role="developer",
-                user_assignments={"John Doe": "maintainer"},
-            ),
-        )
-
-    @pytest.fixture
     def config_without_roles(self):
         """Create a config without permissions."""
         from devrules.config import BranchConfig, CommitConfig, PRConfig
@@ -123,26 +133,6 @@ class TestGetUserRole:
 
 class TestCanTransitionStatus:
     """Test status transition permission checks."""
-
-    @pytest.fixture
-    def config_with_roles(self):
-        """Create config with permissions."""
-        from devrules.config import BranchConfig, CommitConfig, PRConfig
-
-        developer_role = RoleConfig(
-            allowed_statuses=["In Progress", "In Review"],
-            deployable_environments=["dev"],
-        )
-
-        return Config(
-            branch=BranchConfig(pattern=".*", prefixes=["feature"]),
-            commit=CommitConfig(tags=["FIX"], pattern=".*"),
-            pr=PRConfig(),
-            permissions=PermissionsConfig(
-                roles={"developer": developer_role},
-                default_role="developer",
-            ),
-        )
 
     @pytest.fixture
     def config_without_roles(self):

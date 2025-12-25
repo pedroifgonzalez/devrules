@@ -25,7 +25,7 @@ def get_current_username() -> str:
             text=True,
         )
         return result.stdout.strip()
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
         return "Unknown User"
 
 
@@ -63,17 +63,6 @@ def get_user_role(config: Config) -> Tuple[Optional[str], Optional[RoleConfig]]:
         return role_name, permissions.roles[role_name]
 
     return None, None
-
-
-def _is_enterprise_locked() -> bool:
-    """Check if running in locked enterprise mode."""
-    try:
-        from devrules.enterprise.config import EnterpriseConfig
-
-        enterprise_mgr = EnterpriseConfig()
-        return enterprise_mgr.is_enterprise_mode() and enterprise_mgr.is_locked()
-    except ImportError:
-        return False
 
 
 def can_transition_status(status: str, config: Config) -> Tuple[bool, str]:

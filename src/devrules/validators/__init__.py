@@ -9,9 +9,9 @@ from devrules.validators.status_permission import validate_status_transition
 
 __all__ = [
     "validate_branch",
-    "validate_commit",
-    "validate_pr",
     "validate_branch_ownership",
-    "validate_status_transition",
+    "validate_commit",
     "validate_deployment_permission",
+    "validate_pr",
+    "validate_status_transition",
 ]

@@ -465,17 +465,13 @@ def load_config(config_path: Optional[Path] = None) -> Config:
 
     channel_config = ChannelConfig(slack=slack_config)
 
-    for channel_type, channel in channel_config.__dict__.items():
-        match channel_type:
-            case "slack":
-                if not channel.enabled:
-                    continue
-                slack_channel = SlackChannel(
-                    token=channel.token,
-                    channel_resolver=resolve_slack_channel,
-                    channels_map=channel.channels,
-                )
-                configure(NotificationDispatcher(channels=[slack_channel]))
+    if channel_config.slack.enabled:
+        slack_channel = SlackChannel(
+            token=channel_config.slack.token,
+            channel_resolver=resolve_slack_channel,
+            channels_map=channel_config.slack.channels,
+        )
+        configure(NotificationDispatcher(channels=[slack_channel]))
 
     # Parse permissions config
     permissions_data = config_data.get("permissions", {})

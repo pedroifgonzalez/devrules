@@ -11,4 +11,7 @@ class NotificationDispatcher:
     def dispatch(self, event: NotificationEvent) -> None:
         for channel in self.channels:
             if channel.supports(event):
-                channel.send(event)
+                try:
+                    channel.send(event)
+                except Exception:
+                    pass  # TODO: log the error

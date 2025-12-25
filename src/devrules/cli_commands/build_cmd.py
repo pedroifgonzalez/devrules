@@ -525,13 +525,19 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             from devrules.utils import gum
             from devrules.utils.gum import GUM_AVAILABLE
 
-            selected_statuses = []
+            selected_statuses: list[str] | str = []
             if GUM_AVAILABLE:
-                selected_statuses = gum.choose(
+                result = gum.choose(
                     options=valid_statuses,
                     header=f"Select allowed statuses for '{role_name}'",
                     limit=0,
                 )
+                if result is None:
+                    selected_statuses = []
+                elif isinstance(result, str):
+                    selected_statuses = [result]
+                else:
+                    selected_statuses = result
             else:
                 typer.echo("\nAvailable statuses:")
                 for idx, status in enumerate(valid_statuses, 1):
@@ -558,13 +564,19 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             if not environments:
                 environments = ["dev", "staging", "prod"]
 
-            selected_envs = []
+            selected_envs: list[str] | str = []
             if GUM_AVAILABLE:
-                selected_envs = gum.choose(
+                result = gum.choose(
                     options=environments,
                     header=f"Select deployable environments for '{role_name}'",
                     limit=0,
                 )
+                if result is None:
+                    selected_envs = []
+                elif isinstance(result, str):
+                    selected_envs = [result]
+                else:
+                    selected_envs = result
             else:
                 typer.echo("\nAvailable environments:")
                 for idx, env in enumerate(environments, 1):
@@ -753,6 +765,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                         for idx, opt in enumerate(options, 1):
                             typer.echo(f"  {idx}. {opt}")
                         choice_idx = typer.prompt("Select user number", type=int)
+                        if choice_idx < 1 or choice_idx > len(options):
+                            typer.secho("✘ Invalid selection", fg=typer.colors.RED)
+                            raise typer.Exit(code=1)
                         display_choice = options[choice_idx - 1]
 
                     selected_user = user_map[display_choice]["name"]
@@ -770,6 +785,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                     for idx, r in enumerate(roles, 1):
                         typer.echo(f"  {idx}. {r}")
                     choice_idx = typer.prompt("Select role number", type=int)
+                    if choice_idx < 1 or choice_idx > len(roles):
+                        typer.secho("✘ Invalid selection", fg=typer.colors.RED)
+                        raise typer.Exit(code=1)
                     selected_role = roles[choice_idx - 1]
 
             # Update assignments
