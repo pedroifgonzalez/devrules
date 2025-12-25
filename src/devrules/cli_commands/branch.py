@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict
 
 import typer
 from typer_di import Depends
@@ -62,102 +62,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command()
     @ensure_git_repo()
     def delete_branch(
-        branch: Optional[str] = typer.Argument(
-            None, help="Name of the branch to delete (omit for interactive mode)"
-        ),
-        remote: str = typer.Option("origin", "--remote", "-r", help="Remote name"),
-        force: bool = typer.Option(False, "--force", "-f", help="Force delete even if not merged"),
+        ctx: BranchCtxBuilder = Depends(builder.build_delete_branch_context),
     ):
         """Delete a branch locally and on the remote, enforcing ownership rules."""
-
-        # Load owned branches first (used for interactive and validation)
-        try:
-            owned_branches = list_user_owned_branches()
-        except RuntimeError as e:
-            typer.secho(f"✘ {e}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
-
-        if not owned_branches:
-            typer.secho(msg.NO_OWNED_BRANCHES_TO_DELETE, fg=typer.colors.YELLOW)
-            raise typer.Exit(code=0)
-
-        # Interactive selection if branch not provided
-        branches = [branch] if branch else []
-        if not branches:
-            if GUM_AVAILABLE:
-                print(gum.style("🗑 Delete branches", foreground=81, bold=True))
-                print(gum.style("=" * 50, foreground=81))
-                branches = gum.choose(
-                    options=owned_branches, header="Select branches to be deleted:", limit=0
-                )
-            else:
-                add_typer_block_message(
-                    header="🗑 Delete Branches",
-                    subheader="📋 Select branches to be deleted:",
-                    messages=[f"{idx}. {b}" for idx, b in enumerate(owned_branches, 1)],
-                )
-                typer.echo()
-                choices = typer.prompt("Enter number, multiple separated by a space", type=str)
-                choices = choices.split(" ")
-                try:
-                    choices = [int(choice) for choice in choices]
-                except ValueError:
-                    typer.secho(msg.INVALID_CHOICE, fg=typer.colors.RED)
-                    raise typer.Exit(code=1)
-                for choice in choices:
-                    if choice < 1 or choice > len(owned_branches):
-                        typer.secho(msg.INVALID_CHOICE, fg=typer.colors.RED)
-                        raise typer.Exit(code=1)
-                    to_delete = owned_branches[choice - 1]
-                    branches.append(to_delete)
-
-        # Basic safety: don't delete main shared branches through this command
-        current_branch = get_current_branch()
-        for selected_branch in branches:
-            protected_branches = ("main", "master", "develop")
-            is_release_branch = selected_branch.startswith("release/")
-            if selected_branch in protected_branches or is_release_branch:
-                typer.secho(
-                    msg.REFUSING_TO_DELETE_SHARED_BRANCH.format(selected_branch),
-                    fg=typer.colors.RED,
-                )
-                raise typer.Exit(code=1)
-
-            # Prevent deleting the currently checked-out branch
-            if current_branch == selected_branch:
-                typer.secho(msg.CANNOT_DELETE_CURRENT_BRANCH, fg=typer.colors.RED)
-                raise typer.Exit(code=1)
-
-            # Enforce ownership rules before allowing delete using the same logic
-            if selected_branch not in owned_branches:
-                typer.secho(
-                    msg.NOT_ALLOWED_TO_DELETE_BRANCH.format(selected_branch), fg=typer.colors.RED
-                )
-                raise typer.Exit(code=1)
-
-        if branches:
-            typer.echo()
-            typer.secho(msg.DELETE_BRANCHES_STATEMENT)
-            messages = [f"✘ {b}" for _, b in enumerate(branches, 1)]
-            for message in messages:
-                typer.secho(f"    {message}")
-            typer.echo()
-
-            if GUM_AVAILABLE:
-                confirmation = gum.confirm(message="Continue?")
-            else:
-                confirmation = typer.confirm("Continue?", default=False)
-
-            if not confirmation:
-                typer.echo(msg.CANCELLED)
-                raise typer.Exit(code=0)
-
-            for selected_branch in branches:
-                delete_branch_local_and_remote(selected_branch, remote, force)
-        else:
-            typer.secho(msg.NO_SELECTED_BRANCHES_TO_DELETE, fg=typer.colors.YELLOW)
-
-        raise typer.Exit(code=0)
+        ctx.validate_selected_branches_to_delete()
+        ctx.confirm_delete_branches()
+        ctx.delete_branches()
 
     @app.command()
     @ensure_git_repo()
