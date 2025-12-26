@@ -24,6 +24,19 @@ from devrules.validators.pr_target import (
 
 class PrCtxBuilder(BaseCtxBuilder):
     def auto_push_if_enabled(self):
+        """
+        Push the current branch to the remote repository if auto-push is enabled in the
+        configuration.
+
+        Behavior:
+        - Checks `self.config.pr.auto_push` to decide whether to attempt a push.
+        - Uses `remote_branch_exists` to determine if the branch already exists on origin.
+        - If the branch does not exist remotely, shows a spinner and calls `push_branch`.
+        - If the branch exists remotely, prints an informational message and does nothing.
+
+        Side effects:
+        - May perform network/git operations via `push_branch` and `remote_branch_exists`.
+        """
         if self.config.pr.auto_push:
             if not remote_branch_exists(self.current_branch):
                 with yaspin(
@@ -37,6 +50,17 @@ class PrCtxBuilder(BaseCtxBuilder):
                 )
 
     def validate_current_branch_is_not_protected(self):
+        """
+        Validate that the current branch is not a protected branch according to the
+        commit protection prefixes defined in the configuration.
+
+        Uses `validate_pr_base_not_protected` with:
+        - `self.current_branch` as the branch to validate
+        - `self.config.commit.protected_branch_prefixes` as the list of protected prefixes
+
+        If validation fails, prints the validation message and exits the CLI with a non-zero
+        status via `typer.Exit`.
+        """
         is_valid_base, base_message = validate_pr_base_not_protected(
             self.current_branch,
             self.config.commit.protected_branch_prefixes,
@@ -46,6 +70,16 @@ class PrCtxBuilder(BaseCtxBuilder):
             raise typer.Exit(code=1)
 
     def set_header(self):
+        """
+        Display a CLI header for the "create pull request" flow.
+
+        Behavior:
+        - If the `gum` interactive/text styling utility is available, render a styled header
+          and the current branch using `gum.style`.
+        - Otherwise, fall back to `add_typer_block_message` to display a header and subheader.
+
+        This method does not return a value; it only prints output to the terminal.
+        """
         if gum.is_available():
             print(gum.style("🔀 Create Pull Request", foreground=81, bold=True))
             print(gum.style("=" * 50, foreground=81))
@@ -91,6 +125,15 @@ class PrCtxBuilder(BaseCtxBuilder):
             return suggested
 
     def get_target_branch(self):
+        """
+        Interactively select and validate the target branch for the pull request.
+
+        Retrieves allowed targets from config or defaults, suggests a target based on current branch,
+        prompts user to select, validates the selection against PR target rules, sets self.target_branch,
+        and returns the selected branch.
+
+        Raises typer.Exit if validation fails.
+        """
         allowed_targets = self.config.pr.allowed_targets or ["develop", "main", "master"]
         suggested = suggest_pr_target(self.current_branch, self.config.pr) or "develop"
 
@@ -128,6 +171,20 @@ class PrCtxBuilder(BaseCtxBuilder):
             Optional[Path], typer.Option("--config", "-c", help="Path to config file")
         ] = None,
     ) -> Self:
+        """
+        Build the context for creating a pull request.
+
+        Ensures GitHub CLI is installed, retrieves current branch, loads configuration,
+        displays header, sets project and target branch attributes, and returns self.
+
+        Args:
+            target: Target branch for the PR
+            project: Optional project key for issue status check
+            config_file: Optional path to config file
+
+        Returns:
+            Self for method chaining
+        """
         ensure_gh_installed()
         current_branch = get_current_branch()
 
@@ -146,6 +203,10 @@ class PrCtxBuilder(BaseCtxBuilder):
         return self
 
     def show_documentation(self):
+        """
+        Show documentation guidance for the pull request.
+        The documentation will be shown according to the configuration.
+        """
         if self.config.documentation.show_on_pr and self.config.documentation.rules:
             display_documentation_guidance(
                 rules=self.config.documentation.rules,
@@ -153,15 +214,22 @@ class PrCtxBuilder(BaseCtxBuilder):
                 show_files=True,
             )
 
-    def validate_current_branch_is_not_base(self):
+    def validate_current_branch_is_not_target(self):
         if self.current_branch == self.target_branch:
             typer.secho(
-                "✘ Current branch is the same as the base branch; nothing to create a PR for.",
+                "✘ Current branch is the same as the target branch; nothing to create a PR for.",
                 fg=typer.colors.RED,
             )
             raise typer.Exit(code=1)
 
     def derive_pr_title(self):
+        """
+        Derive a standardized pull request title from the current branch name.
+
+        Extracts prefix from branch (e.g., feature, bugfix), maps to tag (e.g., FTR, FIX),
+        humanizes the remaining part by capitalizing and joining words, and constructs
+        the title in format [TAG] Humanized name. Sets self.pr_title.
+        """
         prefix = None
         name_part = self.current_branch
         if "/" in self.current_branch:
@@ -193,6 +261,12 @@ class PrCtxBuilder(BaseCtxBuilder):
         self.pr_title = pr_title
 
     def allow_edit_pr_title(self):
+        """
+        Allow the user to edit the derived PR title interactively.
+
+        Uses gum input with history if available, otherwise typer prompt.
+        If edited, updates self.pr_title; otherwise keeps the original.
+        """
         pr_title = self.pr_title
         if gum.is_available():
             edited_title = gum.input_text_with_history(
@@ -210,6 +284,13 @@ class PrCtxBuilder(BaseCtxBuilder):
         self.pr_title = pr_title
 
     def validate_pr_status(self):
+        """
+        Validate the pull request status by checking associated issue status if enabled.
+
+        If config.pr.require_issue_status_check is true, calls validate_pr_issue_status
+        with current branch, PR config, and GitHub config. Prints validation messages
+        and exits with error if validation fails.
+        """
         if self.config.pr.require_issue_status_check:
             with yaspin(text="🔍 Checking issue status...") as spinner:
                 project_override = self.project
@@ -239,6 +320,12 @@ class PrCtxBuilder(BaseCtxBuilder):
             typer.echo()
 
     def confirm_pr(self):
+        """
+        Display PR summary and prompt for confirmation before creating the pull request.
+
+        Shows branch, target, and title using gum styled output if available, otherwise plain text.
+        Uses gum.confirm or typer.confirm. Cancels if not confirmed.
+        """
         if gum.is_available():
             print("\n📋 Summary:")
             print(
@@ -256,6 +343,12 @@ class PrCtxBuilder(BaseCtxBuilder):
                 raise typer.Exit(code=0)
 
     def create_pr(self):
+        """
+        Create the pull request using the GitHub CLI.
+
+        Calls gh_create_pr with target_branch, current_branch, and pr_title.
+        Displays a spinner during creation and prints success message.
+        """
         with yaspin(text="Creating PR...", color="green") as spinner:
             gh_create_pr(self.target_branch, self.current_branch, self.pr_title)
             spinner.ok("✔")

@@ -75,13 +75,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @ensure_git_repo()
     def ipr(ctx: PrCtxBuilder = Depends(builder.build_create_pr_context)):
         """Interactive PR creation - select target branch with guided prompts."""
-        # Validate that current branch is not protected
         ctx.validate_current_branch_is_not_protected()
+        ctx.validate_pr_status()
+        ctx.validate_current_branch_is_not_target()
         ctx.show_documentation()
-        ctx.validate_current_branch_is_not_base()
         ctx.derive_pr_title()
         ctx.allow_edit_pr_title()
-        ctx.validate_pr_status()
         ctx.confirm_pr()
         ctx.auto_push_if_enabled()
         ctx.create_pr()

@@ -288,7 +288,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(code=1)
 
         # Resolve project owner and number using existing logic
-        owner, project_number = resolve_project_number(project_key)
+        owner, project_number, _ = resolve_project_number(project_key)
 
         # If no issue is provided, show interactive selection
         item_status = None
