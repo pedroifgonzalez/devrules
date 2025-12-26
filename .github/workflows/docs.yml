@@ -3,7 +3,7 @@ name: docs
 on:
   push:
     branches:
-      - main
+      - docs/54-add-an-official-doc-site-for-devrules
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
@@ -34,7 +34,7 @@ jobs:
         run: mkdocs build --strict
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/docs/54-add-an-official-doc-site-for-devrules'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./site
