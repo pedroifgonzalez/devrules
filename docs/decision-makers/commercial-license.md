@@ -222,7 +222,7 @@ Based on our case studies, DevRules typically saves:
 **ROI:** 1,000% - 2,700%  
 **Payback Period:** < 2 weeks
 
-See [docs/SCENARIO_CONTEXT_AWARE_DOCS.md](docs/SCENARIO_CONTEXT_AWARE_DOCS.md) for detailed case study.
+See [../developers/scenario-context-aware-docs.md](../developers/scenario-context-aware-docs.md) for detailed case study.
 
 ---
 

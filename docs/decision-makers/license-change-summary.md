@@ -182,8 +182,8 @@ We're offering a **90-day grace period** for existing users to purchase if neede
 
 ### Files Added
 
-1. **LICENSE.md** - Simple license summary
-2. **COMMERCIAL_LICENSE.md** - Complete commercial licensing guide
+1. **license.md** - Simple license summary
+2. **commercial-license.md** - Complete commercial licensing guide
 3. **LICENSE_CHANGE_SUMMARY.md** - This document
 
 ### License Parameters
@@ -233,8 +233,8 @@ Change License:       Apache License, Version 2.0
 **License Documents:**
 
 - [LICENSE](LICENSE) - Full BSL 1.1 text
-- [LICENSE.md](LICENSE.md) - Simple summary
-- [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md) - Commercial details
+- [license.md](license.md) - Simple summary
+- [commercial-license.md](commercial-license.md) - Commercial details
 
 ---
 

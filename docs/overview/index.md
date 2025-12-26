@@ -9,13 +9,12 @@ Welcome to the DevRules documentation! This index will help you find exactly wha
 ### New to DevRules?
 
 1. **[One-Pager](../decision-makers/one-pager.md)** - Quick overview of what DevRules does and why it matters
-2. **[Main README](../README.md)** - Installation, configuration, and basic usage
+2. **[Main README](https://github.com/pedroifgonzalez/devrules/blob/main/README.md)** - Installation, configuration, and basic usage
 3. **[Quick Reference](../developers/quick-reference.md)** - Cheat sheet for new features
 
 ### Just Implemented - New Features!
 
 4. **[New Features Guide](../developers/new-features.md)** - Complete guide to recently added features
-5. **[Implementation Complete](implementation-complete.md)** - Executive summary of what was built
 
 ---
 
@@ -25,7 +24,6 @@ Welcome to the DevRules documentation! This index will help you find exactly wha
 
 - **[One-Pager](../decision-makers/one-pager.md)** - Marketing overview with key benefits
 - **[Comparison with Other Tools](../decision-makers/comparison.md)** - How DevRules differs from GitHub, GitLab, CI/CD
-- **[Feature Gap Analysis](feature-gaps.md)** - What was missing and what's now implemented
 
 ### Feature Deep Dives
 
@@ -47,19 +45,6 @@ Welcome to the DevRules documentation! This index will help you find exactly wha
   - Actual ROI calculations
   - Team impact metrics
 
-### Implementation Details
-
-- **[Implementation Summary](implementation-summary.md)** (521 lines)
-  - Technical implementation details
-  - Test coverage
-  - Migration guide
-  - Impact assessment
-
-- **[Implementation Complete](implementation-complete.md)** (610 lines)
-  - Executive summary
-  - Files created/modified
-  - Success metrics
-  - Ready for release checklist
 
 ---
 
@@ -115,100 +100,6 @@ Welcome to the DevRules documentation! This index will help you find exactly wha
 
 ---
 
-## 🔍 Find by Feature
-
-### Repository State Validation
-- [Feature Overview](../developers/new-features.md#1--repository-state-validation)
-- [Configuration](../developers/quick-reference.md#-repository-state-validation)
-- [Implementation Details](implementation-summary.md#1--repository-state-validation)
-
-### Forbidden File Protection
-- [Feature Overview](../developers/new-features.md#2--forbidden-file-protection)
-- [Configuration](../developers/quick-reference.md#-forbidden-file-blocking)
-- [Common Patterns](../developers/new-features.md#common-patterns)
-- [Security Impact](../developers/scenario-context-aware-docs.md#day-2-first-commit-attempt-200-pm)
-
-### Context-Aware Documentation
-- [Feature Overview](../developers/new-features.md#3--context-aware-documentation)
-- [Complete Benefits Guide](../developers/context-aware-docs-benefits.md)
-- [Real-World Scenario](../developers/scenario-context-aware-docs.md)
-- [Configuration Examples](../developers/quick-reference.md#-context-aware-documentation)
-- [Why It Works](../developers/context-aware-docs-benefits.md#why-it-works-the-psychology)
-
-### PR Target Validation
-- [Feature Overview](../developers/new-features.md#4--pr-target-branch-validation)
-- [Configuration](../developers/quick-reference.md#-pr-target-validation)
-- [Common Rules](../developers/new-features.md#common-patterns-3)
-
----
-
-## 📊 Documents by Length
-
-**Quick Reads (< 10 min):**
-- [Quick Reference](../developers/quick-reference.md) - 287 lines
-- [One-Pager](../decision-makers/one-pager.md) - ~200 lines
-
-**Medium Reads (10-30 min):**
-- [Feature Gap Analysis](feature-gaps.md) - 363 lines
-- [Real-World Scenario](../developers/scenario-context-aware-docs.md) - 408 lines
-- [Context-Aware Benefits](../developers/context-aware-docs-benefits.md) - 508 lines
-- [Implementation Summary](implementation-summary.md) - 521 lines
-
-**Comprehensive Guides (30+ min):**
-- [Implementation Complete](implementation-complete.md) - 610 lines
-- [New Features Guide](../developers/new-features.md) - 964 lines
-- [Comparison Document](../decision-makers/comparison.md) - ~800 lines
-
----
-
-## 🎬 Recommended Reading Paths
-
-### Path 1: "I Need to Understand the Value" (20 min)
-1. [One-Pager](../decision-makers/one-pager.md) - 5 min
-2. [Real-World Scenario](../developers/scenario-context-aware-docs.md) - 15 min
-3. **Result:** Clear understanding of business value and ROI
-
-### Path 2: "I Need to Implement This" (45 min)
-1. [Quick Reference](../developers/quick-reference.md) - 5 min
-2. [New Features Guide](../developers/new-features.md) - 30 min
-3. [Migration Guide](../developers/new-features.md#migration-guide) - 10 min
-4. **Result:** Ready to configure and deploy
-
-### Path 3: "I Need to Convince My Team" (30 min)
-1. [One-Pager](../decision-makers/one-pager.md) - 5 min
-2. [Comparison Document](../decision-makers/comparison.md) - 15 min
-3. [Context-Aware Benefits](../developers/context-aware-docs-benefits.md) - 10 min
-4. **Result:** Armed with compelling arguments and data
-
-### Path 4: "I Want Deep Technical Understanding" (90 min)
-1. [Implementation Complete](implementation-complete.md) - 20 min
-2. [Implementation Summary](implementation-summary.md) - 20 min
-3. [Feature Gap Analysis](feature-gaps.md) - 15 min
-3. [New Features Guide](../developers/new-features.md) - 35 min
-5. **Result:** Complete technical knowledge
-
----
-
-## 🆘 Common Questions
-
-**Q: What's new in v0.2.0?**  
-A: See [Implementation Complete](implementation-complete.md) - 4 major features added
-
-**Q: How do I set up context-aware documentation?**  
-A: See [Configuration Examples](../developers/new-features.md#configuration-2)
-
-**Q: What's the ROI?**  
-A: See [Real-World Scenario ROI](../developers/scenario-context-aware-docs.md#roi-calculation) - typically 5,500%+ return
-
-**Q: Is it compatible with my current setup?**  
-A: Yes! 100% backward compatible. See [Backward Compatibility](implementation-complete.md#backward-compatibility)
-
-**Q: How long does setup take?**  
-A: 5 minutes for basic, 30 minutes for full customization. See [Quick Setup](../developers/quick-reference.md#-quick-setup)
-
-**Q: What if I need to bypass a check?**  
-A: Use `--skip-checks` flag. See [Troubleshooting](../developers/new-features.md#troubleshooting)
-
 ---
 
 ## 📞 Support & Contributing
@@ -216,28 +107,6 @@ A: Use `--skip-checks` flag. See [Troubleshooting](../developers/new-features.md
 - **Main Repository:** [github.com/pedroifgonzalez/devrules](https://github.com/pedroifgonzalez/devrules)
 - **Issues:** [GitHub Issues](https://github.com/pedroifgonzalez/devrules/issues)
 - **Email:** pedroifgonzalez@gmail.com
-
----
-
-## 📝 Document Status
-
-| Document | Status | Last Updated | Audience |
-|----------|--------|--------------|----------|
-| [../decision-makers/one-pager.md](../decision-makers/one-pager.md) | ✅ Current | Dec 2025 | Business |
-| [../decision-makers/comparison.md](../decision-makers/comparison.md) | ✅ Current | Dec 2025 | Technical |
-| [../developers/new-features.md](../developers/new-features.md) | ✅ Current | Dec 2025 | Developers |
-| [../developers/quick-reference.md](../developers/quick-reference.md) | ✅ Current | Dec 2025 | Developers |
-| [feature-gaps.md](feature-gaps.md) | ✅ Current | Dec 2025 | Technical |
-| [implementation-summary.md](implementation-summary.md) | ✅ Current | Dec 2025 | Technical |
-| [implementation-complete.md](implementation-complete.md) | ✅ Current | Dec 2025 | Leadership |
-| [../developers/context-aware-docs-benefits.md](../developers/context-aware-docs-benefits.md) | ✅ Current | Dec 2025 | All |
-| [../developers/scenario-context-aware-docs.md](../developers/scenario-context-aware-docs.md) | ✅ Current | Dec 2025 | All |
-
----
-
-**Total Documentation:** 9 comprehensive documents, 5,000+ lines  
-**Version:** 0.2.0 (pending release)  
-**Status:** Production Ready
 
 ---
 

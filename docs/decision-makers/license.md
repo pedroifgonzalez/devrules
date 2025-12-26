@@ -51,7 +51,7 @@ Non-production use includes:
 - Enterprise License: ~$15,000 - $25,000/year
 - Includes support, updates, and priority bug fixes
 
-See [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md) for complete information.
+See [commercial-license.md](commercial-license.md) for complete information.
 
 ---
 
@@ -80,7 +80,7 @@ A: BSL protects our innovative features and business model while still allowing 
 ## 📄 Legal Documents
 
 - **[LICENSE](LICENSE)** - Full Business Source License 1.1 text
-- **[COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md)** - Commercial licensing details and pricing
+- **[commercial-license.md](commercial-license.md)** - Commercial licensing details and pricing
 
 ---
 

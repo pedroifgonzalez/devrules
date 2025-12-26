@@ -517,6 +517,6 @@ It's not about having documentation. It's about **documentation that actively he
 
 ---
 
-*For implementation details, see [NEW_FEATURES.md](NEW_FEATURES.md)*  
-*For real-world scenario, see [SCENARIO_CONTEXT_AWARE_DOCS.md](SCENARIO_CONTEXT_AWARE_DOCS.md)*  
-*For technical details, see [implementation-summary.md](implementation-summary.md)*
+*For implementation details, see [new-features.md](new-features.md)*  
+*For real-world scenario, see [scenario-context-aware-docs.md](scenario-context-aware-docs.md)*  
+*For technical details, see []()*

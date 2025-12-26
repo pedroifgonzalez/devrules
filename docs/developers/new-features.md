@@ -971,10 +971,10 @@ checklist = [
 
 ## 📚 Additional Resources
 
-- [Configuration Reference](../README.md#configuration)
-- [Feature Gap Analysis](feature-gaps.md)
-- [Implementation Summary](implementation-summary.md)
-- [Comparison with Other Tools](comparison.md)
+- [Configuration Reference](https://github.com/pedroifgonzalez/devrules/blob/main/README.md)
+- [Feature Gap Analysis]()
+- [Implementation Summary]()
+- [Comparison with Other Tools](../decision-makers/comparison.md)
 
 ---
 
