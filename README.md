@@ -8,6 +8,7 @@
         <a href="https://badge.fury.io/py/devrules"><img src="https://badge.fury.io/py/devrules.svg" alt="PyPI version"></a>
         <a href="https://pypi.org/project/devrules/"><img src="https://img.shields.io/pypi/pyversions/devrules.svg" alt="Python Versions"></a>
         <a href="LICENSE"><img src="https://img.shields.io/badge/License-BSL%201.1-blue.svg" alt="License: BSL 1.1"></a>
+        <a href="https://pedroifgonzalez.github.io/devrules/"><img src="https://github.com/pedroifgonzalez/devrules/workflows/docs/badge.svg" alt="Documentation Status"></a>
       </p>
     </td>
   </tr>

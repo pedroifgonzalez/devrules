@@ -1,3 +1,17 @@
+---
+
+title: TUI Mode
+
+description: Guide to using DevRules in Textual User Interface mode
+
+tags: [developer, tui, interface, textual]
+
+search:
+
+  boost: 1.0
+
+---
+
 # DevRules TUI Dashboard
 
 ## Quick Start

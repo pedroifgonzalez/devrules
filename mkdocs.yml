@@ -1,0 +1,90 @@
+site_name: devrules
+site_description: CLI tool for enforcing development guidelines
+site_url: https://pedroifgonzalez.github.io/devrules/
+repo_url: https://github.com/pedroifgonzalez/devrules
+repo_name: pedroifgonzalez/devrules
+
+theme:
+  name: material
+  palette:
+    # Dark mode as default (inspired by infrastructure tools like GitHub dark)
+    - media: "(prefers-color-scheme)"
+      scheme: slate  # Built-in dark scheme for calm, low-saturation reading
+      primary: brown  # Earth-toned brown primary (#a52a2a) for stone tablet immutability metaphor
+      accent: teal  # Single accent color (#2dd4bf) for highlights and CLI focus
+      success: green  # Standard green for success states (#10b981)
+      warning: amber  # Amber for warnings (#f59e0b) - authoritative but not alarming
+      danger: red  # Red for errors/blocking (#ef4444) - clear but muted
+      info: teal  # Teal for info/highlights (#2dd4bf) - consistent with accent
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    # Light mode optional (same identity, enterprise-grade)
+    - media: "(prefers-color-scheme: light)"
+      scheme: default  # Light scheme with stone tones
+      primary: brown  # Earth-toned brown primary (#a52a2a) for consistency
+      accent: teal  # Same teal accent (#2dd4bf)
+      success: green  # Same green (#10b981)
+      warning: amber  # Same amber (#f59e0b)
+      danger: red  # Same red (#ef4444)
+      info: teal  # Same teal (#2dd4bf)
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Explicit dark override for enterprise default
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: brown
+      accent: teal
+      success: green
+      warning: amber
+      danger: red
+      info: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+  code:
+    theme: github-dark  # Very dark background (near-black blue-tinted #0d1117), accent for inline code, muted gray comments (#8b949e), readable keywords (#ff7b72) - optimized for long sessions
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.annotation
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - meta
+  - awesome-pages
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/pedroifgonzalez/devrules
+    - icon: fontawesome/brands/linkedin
+      link: https://www.linkedin.com/in/pedroifgonzalez/
+  analytics:
+    provider: google
+    property: !ENV GOOGLE_ANALYTICS_KEY
+  generator: false
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - toc:
+      permalink: true

@@ -1,3 +1,17 @@
+---
+
+title: Context-Aware Documentation Benefits
+
+description: Complete benefits guide for context-aware documentation
+
+tags: [developer, context-aware, benefits, documentation]
+
+search:
+
+  boost: 1.4
+
+---
+
 # 📚 Context-Aware Documentation: Complete Benefits Guide
 
 ## 🎯 Executive Summary

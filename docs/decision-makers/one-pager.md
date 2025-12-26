@@ -1,3 +1,17 @@
+---
+
+title: One-Pager
+
+description: Quick overview of DevRules value proposition
+
+tags: [business, one-pager, overview, value]
+
+search:
+
+  boost: 1.8
+
+---
+
 # ⚙️ DevRules
 
 *Automate your internal rules. Reduce errors. Accelerate onboarding.*
