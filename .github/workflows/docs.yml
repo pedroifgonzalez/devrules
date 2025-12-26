@@ -4,15 +4,6 @@ on:
   push:
     branches:
       - docs/54-add-an-official-doc-site-for-devrules
-    paths:
-      - 'docs/**'
-      - 'mkdocs.yml'
-      - '.github/workflows/docs.yml'
-  pull_request:
-    paths:
-      - 'docs/**'
-      - 'mkdocs.yml'
-      - '.github/workflows/docs.yml'
 
 permissions:
   contents: write
