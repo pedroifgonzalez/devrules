@@ -1,6 +1,6 @@
 <table>
   <tr>
-    <td><img src="devrules.png" alt="DevRules Logo" width="150"></td>
+    <td><img src="docs/img/devrules.png" alt="DevRules Logo" width="150"></td>
     <td>
       <h1>DevRules</h1>
       <p>Automate your internal rules. Reduce errors. Accelerate onboarding.</p>

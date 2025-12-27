@@ -5,13 +5,15 @@ repo_url: https://github.com/pedroifgonzalez/devrules
 repo_name: pedroifgonzalez/devrules
 
 theme:
+  logo: img/devrules.png
+  favicon: img/favicon.ico
   name: material
   palette:
     # Dark mode as default (inspired by infrastructure tools like GitHub dark)
     - media: "(prefers-color-scheme)"
       scheme: slate  # Built-in dark scheme for calm, low-saturation reading
       primary: brown  # Earth-toned brown primary (#a52a2a) for stone tablet immutability metaphor
-      accent: teal  # Single accent color (#2dd4bf) for highlights and CLI focus
+      accent: amber  # Single accent color (#2dd4bf) for highlights and CLI focus
       success: green  # Standard green for success states (#10b981)
       warning: amber  # Amber for warnings (#f59e0b) - authoritative but not alarming
       danger: red  # Red for errors/blocking (#ef4444) - clear but muted
@@ -23,7 +25,7 @@ theme:
     - media: "(prefers-color-scheme: light)"
       scheme: default  # Light scheme with stone tones
       primary: brown  # Earth-toned brown primary (#a52a2a) for consistency
-      accent: teal  # Same teal accent (#2dd4bf)
+      accent: amber  # Same teal accent (#2dd4bf)
       success: green  # Same green (#10b981)
       warning: amber  # Same amber (#f59e0b)
       danger: red  # Same red (#ef4444)
@@ -35,7 +37,7 @@ theme:
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       primary: brown
-      accent: teal
+      accent: amber
       success: green
       warning: amber
       danger: red

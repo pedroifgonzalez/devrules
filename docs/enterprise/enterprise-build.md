@@ -305,5 +305,3 @@ devrules build-enterprise \
 ## Next Steps
 
 - [Distribution Guide](enterprise-distribution.md) - How to distribute your build
-- [Migration Guide](https://github.com/pedroifgonzalez/devrules/blob/main/README.md) - Migrating existing projects
-- [Security Best Practices](#security-best-practices) - Securing your deployment
