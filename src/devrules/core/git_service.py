@@ -451,3 +451,17 @@ def get_files_difference_between_branches_in_path(
         return result.stdout.strip().splitlines()
     except subprocess.CalledProcessError:
         return []
+
+
+def get_current_repo_name() -> str:
+    """Get the current git repository name."""
+    try:
+        result = subprocess.run(
+            ["git", "config", "--get", "remote.origin.url"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip().split("/")[-1].split(".")[0]
+    except subprocess.CalledProcessError:
+        return "Unknown Repository"
