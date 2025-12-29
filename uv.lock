@@ -423,6 +423,7 @@ tui = [
 dev = [
     { name = "black" },
     { name = "build" },
+    { name = "coverage" },
     { name = "isort" },
     { name = "mypy" },
     { name = "pre-commit" },
@@ -456,6 +457,7 @@ provides-extras = ["tui", "enterprise"]
 dev = [
     { name = "black", specifier = ">=25.11.0" },
     { name = "build", specifier = ">=1.3.0" },
+    { name = "coverage", specifier = ">=7.11.3" },
     { name = "isort", specifier = ">=5.13.2" },
     { name = "mypy", specifier = ">=1.13.0" },
     { name = "pre-commit", specifier = ">=4.0.0" },
