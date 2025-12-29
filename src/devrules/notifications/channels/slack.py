@@ -88,8 +88,8 @@ class SlackChannel(NotificationChannel):
 
     def _format_deploy_event(self, event: DeployEvent) -> dict:
         env_emoji = {
-            "dev": "🧪",
-            "staging": "🚦",
+            "dev": "🔩",
+            "staging": "🧪",
             "prod": "🚀",
         }.get(event.environment, "📦")
 
@@ -105,10 +105,12 @@ class SlackChannel(NotificationChannel):
                 },
                 {
                     "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": f"*Branch:* `{event.branch}`\n*Environment:* `{event.environment}`\n*Author:* `{event.author}`",
-                    },
+                    "fields": [
+                        {"type": "mrkdwn", "text": f"*Repository:*       `{event.repo}`"},
+                        {"type": "mrkdwn", "text": f"*Branch:*    `{event.branch}`"},
+                        {"type": "mrkdwn", "text": f"*Environment:*    `{event.environment}`"},
+                        {"type": "mrkdwn", "text": f"*Author:*    `{event.author}`"},
+                    ],
                 },
             ],
         }

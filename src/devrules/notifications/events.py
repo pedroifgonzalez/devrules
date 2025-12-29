@@ -10,6 +10,7 @@ class NotificationEvent(Protocol):
 
 @dataclass(frozen=True)
 class DeployEvent(NotificationEvent):
+    repo: str
     branch: str
     environment: str
     author: str

@@ -428,3 +428,17 @@ def get_author() -> str:
         return result.stdout.strip()
     except subprocess.CalledProcessError:
         return "Unknown Author"
+
+
+def get_current_repo_name() -> str:
+    """Get the current git repository name."""
+    try:
+        result = subprocess.run(
+            ["git", "config", "--get", "remote.origin.url"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip().split("/")[-1].split(".")[0]
+    except subprocess.CalledProcessError:
+        return "Unknown Repository"
