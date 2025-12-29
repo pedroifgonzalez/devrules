@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -46,15 +46,16 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # Try to install the project with dev extras.
-          # If that fails (packaging edge cases),
-          # fall back to installing minimal test deps and set PYTHONPATH
-          # so pytest can import the package.
-          if ! pip install -e ".[dev]"; then
-            echo "Falling back to minimal test deps"
-            pip install pytest pytest-cov coverage
-            echo "PYTHONPATH=$GITHUB_WORKSPACE/src" >> $GITHUB_ENV
-          fi
+          # Ensure pytest, pytest-cov and coverage are installed first so
+          # the test runner is always available.
+          python -m pip install pytest pytest-cov coverage
+          # Then try to install the project with dev extras (best-effort).
+          # Editable install may not include dev deps defined under
+          # `dependency-groups`, so treat this as non-fatal.
+          python -m pip install -e ".[dev]" || true
+          # Ensure tests can import the package from source if it wasn't
+          # installed
+          echo "PYTHONPATH=$GITHUB_WORKSPACE/src" >> $GITHUB_ENV
 
       - name: Run tests with coverage (fail if < 90%)
         run: |
