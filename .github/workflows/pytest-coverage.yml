@@ -34,6 +34,7 @@ jobs:
       - name: Install dependencies
         run: |
           # Install the package with dev dependency group
+          uv venv
           uv pip install -e . --group dev
 
       - name: Run tests with coverage (fail if < 90%)
