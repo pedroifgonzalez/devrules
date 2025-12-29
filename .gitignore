@@ -32,3 +32,4 @@ wheels/
 
 # Tests
 coverage.xml
+.coverage

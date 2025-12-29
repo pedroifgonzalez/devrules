@@ -3,7 +3,6 @@
 import json
 import os
 import re
-import subprocess
 import urllib.parse
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -12,6 +11,7 @@ import requests
 import typer
 
 from devrules.config import Config
+from devrules.core.git_service import get_files_difference_between_branches_in_path
 
 
 def get_jenkins_auth(config: Config) -> Tuple[Optional[str], Optional[str]]:
@@ -44,81 +44,37 @@ def check_migration_conflicts(
 
     conflicting_files = []
 
-    try:
-        # Get list of migration files in current branch
-        for migration_path in config.deployment.migration_paths:
-            full_path = Path(repo_path) / migration_path
+    # Get list of migration files in current branch
+    for migration_path in config.deployment.migration_paths:
+        full_path = Path(repo_path) / migration_path
 
-            if not full_path.exists():
-                continue
+        if not full_path.exists():
+            continue
 
-            # Get migration files added/modified in current branch vs deployed branch
-            result = subprocess.run(
-                [
-                    "git",
-                    "diff",
-                    "--name-only",
-                    f"{deployed_branch}..{current_branch}",
-                    "--",
-                    str(migration_path),
-                ],
-                cwd=repo_path,
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-
-            if result.stdout.strip():
-                files = result.stdout.strip().split("\n")
-                conflicting_files.extend(files)
-
-        # Check if deployed branch also has new migrations
-        if conflicting_files:
-            for migration_path in config.deployment.migration_paths:
-                result = subprocess.run(
-                    [
-                        "git",
-                        "diff",
-                        "--name-only",
-                        f"{current_branch}..{deployed_branch}",
-                        "--",
-                        str(migration_path),
-                    ],
-                    cwd=repo_path,
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                )
-
-                if result.stdout.strip():
-                    # Both branches have new migrations - potential conflict
-                    return True, conflicting_files
-
-        return False, conflicting_files
-
-    except subprocess.CalledProcessError as e:
-        stderr = getattr(e, "stderr", "") or ""
-        message = str(e)
-
-        # If the error is due to a missing or unknown revision (e.g. the deployed
-        # branch does not exist locally), treat it as "cannot check" but do not
-        # block deployment.
-        lowered_stderr = stderr.lower()
-        if any(
-            phrase in lowered_stderr
-            for phrase in ["bad revision", "unknown revision", "ambiguous argument"]
-        ):
-            typer.secho(
-                "⚠ Skipping migration conflict check: deployed branch not found in git history",
-                fg=typer.colors.YELLOW,
-            )
-            return False, []
-
-        typer.secho(
-            f"⚠ Warning: Could not check migration conflicts: {message}",
-            fg=typer.colors.YELLOW,
+        # Get migration files added/modified in current branch vs deployed branch
+        files = get_files_difference_between_branches_in_path(
+            path=migration_path,
+            repo_path=repo_path,
+            base_branch=deployed_branch,
+            target_branch=current_branch,
         )
-        return False, []
+
+        conflicting_files.extend(files)
+
+    # Check if deployed branch also has new migrations
+    if conflicting_files:
+        for migration_path in config.deployment.migration_paths:
+            files = get_files_difference_between_branches_in_path(
+                path=migration_path,
+                repo_path=repo_path,
+                base_branch=current_branch,
+                target_branch=deployed_branch,
+            )
+            if files:
+                # Both branches have new migrations - potential conflict
+                return True, conflicting_files
+
+    return False, conflicting_files
 
 
 def get_deployed_branch(environment: str, config: Config) -> Optional[str]:

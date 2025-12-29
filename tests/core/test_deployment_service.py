@@ -1,0 +1,248 @@
+"""Test suite for deployment service migration conflict detection."""
+
+import tempfile
+from pathlib import Path
+from typing import Generator
+
+import pytest
+from git import Repo
+
+from devrules.config import Config
+from devrules.core.deployment_service import check_migration_conflicts
+
+
+@pytest.fixture
+def git_repo() -> Generator[Repo, None, None]:
+    """Create a temporary git repository for testing."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        repo = Repo.init(tmpdir)
+
+        # Configure git user for commits
+        with repo.config_writer() as config:
+            config.set_value("user", "name", "Test User")
+            config.set_value("user", "email", "test@example.com")
+
+        # Create initial commit
+        readme = Path(tmpdir) / "README.md"
+        readme.write_text("# Test Repository")
+        repo.index.add([str(readme)])
+        repo.index.commit("Initial commit")
+
+        yield repo
+
+
+@pytest.fixture
+def config() -> Config:
+    """Create test configuration."""
+    from devrules.config import load_config
+
+    config = load_config()
+    config.deployment.migration_detection_enabled = True
+    config.deployment.migration_paths = ["migrations/", "db/migrations/"]
+    return config
+
+
+def create_migration_file(
+    repo: Repo, path: str, filename: str, content: str = "# Migration"
+) -> None:
+    """Helper to create a migration file and commit it."""
+    migration_dir = Path(repo.working_dir) / path
+    migration_dir.mkdir(parents=True, exist_ok=True)
+
+    migration_file = migration_dir / filename
+    migration_file.write_text(content)
+
+    repo.index.add([str(migration_file)])
+    repo.index.commit(f"Add migration {filename}")
+
+
+class TestCheckMigrationConflicts:
+    """Test cases for check_migration_conflicts function."""
+
+    def test_no_conflicts_when_only_current_branch_has_migrations(
+        self, git_repo: Repo, config: Config
+    ):
+        """Test no conflict when only the current branch has new migrations."""
+
+        # Create main branch with initial state
+        main_branch = git_repo.create_head("main")
+        main_branch.checkout()
+
+        # Create feature branch with new migration
+        feature_branch = git_repo.create_head("feature")
+        feature_branch.checkout()
+        create_migration_file(git_repo, "migrations", "0001_initial.py")
+
+        # Check for conflicts
+        has_conflicts, conflicting_files = check_migration_conflicts(
+            repo_path=str(git_repo.working_dir),
+            current_branch="feature",
+            deployed_branch="main",
+            config=config,
+        )
+
+        assert not has_conflicts
+        assert len(conflicting_files) == 1
+        assert "migrations/0001_initial.py" in conflicting_files[0]
+
+    def test_conflicts_when_both_branches_have_migrations(self, git_repo: Repo, config: Config):
+        """Test conflict detection when both branches have new migrations."""
+        # Create main branch with initial migration
+        main_branch = git_repo.create_head("main")
+        main_branch.checkout()
+        create_migration_file(git_repo, "migrations", "0001_initial.py")
+
+        # Create feature branch from main
+        common_commit = git_repo.head.commit
+        feature_branch = git_repo.create_head("feature", common_commit)
+
+        # Add migration to feature branch
+        feature_branch.checkout()
+        create_migration_file(git_repo, "migrations", "0002_add_users.py")
+
+        # Add different migration to main branch (simulating parallel development)
+        main_branch.checkout()
+        create_migration_file(git_repo, "migrations", "0002_add_products.py")
+
+        # Check for conflicts from feature branch perspective
+        has_conflicts, conflicting_files = check_migration_conflicts(
+            repo_path=git_repo.working_dir,
+            current_branch="feature",
+            deployed_branch="main",
+            config=config,
+        )
+
+        assert has_conflicts
+        assert len(conflicting_files) > 0
+        assert any("0002_add_users.py" in f for f in conflicting_files)
+
+    def test_no_conflicts_when_no_new_migrations(self, git_repo: Repo, config: Config):
+        """Test no conflicts when neither branch has new migrations."""
+        # Create both branches with same migration state
+        main_branch = git_repo.create_head("main")
+        main_branch.checkout()
+        create_migration_file(git_repo, "migrations", "0001_initial.py")
+
+        feature_branch = git_repo.create_head("feature")
+        feature_branch.checkout()
+
+        # No new migrations added
+        dummy_file = Path(git_repo.working_dir) / "app.py"
+        dummy_file.write_text("print('hello')")
+        git_repo.index.add([str(dummy_file)])
+        git_repo.index.commit("Add app file")
+
+        has_conflicts, conflicting_files = check_migration_conflicts(
+            repo_path=git_repo.working_dir,
+            current_branch="feature",
+            deployed_branch="main",
+            config=config,
+        )
+
+        assert not has_conflicts
+        assert len(conflicting_files) == 0
+
+    def test_multiple_migration_paths(self, git_repo: Repo, config: Config):
+        """Test conflict detection across multiple migration directories."""
+        # Create main branch
+        main_branch = git_repo.create_head("main")
+        main_branch.checkout()
+        create_migration_file(git_repo, "migrations", "0001_initial.py")
+
+        common_commit = git_repo.head.commit
+        feature_branch = git_repo.create_head("feature", common_commit)
+
+        # Add migrations in different paths on feature branch
+        feature_branch.checkout()
+        create_migration_file(git_repo, "migrations", "0002_users.py")
+        create_migration_file(git_repo, "db/migrations", "0001_products.py")
+
+        # Add migration to main in different path
+        main_branch.checkout()
+        create_migration_file(git_repo, "db/migrations", "0001_orders.py")
+
+        has_conflicts, conflicting_files = check_migration_conflicts(
+            repo_path=git_repo.working_dir,
+            current_branch="feature",
+            deployed_branch="main",
+            config=config,
+        )
+
+        assert has_conflicts
+        assert len(conflicting_files) == 2  # Both feature migrations detected
+
+    def test_migration_detection_disabled(self, git_repo: Repo, config: Config):
+        """Test that conflicts are not detected when feature is disabled."""
+        # Disable migration detection
+        config.deployment.migration_detection_enabled = False
+
+        # Create scenario that would normally have conflicts
+        main_branch = git_repo.create_head("main")
+        main_branch.checkout()
+        create_migration_file(git_repo, "migrations", "0001_initial.py")
+
+        common_commit = git_repo.head.commit
+        feature_branch = git_repo.create_head("feature", common_commit)
+
+        feature_branch.checkout()
+        create_migration_file(git_repo, "migrations", "0002_feature.py")
+
+        main_branch.checkout()
+        create_migration_file(git_repo, "migrations", "0002_main.py")
+
+        has_conflicts, conflicting_files = check_migration_conflicts(
+            repo_path=git_repo.working_dir,
+            current_branch="feature",
+            deployed_branch="main",
+            config=config,
+        )
+
+        assert not has_conflicts
+        assert len(conflicting_files) == 0
+
+    def test_nonexistent_migration_path(self, git_repo: Repo, config: Config):
+        """Test handling of migration paths that don't exist."""
+        # Configure with non-existent path
+        config.deployment.migration_paths = ["nonexistent/migrations/"]
+
+        main_branch = git_repo.create_head("main")
+        main_branch.checkout()
+
+        feature_branch = git_repo.create_head("feature")
+        feature_branch.checkout()
+
+        has_conflicts, conflicting_files = check_migration_conflicts(
+            repo_path=git_repo.working_dir,
+            current_branch="feature",
+            deployed_branch="main",
+            config=config,
+        )
+
+        # Should handle gracefully
+        assert not has_conflicts
+        assert len(conflicting_files) == 0
+
+    def test_sequential_migrations_no_conflict(self, git_repo: Repo, config: Config):
+        """Test that sequential migrations (no parallel development) don't conflict."""
+        # Main branch with initial migrations
+        main_branch = git_repo.create_head("main")
+        main_branch.checkout()
+        create_migration_file(git_repo, "migrations", "0001_initial.py")
+        create_migration_file(git_repo, "migrations", "0002_add_users.py")
+
+        # Feature branch created from latest main
+        feature_branch = git_repo.create_head("feature")
+        feature_branch.checkout()
+        create_migration_file(git_repo, "migrations", "0003_add_products.py")
+
+        has_conflicts, conflicting_files = check_migration_conflicts(
+            repo_path=git_repo.working_dir,
+            current_branch="feature",
+            deployed_branch="main",
+            config=config,
+        )
+
+        # Feature extends main linearly, no conflict
+        assert not has_conflicts
+        assert len(conflicting_files) == 1  # Only the new migration
+        assert "0003_add_products.py" in conflicting_files[0]

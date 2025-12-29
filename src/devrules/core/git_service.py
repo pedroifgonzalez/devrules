@@ -428,3 +428,26 @@ def get_author() -> str:
         return result.stdout.strip()
     except subprocess.CalledProcessError:
         return "Unknown Author"
+
+
+def get_files_difference_between_branches_in_path(
+    repo_path: str, path: str, base_branch: str, target_branch: str
+):
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--name-only",
+                f"{base_branch}...{target_branch}",
+                "--",
+                path,
+            ],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip().splitlines()
+    except subprocess.CalledProcessError:
+        return []
