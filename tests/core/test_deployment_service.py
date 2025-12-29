@@ -7,7 +7,7 @@ from typing import Generator
 import pytest
 from git import Repo
 
-from devrules.config import Config
+from devrules.config import Config, EnvironmentConfig
 from devrules.core.deployment_service import check_migration_conflicts, get_deployed_branch
 
 
@@ -94,7 +94,7 @@ class TestCheckMigrationConflicts:
 
         # Create feature branch from main
         common_commit = git_repo.head.commit
-        feature_branch = git_repo.create_head("feature", common_commit)
+        feature_branch = git_repo.create_head("feature", str(common_commit))
 
         # Add migration to feature branch
         feature_branch.checkout()
@@ -106,7 +106,7 @@ class TestCheckMigrationConflicts:
 
         # Check for conflicts from feature branch perspective
         has_conflicts, conflicting_files = check_migration_conflicts(
-            repo_path=git_repo.working_dir,
+            repo_path=str(git_repo.working_dir),
             current_branch="feature",
             deployed_branch="main",
             config=config,
@@ -133,7 +133,7 @@ class TestCheckMigrationConflicts:
         git_repo.index.commit("Add app file")
 
         has_conflicts, conflicting_files = check_migration_conflicts(
-            repo_path=git_repo.working_dir,
+            repo_path=str(git_repo.working_dir),
             current_branch="feature",
             deployed_branch="main",
             config=config,
@@ -150,7 +150,7 @@ class TestCheckMigrationConflicts:
         create_migration_file(git_repo, "migrations", "0001_initial.py")
 
         common_commit = git_repo.head.commit
-        feature_branch = git_repo.create_head("feature", common_commit)
+        feature_branch = git_repo.create_head("feature", str(common_commit))
 
         # Add migrations in different paths on feature branch
         feature_branch.checkout()
@@ -162,7 +162,7 @@ class TestCheckMigrationConflicts:
         create_migration_file(git_repo, "db/migrations", "0001_orders.py")
 
         has_conflicts, conflicting_files = check_migration_conflicts(
-            repo_path=git_repo.working_dir,
+            repo_path=str(git_repo.working_dir),
             current_branch="feature",
             deployed_branch="main",
             config=config,
@@ -182,7 +182,7 @@ class TestCheckMigrationConflicts:
         create_migration_file(git_repo, "migrations", "0001_initial.py")
 
         common_commit = git_repo.head.commit
-        feature_branch = git_repo.create_head("feature", common_commit)
+        feature_branch = git_repo.create_head("feature", str(common_commit))
 
         feature_branch.checkout()
         create_migration_file(git_repo, "migrations", "0002_feature.py")
@@ -191,7 +191,7 @@ class TestCheckMigrationConflicts:
         create_migration_file(git_repo, "migrations", "0002_main.py")
 
         has_conflicts, conflicting_files = check_migration_conflicts(
-            repo_path=git_repo.working_dir,
+            repo_path=str(git_repo.working_dir),
             current_branch="feature",
             deployed_branch="main",
             config=config,
@@ -212,7 +212,7 @@ class TestCheckMigrationConflicts:
         feature_branch.checkout()
 
         has_conflicts, conflicting_files = check_migration_conflicts(
-            repo_path=git_repo.working_dir,
+            repo_path=str(git_repo.working_dir),
             current_branch="feature",
             deployed_branch="main",
             config=config,
@@ -236,7 +236,7 @@ class TestCheckMigrationConflicts:
         create_migration_file(git_repo, "migrations", "0003_add_products.py")
 
         has_conflicts, conflicting_files = check_migration_conflicts(
-            repo_path=git_repo.working_dir,
+            repo_path=str(git_repo.working_dir),
             current_branch="feature",
             deployed_branch="main",
             config=config,
@@ -249,11 +249,51 @@ class TestCheckMigrationConflicts:
 
 
 @pytest.mark.parametrize(
-    "env, expected_branch",
+    "case, env, expected_branch",
     [
-        ("dev", "develop"),
-        ("wrong_env", None),
+        ("Wrong Environment", "wrong_env", None),
+        ("Missing Jenkins URL", "dev", None),
+        ("Not configured job name neither repo_name", "dev", None),
+        ("Not auth set (user)", "dev", None),
+        ("Not auth set (token)", "dev", None),
+        ("No multibranch pipeline set", "dev", None),
+        ("Response error", "dev", None),
     ],
 )
-def test_get_deployed_branch(env, config, expected_branch):
+def test_get_deployed_branch(
+    case: str, env: str, config: Config, expected_branch: str, requests_mock
+):
+    match case:
+        case "Wrong Environment":
+            pass
+        case "Missing Jenkins URL":
+            config.deployment.jenkins_url = ""
+        case "Not configured job name neither repo_name":
+            env_config: EnvironmentConfig = config.deployment.environments["dev"]
+            env_config.jenkins_job_name = ""
+            config.github.repo = ""
+        case "Not auth set (user)":
+            config.deployment.jenkins_user = None
+        case "Not auth set (token)":
+            config.deployment.jenkins_token = None
+        case "No multibranch pipeline set":
+            config.deployment.multibranch_pipeline = False
+        case "Response error":
+            config.deployment.jenkins_url = "http://localhost:8080"
+            env_config: EnvironmentConfig = config.deployment.environments["dev"]
+            env_config.jenkins_job_name = "test-job"
+            config.deployment.jenkins_user = "test-user"
+            config.deployment.jenkins_token = "test-token"
+            config.deployment.multibranch_pipeline = True
+            api_url = (
+                f"{config.deployment.jenkins_url}/job/{env_config.jenkins_job_name}/api/json?"
+                "tree=jobs[name,lastSuccessfulBuild[number,result,timestamp]]"
+            )
+            requests_mock.get(
+                api_url,
+                status_code=404,
+            )
+        case _:
+            pass
+
     assert get_deployed_branch(env, config) == expected_branch

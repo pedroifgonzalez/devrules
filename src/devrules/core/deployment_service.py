@@ -1,6 +1,5 @@
 """Deployment service for managing deployments across environments."""
 
-import json
 import os
 import re
 import urllib.parse
@@ -124,7 +123,7 @@ def get_deployed_branch(environment: str, config: Config) -> Optional[str]:
                 "⚠ No authentication credentials found",
                 fg=typer.colors.YELLOW,
             )
-            raise typer.Exit(1)
+            return None
 
         if config.deployment.multibranch_pipeline:
             api_url = (
@@ -132,8 +131,17 @@ def get_deployed_branch(environment: str, config: Config) -> Optional[str]:
                 "tree=jobs[name,lastSuccessfulBuild[number,result,timestamp]]"
             )
 
-            response = requests.get(api_url, auth=auth, timeout=30)
-            response.raise_for_status()
+            response: requests.Response = requests.get(api_url, auth=auth, timeout=30)
+
+            try:
+                response.raise_for_status()
+            except requests.exceptions.HTTPError as e:
+                typer.secho(
+                    f"⚠ Failed to fetch Jenkins job information: {e}",
+                    fg=typer.colors.YELLOW,
+                )
+                return None
+
             job_info = response.json()
 
             def classify_env(branch_name: str) -> Optional[str]:
@@ -168,105 +176,11 @@ def get_deployed_branch(environment: str, config: Config) -> Optional[str]:
 
             selected = max(candidates, key=lambda x: x["timestamp"])
             return selected["branch"]
-        else:
-            api_url = f"{jenkins_url}/job/{job_name}/lastSuccessfulBuild/api/json"
 
-            response = requests.get(api_url, auth=auth, timeout=30)
-            response.raise_for_status()
-
-            build_info = response.json()
-
-            # Extract branch parameter from build actions
-            for action in build_info.get("actions", []):
-                if action.get("_class") == "hudson.model.ParametersAction":
-                    for param in action.get("parameters", []):
-                        if param.get("name") in ["BRANCH", "BRANCH_NAME", "GIT_BRANCH"]:
-                            branch = param.get("value", "")
-                            # Clean up branch name (remove origin/ prefix if present)
-                            if branch.startswith("origin/"):
-                                branch = branch[7:]
-                            return branch
-
-            # Fallback: try to get from git info
-            for action in build_info.get("actions", []):
-                if "lastBuiltRevision" in action:
-                    branch_info = action.get("lastBuiltRevision", {}).get("branch", [])
-                    if branch_info:
-                        branch = branch_info[0].get("name", "")
-                        if branch.startswith("origin/"):
-                            branch = branch[7:]
-                        return branch
-
-            typer.secho(
-                "⚠ Could not determine deployed branch from Jenkins build info",
-                fg=typer.colors.YELLOW,
-            )
-            return env_config.default_branch
-
-    except requests.HTTPError as e:
-        if e.response.status_code == 401:
-            typer.secho(
-                "✘ Authentication failed (401 Unauthorized)",
-                fg=typer.colors.RED,
-            )
-            typer.secho(
-                "  Please check your Jenkins credentials in .devrules.toml or environment variables:",
-                fg=typer.colors.YELLOW,
-            )
-            typer.secho(
-                "  - JENKINS_USER or deployment.jenkins_user",
-                fg=typer.colors.YELLOW,
-            )
-            typer.secho(
-                "  - JENKINS_TOKEN or deployment.jenkins_token",
-                fg=typer.colors.YELLOW,
-            )
-        elif e.response.status_code == 404:
-            typer.secho(
-                "✘ Jenkins job not found (404)",
-                fg=typer.colors.RED,
-            )
-            typer.secho(
-                f"  Job name: '{job_name}'",
-                fg=typer.colors.YELLOW,
-            )
-            typer.secho(
-                f"  URL: {api_url}",
-                fg=typer.colors.YELLOW,
-            )
-            typer.secho(
-                "  Possible issues:",
-                fg=typer.colors.YELLOW,
-            )
-            typer.secho(
-                "  1. Job name is incorrect in .devrules.toml",
-                fg=typer.colors.WHITE,
-            )
-            typer.secho(
-                "  2. Job is in a folder (use 'folder/job-name' format)",
-                fg=typer.colors.WHITE,
-            )
-            typer.secho(
-                "  3. Job has no successful builds yet",
-                fg=typer.colors.WHITE,
-            )
-        else:
-            typer.secho(
-                f"✘ HTTP error fetching Jenkins build info: {e}",
-                fg=typer.colors.RED,
-            )
+        typer.secho("Only multibranch pipelines are supported", fg=typer.colors.RED)
         return None
-    except requests.RequestException as e:
-        typer.secho(
-            f"✘ Failed to fetch Jenkins build info: {e}",
-            fg=typer.colors.RED,
-        )
-        return None
-    except json.JSONDecodeError as e:
-        typer.secho(
-            f"✘ Failed to parse Jenkins response: {e}",
-            fg=typer.colors.RED,
-        )
+    except Exception as e:
+        typer.secho(f"Error fetching Jenkins data: {e}", fg=typer.colors.RED)
         return None
 
 
