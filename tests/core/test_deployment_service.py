@@ -8,7 +8,7 @@ import pytest
 from git import Repo
 
 from devrules.config import Config
-from devrules.core.deployment_service import check_migration_conflicts
+from devrules.core.deployment_service import check_migration_conflicts, get_deployed_branch
 
 
 @pytest.fixture
@@ -246,3 +246,14 @@ class TestCheckMigrationConflicts:
         assert not has_conflicts
         assert len(conflicting_files) == 1  # Only the new migration
         assert "0003_add_products.py" in conflicting_files[0]
+
+
+@pytest.mark.parametrize(
+    "env, expected_branch",
+    [
+        ("dev", "develop"),
+        ("wrong_env", None),
+    ],
+)
+def test_get_deployed_branch(env, config, expected_branch):
+    assert get_deployed_branch(env, config) == expected_branch
