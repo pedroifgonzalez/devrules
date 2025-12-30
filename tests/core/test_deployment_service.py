@@ -1,14 +1,22 @@
 """Test suite for deployment service migration conflict detection."""
 
+import json
 import tempfile
 from pathlib import Path
 from typing import Generator
 
 import pytest
+import vcr
 from git import Repo
 
 from devrules.config import Config, EnvironmentConfig
 from devrules.core.deployment_service import check_migration_conflicts, get_deployed_branch
+
+vcr_instance = vcr.VCR(
+    cassette_library_dir="tests/core/cassettes",
+    filter_headers=["authorization"],
+    decode_compressed_response=True,
+)
 
 
 @pytest.fixture
@@ -248,6 +256,61 @@ class TestCheckMigrationConflicts:
         assert "0003_add_products.py" in conflicting_files[0]
 
 
+MOCK_JENKINS_REPONSE = {
+    "_class": "org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject",
+    "jobs": [
+        {
+            "_class": "org.jenkinsci.plugins.workflow.job.WorkflowJob",
+            "name": "develop",
+            "lastSuccessfulBuild": {
+                "_class": "org.jenkinsci.plugins.workflow.job.WorkflowRun",
+                "number": 1,
+                "result": "SUCCESS",
+                "timestamp": 1767063737.091073,
+            },
+        },
+        {
+            "_class": "org.jenkinsci.plugins.workflow.job.WorkflowJob",
+            "name": "feature/51-track-test-coverage-and-cover-at-least-90-of-code",
+            "lastSuccessfulBuild": {
+                "_class": "org.jenkinsci.plugins.workflow.job.WorkflowRun",
+                "number": 1,
+                "result": "SUCCESS",
+                "timestamp": 1767063762.392831,
+            },
+        },
+        {
+            "_class": "org.jenkinsci.plugins.workflow.job.WorkflowJob",
+            "name": "staging-51-track-test-coverage-and-cover-at-least-90-of-code",
+            "lastSuccessfulBuild": {
+                "_class": "org.jenkinsci.plugins.workflow.job.WorkflowRun",
+                "number": 1,
+                "result": "SUCCESS",
+                "timestamp": 1763510179771,
+            },
+        },
+        {
+            "_class": "org.jenkinsci.plugins.workflow.job.WorkflowJob",
+            "name": "feature/add-cicd-integration",
+        },
+    ],
+}
+
+NO_LAST_BUILD_MOCK_JENKINS_REPONSE = {
+    "_class": "org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject",
+    "jobs": [
+        {
+            "_class": "org.jenkinsci.plugins.workflow.job.WorkflowJob",
+            "name": "staging-51-track-test-coverage-and-cover-at-least-90-of-code",
+        },
+        {
+            "_class": "org.jenkinsci.plugins.workflow.job.WorkflowJob",
+            "name": "feature/add-cicd-integration",
+        },
+    ],
+}
+
+
 @pytest.mark.parametrize(
     "case, env, expected_branch",
     [
@@ -258,11 +321,78 @@ class TestCheckMigrationConflicts:
         ("Not auth set (token)", "dev", None),
         ("No multibranch pipeline set", "dev", None),
         ("Response error", "dev", None),
+        (
+            "Valid response (dev)",
+            "dev",
+            "feature/51-track-test-coverage-and-cover-at-least-90-of-code",
+        ),
+        (
+            "Valid response (staging)",
+            "staging",
+            "staging-51-track-test-coverage-and-cover-at-least-90-of-code",
+        ),
+        (
+            "Valid response (no candidates)",
+            "main",
+            None,
+        ),
+        (
+            "No candidates",
+            "dev",
+            None,
+        ),
     ],
 )
 def test_get_deployed_branch(
-    case: str, env: str, config: Config, expected_branch: str, requests_mock
+    case: str,
+    env: str,
+    config: Config,
+    expected_branch: str,
+    requests_mock,
 ):
+    def set_valid_mocked_config(config: Config):
+        config.deployment.jenkins_url = "http://localhost:8080"
+        config.deployment.jenkins_user = "test-user"
+        config.deployment.jenkins_token = "test-token"
+        config.deployment.multibranch_pipeline = True
+
+    def set_valid_mocked_response(config: Config):
+        dev_env = {
+            "name": "dev",
+            "default_branch": "develop",
+            "pattern": "^(?!(main|staging)).*$",
+            "jenkins_job_name": "test-job",
+        }
+        dev_env_config = EnvironmentConfig(**dev_env)
+        config.deployment.environments["dev"] = dev_env_config
+
+        staging_env = {
+            "name": "staging",
+            "default_branch": "",
+            "pattern": "^(staging)",
+            "jenkins_job_name": "test-job",
+        }
+        staging_env_config = EnvironmentConfig(**staging_env)
+        config.deployment.environments["staging"] = staging_env_config
+
+        prod_env = {
+            "name": "prod",
+            "default_branch": "main",
+            "pattern": "^(main)$",
+            "jenkins_job_name": "test-job",
+        }
+        prod_env_config = EnvironmentConfig(**prod_env)
+        config.deployment.environments["prod"] = prod_env_config
+
+        api_url = (
+            f"{config.deployment.jenkins_url}/job/{dev_env_config.jenkins_job_name}/api/json?"
+            "tree=jobs[name,lastSuccessfulBuild[number,result,timestamp]]"
+        )
+        requests_mock.get(
+            api_url,
+            text=json.dumps(MOCK_JENKINS_REPONSE),
+        )
+
     match case:
         case "Wrong Environment":
             pass
@@ -279,12 +409,9 @@ def test_get_deployed_branch(
         case "No multibranch pipeline set":
             config.deployment.multibranch_pipeline = False
         case "Response error":
-            config.deployment.jenkins_url = "http://localhost:8080"
+            set_valid_mocked_config(config)
             env_config: EnvironmentConfig = config.deployment.environments["dev"]
             env_config.jenkins_job_name = "test-job"
-            config.deployment.jenkins_user = "test-user"
-            config.deployment.jenkins_token = "test-token"
-            config.deployment.multibranch_pipeline = True
             api_url = (
                 f"{config.deployment.jenkins_url}/job/{env_config.jenkins_job_name}/api/json?"
                 "tree=jobs[name,lastSuccessfulBuild[number,result,timestamp]]"
@@ -292,6 +419,27 @@ def test_get_deployed_branch(
             requests_mock.get(
                 api_url,
                 status_code=404,
+            )
+        case "Valid response (dev)":
+            set_valid_mocked_config(config)
+            set_valid_mocked_response(config)
+        case "Valid response (staging)":
+            set_valid_mocked_config(config)
+            set_valid_mocked_response(config)
+        case "Valid response (no candidates)":
+            set_valid_mocked_config(config)
+        case "No candidates":
+            set_valid_mocked_config(config)
+            set_valid_mocked_response(config)
+            env_config: EnvironmentConfig = config.deployment.environments["dev"]
+            env_config.jenkins_job_name = "test-job"
+            api_url = (
+                f"{config.deployment.jenkins_url}/job/{env_config.jenkins_job_name}/api/json?"
+                "tree=jobs[name,lastSuccessfulBuild[number,result,timestamp]]"
+            )
+            requests_mock.get(
+                api_url,
+                text=json.dumps(NO_LAST_BUILD_MOCK_JENKINS_REPONSE),
             )
         case _:
             pass

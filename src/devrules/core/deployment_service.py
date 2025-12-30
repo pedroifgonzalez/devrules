@@ -9,7 +9,7 @@ from typing import List, Optional, Tuple
 import requests
 import typer
 
-from devrules.config import Config
+from devrules.config import Config, EnvironmentConfig
 from devrules.core.git_service import get_files_difference_between_branches_in_path
 
 
@@ -21,7 +21,48 @@ def get_jenkins_auth(config: Config) -> Tuple[Optional[str], Optional[str]]:
     """
     user = config.deployment.jenkins_user or os.getenv("JENKINS_USER")
     token = config.deployment.jenkins_token or os.getenv("JENKINS_TOKEN")
+    if not user or not token:
+        typer.secho(
+            "⚠ No authentication credentials found",
+            fg=typer.colors.YELLOW,
+        )
+        raise typer.Exit(code=1)
     return user, token
+
+
+def get_environment_config(config: Config, environment: str):
+    env_config = config.deployment.environments.get(environment)
+    if not env_config:
+        typer.secho(
+            f"✘ Environment '{environment}' not configured",
+            fg=typer.colors.RED,
+        )
+        return None
+    return env_config
+
+
+def get_jenkins_url(config: Config):
+    jenkins_url = config.deployment.jenkins_url
+    if not jenkins_url:
+        typer.secho(
+            "✘ Jenkins URL not configured in .devrules.toml",
+            fg=typer.colors.RED,
+        )
+        return None
+    return jenkins_url
+
+
+def get_jenkins_job_name(config: Config, env_config: EnvironmentConfig):
+    job_name = env_config.jenkins_job_name
+    if not job_name:
+        job_name = config.github.repo
+        if not job_name:
+            typer.secho(
+                "✘ jenkins_job_name not set and github.repo not configured",
+                fg=typer.colors.RED,
+            )
+            return None
+    return job_name
 
 
 def check_migration_conflicts(
@@ -76,6 +117,13 @@ def check_migration_conflicts(
     return False, conflicting_files
 
 
+def classify_env(config: Config, branch_name: str) -> Optional[str]:
+    for env in config.deployment.environments.values():
+        if env.pattern and re.match(env.pattern, branch_name):
+            return env.name
+    return None
+
+
 def get_deployed_branch(environment: str, config: Config) -> Optional[str]:
     """Get the currently deployed branch for an environment from Jenkins.
 
@@ -86,53 +134,27 @@ def get_deployed_branch(environment: str, config: Config) -> Optional[str]:
     Returns:
         Branch name or None if not found
     """
-    env_config = config.deployment.environments.get(environment)
+    env_config = get_environment_config(config, environment)
     if not env_config:
-        typer.secho(
-            f"✘ Environment '{environment}' not configured",
-            fg=typer.colors.RED,
-        )
         return None
 
-    jenkins_url = config.deployment.jenkins_url
+    jenkins_url = get_jenkins_url(config)
     if not jenkins_url:
-        typer.secho(
-            "✘ Jenkins URL not configured in .devrules.toml",
-            fg=typer.colors.RED,
-        )
         return None
 
-    # Use jenkins_job_name if set, otherwise use repo name
-    job_name = env_config.jenkins_job_name
+    job_name = get_jenkins_job_name(config, env_config)
     if not job_name:
-        job_name = config.github.repo
-        if not job_name:
-            typer.secho(
-                "✘ jenkins_job_name not set and github.repo not configured",
-                fg=typer.colors.RED,
-            )
-            return None
-
-    user, token = get_jenkins_auth(config)
+        return None
 
     try:
+        user, token = get_jenkins_auth(config)
         auth = (user, token) if user and token else None
-
-        if not auth:
-            typer.secho(
-                "⚠ No authentication credentials found",
-                fg=typer.colors.YELLOW,
-            )
-            return None
-
         if config.deployment.multibranch_pipeline:
             api_url = (
                 f"{jenkins_url}/job/{job_name}/api/json?"
                 "tree=jobs[name,lastSuccessfulBuild[number,result,timestamp]]"
             )
-
             response: requests.Response = requests.get(api_url, auth=auth, timeout=30)
-
             try:
                 response.raise_for_status()
             except requests.exceptions.HTTPError as e:
@@ -144,18 +166,12 @@ def get_deployed_branch(environment: str, config: Config) -> Optional[str]:
 
             job_info = response.json()
 
-            def classify_env(branch_name: str) -> Optional[str]:
-                for env in config.deployment.environments.values():
-                    if env.pattern and re.match(env.pattern, branch_name):
-                        return env.name
-                return None
-
             target_env = environment
             candidates: list[dict] = []
 
             for job in job_info.get("jobs", []):
                 branch_name = urllib.parse.unquote(job.get("name", ""))
-                env_for_branch = classify_env(branch_name)
+                env_for_branch = classify_env(config, branch_name)
 
                 if not env_for_branch or env_for_branch != target_env:
                     continue
@@ -172,7 +188,7 @@ def get_deployed_branch(environment: str, config: Config) -> Optional[str]:
                 )
 
             if not candidates:
-                return env_config.default_branch
+                return None
 
             selected = max(candidates, key=lambda x: x["timestamp"])
             return selected["branch"]
@@ -199,11 +215,12 @@ def check_deployment_readiness(
         Tuple of (is_ready, status_message)
     """
     # Check if environment is configured
-    if environment not in config.deployment.environments:
-        return False, f"Environment '{environment}' is not configured"
+    env_config = get_environment_config(config, environment)
+    if not env_config:
+        return False, "Environment is not configured"
 
     # Check if Jenkins is configured
-    if not config.deployment.jenkins_url:
+    if not get_jenkins_job_name(config, env_config):
         return False, "Jenkins URL is not configured"
 
     # Get currently deployed branch
@@ -250,35 +267,23 @@ def execute_deployment(branch: str, environment: str, config: Config) -> Tuple[b
     user, token = get_jenkins_auth(config)
 
     # Build Jenkins API URL for triggering build
-    if config.deployment.multibranch_pipeline:
-        # Multibranch pipeline: /job/{job_name}/job/{branch}/build
-        import urllib.parse
+    # Multibranch pipeline: /job/{job_name}/job/{branch}/build
+    import urllib.parse
 
-        encoded_branch = urllib.parse.quote(branch, safe="")
-        api_url = f"{jenkins_url}/job/{job_name}/job/{encoded_branch}/build"
-    else:
-        # Regular job: /job/{job_name}/buildWithParameters
-        api_url = f"{jenkins_url}/job/{job_name}/buildWithParameters"
+    encoded_branch = urllib.parse.quote(branch, safe="")
+    api_url = f"{jenkins_url}/job/{job_name}/job/{encoded_branch}/build"
 
     try:
         # Trigger Jenkins build using requests
         auth = (user, token) if user and token else None
 
-        # For regular jobs, send branch as parameter
         # For multibranch, the branch is in the URL
-        if config.deployment.multibranch_pipeline:
-            response = requests.post(api_url, auth=auth, timeout=30)
-        else:
-            # Send branch parameter for regular jobs
-            response = requests.post(api_url, auth=auth, data={"BRANCH": branch}, timeout=30)
-
+        response = requests.post(api_url, auth=auth, timeout=30)
         response.raise_for_status()
-
         typer.secho(
             f"✔ Deployment job triggered successfully for {environment}",
             fg=typer.colors.GREEN,
         )
-
         return True, f"Deployment job '{job_name}' triggered for branch '{branch}'"
 
     except requests.HTTPError as e:
