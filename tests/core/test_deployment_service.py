@@ -6,17 +6,10 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
-import vcr
 from git import Repo
 
 from devrules.config import Config, EnvironmentConfig
 from devrules.core.deployment_service import check_migration_conflicts, get_deployed_branch
-
-vcr_instance = vcr.VCR(
-    cassette_library_dir="tests/core/cassettes",
-    filter_headers=["authorization"],
-    decode_compressed_response=True,
-)
 
 
 @pytest.fixture
