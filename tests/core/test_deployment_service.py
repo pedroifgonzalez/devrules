@@ -4,12 +4,18 @@ import json
 import tempfile
 from pathlib import Path
 from typing import Generator
+from unittest.mock import patch
 
 import pytest
 from git import Repo
 
 from devrules.config import Config, EnvironmentConfig
-from devrules.core.deployment_service import check_migration_conflicts, get_deployed_branch
+from devrules.core.deployment_service import (
+    check_deployment_readiness,
+    check_migration_conflicts,
+    classify_env,
+    get_deployed_branch,
+)
 
 
 @pytest.fixture
@@ -438,3 +444,119 @@ def test_get_deployed_branch(
             pass
 
     assert get_deployed_branch(env, config) == expected_branch
+
+
+@pytest.mark.parametrize(
+    "env, default_branch, pattern, branch_name, expected",
+    [
+        ("dev", "develop", "^(?!(main|staging)).*$", "staging-this-is-not-a-develop-branch", None),
+        ("dev", "develop", "^(?!(main|staging)).*$", "feature/23-this-is-a-develop-branch", "dev"),
+        ("staging", "", "^(staging)", "staging-this-is-a-staging-branch", "staging"),
+    ],
+)
+def test_classify_env(env, default_branch, pattern, branch_name, expected, config: Config):
+    config.deployment.environments[env] = EnvironmentConfig(
+        default_branch=default_branch, name=env, pattern=pattern
+    )
+    output = classify_env(config, branch_name)
+    assert output == expected
+
+
+@pytest.mark.parametrize(
+    "case, expected_readiness, expected_message",
+    [
+        ("Missing environment configuration", False, "Environment is not configured"),
+        ("Missing Jenkins url", False, "Jenkins job name could not be resolved"),
+        ("Deployed branch could not be resolved", False, "Deployed branch could not be resolved"),
+        (
+            "Migration conflicts detected",
+            False,
+            "Migration conflicts detected:\n  - migration_001.py",
+        ),
+        ("Ready for deployment", True, "Ready for deployment"),
+    ],
+)
+def test_check_deployment_readiness(
+    case: str, expected_readiness: str, expected_message: str, config: Config
+):
+    match case:
+        case "Missing environment configuration":
+            config.deployment.environments = {}
+        case "Missing Jenkins url":
+            config.github.repo = ""
+            config.deployment.environments["dev"] = EnvironmentConfig(
+                **{
+                    "name": "dev",
+                    "default_branch": "develop",
+                    # missing job_name
+                }
+            )
+        case "Deployed branch could not be resolved":
+            config.github.repo = "test"  # job name solved with github repo
+            config.deployment.environments["dev"] = EnvironmentConfig(
+                **{
+                    "name": "dev",
+                    "default_branch": "develop",
+                }
+            )
+            with patch("devrules.core.deployment_service.get_deployed_branch", return_value=None):
+                readiness, message = check_deployment_readiness(
+                    repo_path="", branch="test-branch", environment="dev", config=config
+                )
+                assert readiness == expected_readiness
+                assert message == expected_message
+                return
+        case "Migration conflicts detected":
+            config.github.repo = "test"
+            config.deployment.environments["dev"] = EnvironmentConfig(
+                **{
+                    "name": "dev",
+                    "default_branch": "develop",
+                }
+            )
+            with patch(
+                "devrules.core.deployment_service.get_deployed_branch", return_value="develop"
+            ):
+                with patch(
+                    "devrules.core.deployment_service.check_migration_conflicts",
+                    return_value=(True, ["migration_001.py"]),
+                ):
+                    readiness, message = check_deployment_readiness(
+                        repo_path="test-repo",
+                        branch="test-branch",
+                        environment="dev",
+                        config=config,
+                    )
+                    assert readiness == expected_readiness
+                    assert message == expected_message
+                    return
+        case "Ready for deployment":
+            config.github.repo = "test"
+            config.deployment.environments["dev"] = EnvironmentConfig(
+                **{
+                    "name": "dev",
+                    "default_branch": "develop",
+                }
+            )
+            with patch(
+                "devrules.core.deployment_service.get_deployed_branch", return_value="develop"
+            ):
+                with patch(
+                    "devrules.core.deployment_service.check_migration_conflicts",
+                    return_value=(False, []),
+                ):
+                    readiness, message = check_deployment_readiness(
+                        repo_path="test-repo",
+                        branch="test-branch",
+                        environment="dev",
+                        config=config,
+                    )
+                    assert readiness == expected_readiness
+                    assert message == expected_message
+                    return
+
+    readiness, message = check_deployment_readiness(
+        repo_path="test-repo", branch="test-branch", environment="dev", config=config
+    )
+    assert readiness == expected_readiness
+    assert message == expected_message

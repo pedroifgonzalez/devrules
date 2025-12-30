@@ -221,12 +221,12 @@ def check_deployment_readiness(
 
     # Check if Jenkins is configured
     if not get_jenkins_job_name(config, env_config):
-        return False, "Jenkins URL is not configured"
+        return False, "Jenkins job name could not be resolved"
 
     # Get currently deployed branch
     deployed_branch = get_deployed_branch(environment, config)
     if not deployed_branch:
-        return False, "Could not determine currently deployed branch"
+        return False, "Deployed branch could not be resolved"
 
     # Check for migration conflicts
     has_conflicts, conflicting_files = check_migration_conflicts(
@@ -251,33 +251,24 @@ def execute_deployment(branch: str, environment: str, config: Config) -> Tuple[b
     Returns:
         Tuple of (success, message_or_error)
     """
-    env_config = config.deployment.environments.get(environment)
+    env_config = get_environment_config(config, environment)
     if not env_config:
-        return False, f"Environment '{environment}' not configured"
+        return False, "Environment is not configured"
 
-    jenkins_url = config.deployment.jenkins_url
-
-    # Use jenkins_job_name if set, otherwise use repo name
-    job_name = env_config.jenkins_job_name
+    job_name = get_jenkins_job_name(config, env_config)
     if not job_name:
-        job_name = config.github.repo
-        if not job_name:
-            return False, "jenkins_job_name not set and github.repo not configured"
+        return False, "Jenkins job name could not be resolved"
+
+    jenkins_url = get_jenkins_url(config)
+    if not jenkins_url:
+        return False, "Jenkins URL is not configured"
 
     user, token = get_jenkins_auth(config)
-
-    # Build Jenkins API URL for triggering build
-    # Multibranch pipeline: /job/{job_name}/job/{branch}/build
-    import urllib.parse
-
     encoded_branch = urllib.parse.quote(branch, safe="")
     api_url = f"{jenkins_url}/job/{job_name}/job/{encoded_branch}/build"
 
     try:
-        # Trigger Jenkins build using requests
         auth = (user, token) if user and token else None
-
-        # For multibranch, the branch is in the URL
         response = requests.post(api_url, auth=auth, timeout=30)
         response.raise_for_status()
         typer.secho(
