@@ -47,6 +47,8 @@ See [LICENSE](LICENSE) for full details.
 - 🌐 **GitHub API integration** - Manage issues, projects, and PRs directly
 - 📊 **TUI Dashboard** - Interactive terminal dashboard for metrics and issue tracking
 - 🏢 **Enterprise builds** - Create custom packages with embedded corporate configuration
+- 🛠️ **Custom Rules Engine** - Define and run your own validation functions
+
 
 ## 📦 Installation
 ```bash
@@ -233,6 +235,7 @@ Most commands have short aliases for convenience:
 | `deploy` | `dep` | Deploy to environment |
 | `check-deployment` | `cd` | Check deployment status |
 | `build-enterprise` | `be` | Build enterprise package |
+| `rules` | - | Manage custom rules |
 
 ## 🏢 Enterprise Builds
 
@@ -250,6 +253,33 @@ devrules build-enterprise \
 ```
 
 See [Enterprise Build Guide](docs/ENTERPRISE_BUILD.md) for more details.
+
+## 🛠️ Custom Validation Rules
+
+Extend DevRules with your own Python validation logic:
+
+1. **Define a rule:**
+```python
+from devrules.core.rules_engine import rule
+
+@rule(name="check-env", description="Verify .env exists")
+def check_env():
+    # Return (success, message)
+    return True, "Environment valid"
+```
+
+2. **Configure:**
+```toml
+[custom_rules]
+paths = ["./custom_checks.py"]
+```
+
+3. **Run:**
+```bash
+devrules rules list
+devrules rules run check-env
+```
+
 
 ## 📚 Documentation
 

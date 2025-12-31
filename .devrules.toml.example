@@ -157,3 +157,9 @@ token = "SLACK_BOT_TOKEN"  # Replace with actual token
 dev = "#dev-deploys"
 staging = "#staging-deploys"
 prod = "#prod-deploys"
+
+[custom_rules]
+# Paths to files or directories containing custom rules (glob patterns supported for dirs)
+paths = ["./custom_rules/"]
+# Python packages to import rules from
+packages = ["my_company_rules"]
