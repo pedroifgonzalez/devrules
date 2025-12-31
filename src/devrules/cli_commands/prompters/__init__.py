@@ -7,6 +7,8 @@ This module defines the abstract base class for different prompting strategies
 from abc import ABC, abstractmethod
 from typing import Optional
 
+from typing_extensions import NoReturn
+
 
 class Prompter(ABC):
     """Abstract base class for CLI prompting strategies.
@@ -192,6 +194,15 @@ class Prompter(ABC):
             message: Info message to display
         """
         pass
+
+    @abstractmethod
+    def exit(self, code: int) -> NoReturn:
+        """Exit the program with the given exit code.
+
+        Args:
+            code: Exit code
+        """
+        raise SystemExit(code)
 
 
 __all__ = ["Prompter"]

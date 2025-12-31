@@ -2,6 +2,8 @@
 
 from typing import Optional
 
+from typing_extensions import NoReturn
+
 from devrules.cli_commands.prompters import Prompter
 from devrules.utils import gum
 
@@ -182,3 +184,11 @@ class GumPrompter(Prompter):
             message: Info message to display
         """
         gum.info(message)
+
+    def exit(self, code: int) -> NoReturn:
+        """Exit the program with a given exit code.
+
+        Args:
+            code: Exit code
+        """
+        raise SystemExit(code)

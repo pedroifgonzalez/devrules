@@ -3,6 +3,7 @@
 from typing import Optional
 
 import typer
+from typing_extensions import NoReturn
 
 from devrules.cli_commands.prompters import Prompter
 
@@ -277,3 +278,11 @@ class TyperPrompter(Prompter):
             message: Info message to display
         """
         typer.secho(f"ℹ {message}", fg=typer.colors.CYAN)
+
+    def exit(self, code: int) -> NoReturn:
+        """Exit the program with a given exit code.
+
+        Args:
+            code: Exit code
+        """
+        raise typer.Exit(code)
