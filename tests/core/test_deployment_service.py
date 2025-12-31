@@ -5,8 +5,11 @@ import tempfile
 from pathlib import Path
 from typing import Generator
 from unittest.mock import patch
+from urllib import parse
 
 import pytest
+import requests
+from click.exceptions import Exit
 from git import Repo
 
 from devrules.config import Config, EnvironmentConfig
@@ -14,7 +17,9 @@ from devrules.core.deployment_service import (
     check_deployment_readiness,
     check_migration_conflicts,
     classify_env,
+    execute_deployment,
     get_deployed_branch,
+    rollback_deployment,
 )
 
 
@@ -559,4 +564,150 @@ def test_check_deployment_readiness(
         repo_path="test-repo", branch="test-branch", environment="dev", config=config
     )
     assert readiness == expected_readiness
+    assert message == expected_message
+
+
+@pytest.mark.parametrize(
+    "case, expected_message",
+    [
+        ("Missing environment configuration", "Environment is not configured"),
+        ("Missing jenkins job name", "Jenkins job name could not be resolved"),
+        ("Missing Jenkins url", "Jenkins URL is not configured"),
+        ("Missing auth", "Auth token is not configured"),
+        (
+            "Response raises error (404)",
+            "Job or branch not found. URL: https://url-test/job/job-test/job/test-branch/build",
+        ),
+        ("Response raises another error", "Failed to trigger Jenkins job: Error"),
+        ("Response raises timeout", "Failed to trigger Jenkins job: Timeout"),
+    ],
+)
+def test_execute_deployment_fails(case: str, expected_message: str, config: Config, requests_mock):
+    def configure_mocked_valid_config():
+        config.deployment.jenkins_url = "https://url-test"
+        config.deployment.environments["dev"] = EnvironmentConfig(
+            **{
+                "name": "dev",
+                "default_branch": "develop",
+                "jenkins_job_name": "job-test",
+            }
+        )
+        config.deployment.jenkins_user = "user-test"
+        config.deployment.jenkins_token = "token-test"
+
+        encoded_branch = parse.quote("test-branch", safe="")
+        api_url = f"{config.deployment.jenkins_url}/job/{config.deployment.environments['dev'].jenkins_job_name}/job/{encoded_branch}/build"
+        return api_url
+
+    match case:
+        case "Missing environment configuration":
+            config.deployment.environments = {}
+        case "Missing jenkins job name":
+            config.github.repo = ""
+            config.deployment.environments["dev"] = EnvironmentConfig(
+                **{
+                    "name": "dev",
+                    "default_branch": "develop",
+                    # missing job_name
+                }
+            )
+        case "Missing Jenkins url":
+            config.github.repo = "repo-test"
+            config.deployment.jenkins_url = ""
+            config.deployment.environments["dev"] = EnvironmentConfig(
+                **{
+                    "name": "dev",
+                    "default_branch": "develop",
+                }
+            )
+        case "Missing auth":
+            config.github.repo = "repo-test"
+            config.deployment.jenkins_url = "url-test"
+            config.deployment.environments["dev"] = EnvironmentConfig(
+                **{
+                    "name": "dev",
+                    "default_branch": "develop",
+                }
+            )
+            config.deployment.jenkins_user = ""
+            config.deployment.jenkins_token = ""
+
+            with pytest.raises(Exit):
+                execute_deployment(branch="test-branch", environment="dev", config=config)
+            return
+        case "Response raises error (404)":
+            api_url = configure_mocked_valid_config()
+            requests_mock.post(
+                api_url,
+                status_code=404,
+            )
+        case "Response raises another error":
+            api_url = configure_mocked_valid_config()
+            requests_mock.post(
+                api_url,
+                status_code=500,
+                text="Error",
+            )
+        case "Response raises timeout":
+            api_url = configure_mocked_valid_config()
+            with patch(
+                "devrules.core.deployment_service.requests.post",
+                side_effect=requests.exceptions.Timeout("Timeout"),
+            ):
+                status, message = execute_deployment(
+                    branch="test-branch", environment="dev", config=config
+                )
+            assert not status
+            assert message == expected_message
+            return
+
+    status, message = execute_deployment(branch="test-branch", environment="dev", config=config)
+    assert not status
+    assert message == expected_message
+
+
+@pytest.mark.parametrize(
+    "branch_name, job_name, expected_message",
+    [
+        ("test-branch", "job-test", "Deployment job 'job-test' triggered for branch 'test-branch'"),
+        (
+            "feature/test-branch",
+            "job-test",
+            "Deployment job 'job-test' triggered for branch 'feature/test-branch'",
+        ),
+        (
+            "feature/test-branch",
+            "job-test-2",
+            "Deployment job 'job-test-2' triggered for branch 'feature/test-branch'",
+        ),
+    ],
+)
+def test_execute_deployment_success(
+    config: Config, requests_mock, branch_name: str, job_name: str, expected_message: str
+):
+    config.deployment.jenkins_url = "https://url-test"
+    config.deployment.environments["dev"] = EnvironmentConfig(
+        **{
+            "name": "dev",
+            "default_branch": "develop",
+            "jenkins_job_name": job_name,
+        }
+    )
+    config.deployment.jenkins_user = "user-test"
+    config.deployment.jenkins_token = "token-test"
+
+    encoded_branch = parse.quote(branch_name, safe="")
+    api_url = f"{config.deployment.jenkins_url}/job/{config.deployment.environments['dev'].jenkins_job_name}/job/{encoded_branch}/build"
+    requests_mock.post(
+        api_url,
+        status_code=200,
+    )
+    status, message = execute_deployment(branch=branch_name, environment="dev", config=config)
+    assert status
+    assert message == expected_message
+
+    status, message = rollback_deployment(
+        target_branch=branch_name, environment="dev", config=config
+    )
+    assert status
     assert message == expected_message

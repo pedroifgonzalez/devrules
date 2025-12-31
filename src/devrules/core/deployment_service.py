@@ -278,10 +278,9 @@ def execute_deployment(branch: str, environment: str, config: Config) -> Tuple[b
         return True, f"Deployment job '{job_name}' triggered for branch '{branch}'"
 
     except requests.HTTPError as e:
-        error_msg = f"Failed to trigger Jenkins job: {e}"
         if e.response.status_code == 404:
-            error_msg += f"\nJob or branch not found. URL: {api_url}"
-        return False, error_msg
+            return False, f"Job or branch not found. URL: {api_url}"
+        return False, f"Failed to trigger Jenkins job: {e.response.text}"
     except requests.RequestException as e:
         return False, f"Failed to trigger Jenkins job: {e}"
 
