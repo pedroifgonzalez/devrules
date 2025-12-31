@@ -1,4 +1,4 @@
-# ⚙️ DevRules
+# DevRules
 
 *Automate your internal rules. Reduce errors. Accelerate onboarding.*
 
@@ -146,9 +146,7 @@ DevRules allows you to operate with large company standards, without needing to 
 
 Perfect for teams of any size—from startups establishing their first conventions to enterprises enforcing complex compliance requirements.
 
----
-
-### 🚀 Start today
+## 🚀 Start today
 
 ```bash
 pip install devrules

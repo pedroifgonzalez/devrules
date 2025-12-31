@@ -11,6 +11,7 @@ This guide covers how to distribute enterprise builds of DevRules to your organi
 #### Setup
 
 Use a private PyPI server like:
+
 - [devpi](https://devpi.net/)
 - [PyPI Server](https://pypi.org/project/pypiserver/)
 - [Artifactory](https://jfrog.com/artifactory/)
@@ -61,7 +62,7 @@ cd devrules-company-dist
 
 2. Add built package:
 ```bash
-cp ../devrules/dist/devrules_company-*.whl .
+cp https://github.com/pedroifgonzalez/devrules/blob/main/README.md devrules/dist/devrules_company-*.whl .
 git add .
 git commit -m "Add devrules enterprise build"
 git push origin main
@@ -277,6 +278,7 @@ Send update notification:
 Subject: DevRules Update - v0.1.4+enterprise
 
 Changes:
+
 - Updated branch naming pattern
 - Added new commit tags
 - Fixed PR validation
@@ -425,21 +427,25 @@ done > compliance-report.txt
 ### Installation Issues
 
 **Error: Package not found**
+
 - Verify PyPI URL is correct
 - Check network connectivity
 - Ensure authentication credentials are set
 
 **Error: Permission denied**
+
 - Check file permissions on wheel file
 - Verify user has install permissions
 
 ### Runtime Issues
 
 **Error: Encryption key not set**
+
 - Set `DEVRULES_ENTERPRISE_KEY` environment variable
 - Verify key is correct
 
 **Warning: Integrity check failed**
+
 - Package may have been tampered with
 - Reinstall from trusted source
 
@@ -476,6 +482,7 @@ done > compliance-report.txt
 ## Support
 
 For issues or questions:
+
 - Internal wiki: `https://wiki.company.com/devrules`
 - Slack channel: `#devrules-support`
 - Email: `devops@company.com`

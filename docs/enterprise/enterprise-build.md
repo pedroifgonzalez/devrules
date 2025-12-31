@@ -74,7 +74,7 @@ This creates:
 
 ### 3. Distribute Package
 
-See [Enterprise Distribution Guide](ENTERPRISE_DISTRIBUTION.md) for distribution options.
+See [Enterprise Distribution Guide](enterprise-distribution.md) for distribution options.
 
 ## Build Command Reference
 
@@ -156,7 +156,7 @@ All standard DevRules configuration sections are supported:
 - `[pr]` - Pull request rules
 - `[github]` - GitHub integration
 
-See [main README](../README.md) for configuration details.
+See [main README](https://github.com/pedroifgonzalez/devrules/blob/main/README.md) for configuration details.
 
 ## Encryption
 
@@ -304,6 +304,4 @@ devrules build-enterprise \
 
 ## Next Steps
 
-- [Distribution Guide](ENTERPRISE_DISTRIBUTION.md) - How to distribute your build
-- [Migration Guide](../README.md) - Migrating existing projects
-- [Security Best Practices](#security-best-practices) - Securing your deployment
+- [Distribution Guide](enterprise-distribution.md) - How to distribute your build

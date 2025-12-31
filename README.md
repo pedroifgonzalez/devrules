@@ -1,6 +1,6 @@
 <table>
   <tr>
-    <td><img src="devrules.png" alt="DevRules Logo" width="150"></td>
+    <td><img src="docs/img/devrules.png" alt="DevRules Logo" width="150"></td>
     <td>
       <h1>DevRules</h1>
       <p>Automate your internal rules. Reduce errors. Accelerate onboarding.</p>
@@ -8,6 +8,7 @@
         <a href="https://badge.fury.io/py/devrules"><img src="https://badge.fury.io/py/devrules.svg" alt="PyPI version"></a>
         <a href="https://pypi.org/project/devrules/"><img src="https://img.shields.io/pypi/pyversions/devrules.svg" alt="Python Versions"></a>
         <a href="LICENSE"><img src="https://img.shields.io/badge/License-BSL%201.1-blue.svg" alt="License: BSL 1.1"></a>
+        <a href="https://pedroifgonzalez.github.io/devrules/"><img src="https://github.com/pedroifgonzalez/devrules/workflows/docs/badge.svg" alt="Documentation Status"></a>
       </p>
     </td>
   </tr>
