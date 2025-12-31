@@ -101,7 +101,7 @@ def _load_file(path: Path):
             print(f"Warning: Failed to load rule file '{path}': {e}")
 
 
-def execute_rule(name: str, **kwargs) -> Tuple[bool, str]:
+def execute_rule(name: str, *args, **kwargs) -> Tuple[bool, str]:
     """Execute a specific rule by name."""
     definition = RuleRegistry.get_rule(name)
     if not definition:
@@ -114,15 +114,39 @@ def execute_rule(name: str, **kwargs) -> Tuple[bool, str]:
         # Build arguments based on signature
         # We pass only what the function asks for from the available context
         call_args = {}
-        for param_name in sig.parameters:
-            if param_name in kwargs:
-                call_args[param_name] = kwargs[param_name]
-            elif sig.parameters[param_name].default is not inspect.Parameter.empty:
-                continue  # Use default
-            elif sig.parameters[param_name].kind == inspect.Parameter.VAR_KEYWORD:
-                call_args.update(kwargs)  # Pass everything to **kwargs
-                break
+        positional_args = []
 
-        return definition.func(**call_args)
+        # Process parameters in order
+        list(sig.parameters.keys())
+        arg_index = 0
+
+        for param_name, param in sig.parameters.items():
+            # Handle positional arguments first
+            if arg_index < len(args) and param.kind in [
+                inspect.Parameter.POSITIONAL_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            ]:
+                positional_args.append(args[arg_index])
+                arg_index += 1
+            # Handle keyword arguments
+            elif param_name in kwargs:
+                call_args[param_name] = kwargs[param_name]
+            # Use default values if available
+            elif param.default is not inspect.Parameter.empty:
+                continue
+            # Handle **kwargs parameter
+            elif param.kind == inspect.Parameter.VAR_KEYWORD:
+                call_args.update(kwargs)  # Pass remaining kwargs to **kwargs
+                break
+            # Handle *args parameter
+            elif param.kind == inspect.Parameter.VAR_POSITIONAL:
+                # Pass remaining positional args to *args
+                positional_args.extend(args[arg_index:])
+                arg_index = len(args)  # Mark all args as consumed
+            # Required parameter missing
+            else:
+                return False, f"Missing required argument: {param_name}"
+
+        return definition.func(*positional_args, **call_args)
     except Exception as e:
         return False, f"Error executing rule '{name}': {e}"
