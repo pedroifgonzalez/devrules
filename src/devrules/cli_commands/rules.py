@@ -1,65 +1,57 @@
 """Custom validation rules CLI commands."""
 
+from typing import Any, Callable, Dict
+
 import typer
-from rich.console import Console
-from rich.table import Table
 
 from devrules.config import load_config
 from devrules.core.rules_engine import RuleRegistry, discover_rules, execute_rule
-
-console = Console()
-rules_app = typer.Typer(help="Manage and run custom validation rules.")
+from devrules.utils.typer import add_typer_block_message
 
 
-def register(app: typer.Typer):
-    """Register the rules command group with the main application."""
-    app.add_typer(rules_app, name="rules")
-    return {"rules": rules_app}
-
-
-@rules_app.callback()
-def load_rules():
-    """Load configured rules before any command runs."""
-    config = load_config()
-    discover_rules(config.custom_rules)
-
-
-@rules_app.command("list")
-def list_rules():
-    """List all available custom validation rules."""
-    rules = RuleRegistry.list_rules()
-
-    if not rules:
-        console.print("[yellow]No custom rules found.[/yellow]")
-        console.print(
-            "Configure [bold]custom_rules.paths[/bold] or [bold]custom_rules.packages[/bold] in your config file."
-        )
-        return
-
-    table = Table(title="Available Custom Rules")
-    table.add_column("Name", style="cyan")
-    table.add_column("Description", style="white")
-
-    for rule in rules:
-        table.add_row(rule.name, rule.description or "-")
-
-    console.print(table)
-
-
-@rules_app.command("run")
-def run_rule(
-    name: str = typer.Argument(..., help="Name of the rule to run"),
-):
-    """Run a specific custom rule."""
-    # Note: For now, we don't pass any context arguments from CLI.
-    # In the future, we could add flags or automatic context injection (like git repo state).
-
-    console.print(f"Running rule: [bold]{name}[/bold]...")
-
+def _run_rule(name: str):
+    typer.secho(f"Executing rule '{name}'...", fg=typer.colors.YELLOW)
     success, message = execute_rule(name)
-
     if success:
-        console.print(f"[green]✔ PASSED:[/green] {message}")
+        typer.secho(f"Rule executed successfully: {message}", fg=typer.colors.GREEN)
     else:
-        console.print(f"[red]✘ FAILED:[/red] {message}")
-        raise typer.Exit(code=1)
+        typer.secho(f"Rule execution failed: {message}", fg=typer.colors.RED)
+
+
+def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
+    @app.callback()
+    def load_rules():
+        """Load configured rules before any command runs."""
+        config = load_config()
+        discover_rules(config.custom_rules)
+
+    @app.command()
+    def list_rules():
+        """List all available custom validation rules."""
+        custom_rules = RuleRegistry.list_rules()
+        if not custom_rules:
+            typer.secho("No custom rules found.", fg=typer.colors.RED)
+            return
+
+        add_typer_block_message(
+            header="Available Custom Rules:",
+            subheader="",
+            messages=[
+                f"{pos}. {rule.name}: {rule.description}"
+                for pos, rule in enumerate(custom_rules, 1)
+            ],
+            indent_block=True,
+            use_separator=False,
+        )
+
+    @app.command()
+    def run_rule(
+        name: str = typer.Option(help="Name of the rule to run"),
+    ):
+        """Run a specific custom rule."""
+        _run_rule(name)
+
+    return {
+        "list_rules": list_rules,
+        "run_rule": run_rule,
+    }
