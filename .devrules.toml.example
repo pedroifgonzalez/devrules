@@ -25,6 +25,7 @@ forbidden_patterns = ["*.dump", "*.sql", ".env.local", "*.log", "*.swp", "*~"]
 # Forbidden paths (directories that should not be committed)
 forbidden_paths = ["tmp/", "cache/", "local/", ".vscode/"]
 auto_stage = true
+enable_ai_suggestions = false
 
 [pr]
 # Pull Request validation
@@ -157,3 +158,9 @@ token = "SLACK_BOT_TOKEN"  # Replace with actual token
 dev = "#dev-deploys"
 staging = "#staging-deploys"
 prod = "#prod-deploys"
+
+[custom_rules]
+# Paths to files or directories containing custom rules (glob patterns supported for dirs)
+paths = ["./custom_rules/"]
+# Python packages to import rules from
+packages = ["my_company_rules"]

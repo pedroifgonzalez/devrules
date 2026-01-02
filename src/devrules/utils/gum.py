@@ -4,6 +4,7 @@ Provides glamorous terminal interactions using Charmbracelet's gum tool.
 Falls back to standard input methods if gum is not installed.
 """
 
+import os
 import shutil
 import subprocess
 from typing import Optional
@@ -12,6 +13,13 @@ from devrules.utils.history import get_history_manager
 
 # Check if gum is available
 GUM_AVAILABLE = shutil.which("gum") is not None
+
+
+def _get_gum_env() -> dict[str, str]:
+    """Get environment with forced colors for gum."""
+    env = os.environ.copy()
+    env["CLICOLOR_FORCE"] = "1"
+    return env
 
 
 def is_available() -> bool:
@@ -365,7 +373,7 @@ def style(
     cmd.append(text)
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, env=_get_gum_env())
         return result.stdout.rstrip("\n")
     except Exception:
         return text
@@ -453,6 +461,7 @@ def table(
             input=csv_input,
             capture_output=True,
             text=True,
+            env=_get_gum_env(),
         )
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.rstrip("\n")

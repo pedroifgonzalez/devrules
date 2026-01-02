@@ -39,7 +39,8 @@ def add_typer_block_message(
         typer.secho(separator, fg=typer.colors.GREEN)
         typer.secho(centered_header, fg=typer.colors.GREEN, bold=True)
         typer.secho(separator, fg=typer.colors.GREEN)
-    typer.echo(f"\n{subheader}")
+    if subheader:
+        typer.echo(f"\n{subheader}")
     for message in messages:
         output = message
         if indent_block:

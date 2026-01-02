@@ -21,6 +21,7 @@ from devrules.cli_commands import (
     hook_commands,
     pr,
     project,
+    rules,
 )
 from devrules.utils.aliases import register_command_aliases
 
@@ -38,6 +39,7 @@ namespace.update(dashboard.register(app))
 namespace.update(build_cmd.register(app))
 namespace.update(deploy.register(app))
 namespace.update(group.register(app))
+namespace.update(rules.register(app))
 
 
 register_command_aliases(app, namespace)

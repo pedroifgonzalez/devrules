@@ -1,6 +1,6 @@
 <table>
   <tr>
-    <td><img src="devrules.png" alt="DevRules Logo" width="150"></td>
+    <td><img src="docs/img/devrules.png" alt="DevRules Logo" width="150"></td>
     <td>
       <h1>DevRules</h1>
       <p>Automate your internal rules. Reduce errors. Accelerate onboarding.</p>
@@ -8,6 +8,7 @@
         <a href="https://badge.fury.io/py/devrules"><img src="https://badge.fury.io/py/devrules.svg" alt="PyPI version"></a>
         <a href="https://pypi.org/project/devrules/"><img src="https://img.shields.io/pypi/pyversions/devrules.svg" alt="Python Versions"></a>
         <a href="LICENSE"><img src="https://img.shields.io/badge/License-BSL%201.1-blue.svg" alt="License: BSL 1.1"></a>
+        <a href="https://pedroifgonzalez.github.io/devrules/"><img src="https://github.com/pedroifgonzalez/devrules/workflows/docs/badge.svg" alt="Documentation Status"></a>
       </p>
     </td>
   </tr>
@@ -46,6 +47,8 @@ See [LICENSE](LICENSE) for full details.
 - 🌐 **GitHub API integration** - Manage issues, projects, and PRs directly
 - 📊 **TUI Dashboard** - Interactive terminal dashboard for metrics and issue tracking
 - 🏢 **Enterprise builds** - Create custom packages with embedded corporate configuration
+- 🛠️ **Custom Rules Engine** - Define and run your own validation functions
+
 
 ## 📦 Installation
 ```bash
@@ -156,6 +159,7 @@ min_length = 10
 max_length = 100
 gpg_sign = false  # Sign commits with GPG
 protected_branch_prefixes = ["staging-"]  # Block direct commits to these branches
+enable_ai_suggestions = false  # Generate AI-powered commit message suggestions (requires diny)
 
 [pr]
 max_loc = 400
@@ -168,6 +172,24 @@ repo = "your-repo"
 ```
 
 For a complete configuration example, run `devrules init-config`.
+
+### AI-Powered Commit Messages
+
+⚠️ **Security Notice**: When `enable_ai_suggestions = true`, your staged changes, diffs, and repository metadata may be sent to an external AI service (diny). Ensure you review the data handling policies and have appropriate consent before enabling this feature. Sensitive content such as credentials, secrets, or PII should not be present in your staged changes when using AI suggestions.
+
+When `enable_ai_suggestions = true` is set in the `[commit]` section, DevRules can generate AI-powered commit message suggestions using the [diny](https://github.com/dinoDanic/diny) tool.
+
+**How it works:**
+- During commits, DevRules automatically generates a commit message suggestion based on your staged changes
+- The AI-generated message appears as a default value that you can edit or replace
+- Requires `diny` to be installed and available in your PATH
+- **Default is disabled** for security - you must explicitly enable it
+
+**Security Considerations:**
+- Review diny's privacy policy and data handling practices
+- Ensure no sensitive information is in staged changes when using AI suggestions
+- Consider using AI suggestions only for non-sensitive repositories
+- The feature is opt-in and disabled by default for your security
 
 ## 🔗 Git Hooks Integration
 
@@ -232,6 +254,7 @@ Most commands have short aliases for convenience:
 | `deploy` | `dep` | Deploy to environment |
 | `check-deployment` | `cd` | Check deployment status |
 | `build-enterprise` | `be` | Build enterprise package |
+| `rules` | - | Manage custom rules |
 
 ## 🏢 Enterprise Builds
 
@@ -249,6 +272,33 @@ devrules build-enterprise \
 ```
 
 See [Enterprise Build Guide](docs/ENTERPRISE_BUILD.md) for more details.
+
+## 🛠️ Custom Validation Rules
+
+Extend DevRules with your own Python validation logic:
+
+1. **Define a rule:**
+```python
+from devrules.core.rules_engine import rule
+
+@rule(name="check-env", description="Verify .env exists")
+def check_env():
+    # Return (success, message)
+    return True, "Environment valid"
+```
+
+2. **Configure:**
+```toml
+[custom_rules]
+paths = ["./custom_checks.py"]
+```
+
+3. **Run:**
+```bash
+devrules rules list
+devrules rules run check-env
+```
+
 
 ## 📚 Documentation
 

@@ -52,6 +52,11 @@ enterprise = [
     "build>=1.0.0",
     "twine>=4.0.0",
 ]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocs-awesome-pages-plugin",
+]
 
 
 [dependency-groups]
@@ -73,6 +78,11 @@ dev = [
     "gitpython>=3.1.45",
     "requests-mock>=1.12.1",
 ]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocs-awesome-pages-plugin",
+]
 
 
 [project.scripts]
@@ -81,10 +91,10 @@ devr = "devrules.cli:app"
 
 [project.urls]
 Homepage = "https://github.com/pedroifgonzalez/devrules"
-Documentation = "https://github.com/pedroifgonzalez/devrules/blob/main/README.md"
+Documentation = "https://pedroifgonzalez.github.io/devrules/"
 Repository = "https://github.com/pedroifgonzalez/devrules"
 "Bug Tracker" = "https://github.com/pedroifgonzalez/devrules/issues"
-Changelog = "https://github.com/pedroifgonzalez/devrules/blob/main/docs/changelog.md"
+Changelog = "https://pedroifgonzalez.github.io/devrules/overview/changelog/"
 
 
 [tool.setuptools.packages.find]
