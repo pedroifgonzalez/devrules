@@ -159,6 +159,15 @@ def _get_status_interactively(
     statuses_to_choose = valid_statuses.copy()
     if current_item_status and current_item_status in statuses_to_choose:
         statuses_to_choose.remove(current_item_status)
+
+    # Handle empty list case
+    if not statuses_to_choose:
+        if GUM_AVAILABLE:
+            gum.warning("No other statuses available to choose from.")
+        else:
+            typer.secho("No other statuses available to choose from.", fg=typer.colors.YELLOW)
+        return None
+
     if GUM_AVAILABLE:
         output = gum.choose(
             options=statuses_to_choose,

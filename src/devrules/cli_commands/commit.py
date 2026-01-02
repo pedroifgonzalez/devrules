@@ -33,6 +33,10 @@ def build_commit_message_interactive(config: Config, tags: list[str]) -> Optiona
     if config.commit.enable_ai_suggestions:
         with yaspin(text="Generating commit message...", color="green"):
             default_message = diny.generate_commit_message()
+            if default_message is None:
+                # AI generation failed, continue without suggestion
+                pass
+
     if gum.is_available():
         return _build_commit_with_gum(config=config, tags=tags, default_message=default_message)
     else:
@@ -46,8 +50,10 @@ def _build_commit_with_gum(
     print(gum.style("📝 Create Commit", foreground=81, bold=True))
     print(gum.style("=" * 50, foreground=81))
 
-    if config.commit.enable_ai_suggestions:
+    if config.commit.enable_ai_suggestions and default_message:
         gum.info(f"AI message generated: {default_message}")
+    elif config.commit.enable_ai_suggestions and not default_message:
+        gum.warn("AI message generation failed or timed out")
 
     # Select tag
     tag = gum.choose(tags, header="Select commit tag:")

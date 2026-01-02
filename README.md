@@ -175,10 +175,21 @@ For a complete configuration example, run `devrules init-config`.
 
 ### AI-Powered Commit Messages
 
+⚠️ **Security Notice**: When `enable_ai_suggestions = true`, your staged changes, diffs, and repository metadata may be sent to an external AI service (diny). Ensure you review the data handling policies and have appropriate consent before enabling this feature. Sensitive content such as credentials, secrets, or PII should not be present in your staged changes when using AI suggestions.
+
 When `enable_ai_suggestions = true` is set in the `[commit]` section, DevRules can generate AI-powered commit message suggestions using the [diny](https://github.com/dinoDanic/diny) tool.
 
-Check project url to install it locally.
-```
+**How it works:**
+- During commits, DevRules automatically generates a commit message suggestion based on your staged changes
+- The AI-generated message appears as a default value that you can edit or replace
+- Requires `diny` to be installed and available in your PATH
+- **Default is disabled** for security - you must explicitly enable it
+
+**Security Considerations:**
+- Review diny's privacy policy and data handling practices
+- Ensure no sensitive information is in staged changes when using AI suggestions
+- Consider using AI suggestions only for non-sensitive repositories
+- The feature is opt-in and disabled by default for your security
 
 ## 🔗 Git Hooks Integration
 
