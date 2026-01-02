@@ -159,6 +159,7 @@ min_length = 10
 max_length = 100
 gpg_sign = false  # Sign commits with GPG
 protected_branch_prefixes = ["staging-"]  # Block direct commits to these branches
+enable_ai_suggestions = false  # Generate AI-powered commit message suggestions (requires diny)
 
 [pr]
 max_loc = 400
@@ -171,6 +172,13 @@ repo = "your-repo"
 ```
 
 For a complete configuration example, run `devrules init-config`.
+
+### AI-Powered Commit Messages
+
+When `enable_ai_suggestions = true` is set in the `[commit]` section, DevRules can generate AI-powered commit message suggestions using the [diny](https://github.com/dinoDanic/diny) tool.
+
+Check project url to install it locally.
+```
 
 ## 🔗 Git Hooks Integration
 
