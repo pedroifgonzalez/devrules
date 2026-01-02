@@ -152,7 +152,9 @@ def _get_repo_owner_and_name(config, owner, issue_repo) -> tuple[str, str]:
     return repo_owner, repo_name
 
 
-def _get_status_interactively(valid_statuses: list[str], current_item_status: str) -> Optional[str]:
+def _get_status_interactively(
+    valid_statuses: list[str], current_item_status: Optional[str] = None
+) -> Optional[str]:
     """Get the new status interactively."""
     statuses_to_choose = valid_statuses.copy()
     if current_item_status and current_item_status in statuses_to_choose:
@@ -301,7 +303,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             item_status = issue_data.get("item_status")
 
         # If no status is provided, show interactive status selection
-        if status is None and item_status:
+        if status is None:
             status = _get_status_interactively(valid_statuses, item_status)
 
         # Validate the status
