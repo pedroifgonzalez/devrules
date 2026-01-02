@@ -34,15 +34,20 @@ def build_commit_message_interactive(config: Config, tags: list[str]) -> Optiona
         with yaspin(text="Generating commit message...", color="green"):
             default_message = diny.generate_commit_message()
     if gum.is_available():
-        return _build_commit_with_gum(tags, default_message)
+        return _build_commit_with_gum(config=config, tags=tags, default_message=default_message)
     else:
         return _build_commit_with_typer(tags, default_message)
 
 
-def _build_commit_with_gum(tags: list[str], default_message: Optional[str] = None) -> Optional[str]:
+def _build_commit_with_gum(
+    config: Config, tags: list[str], default_message: Optional[str] = None
+) -> Optional[str]:
     """Build commit message using gum UI."""
     print(gum.style("📝 Create Commit", foreground=81, bold=True))
     print(gum.style("=" * 50, foreground=81))
+
+    if config.commit.enable_ai_suggestions:
+        gum.info(f"AI message generated: {default_message}")
 
     # Select tag
     tag = gum.choose(tags, header="Select commit tag:")
@@ -52,13 +57,21 @@ def _build_commit_with_gum(tags: list[str], default_message: Optional[str] = Non
 
     # Write message with history
     kwargs = {
-        "prompt_type": f"commit_message_{tag}",
         "placeholder": "Describe your changes...",
         "header": f"[{tag}] Commit message:",
     }
     if default_message:
         kwargs["default"] = default_message
-    message = gum.input_text_with_history(**kwargs)
+
+    if config.commit.enable_ai_suggestions:
+        message = gum.input_text(**kwargs)
+    else:
+        kwargs.update(
+            {
+                "prompt_type": f"commit_message_{tag}",
+            }
+        )
+        message = gum.input_text_with_history(**kwargs)
 
     if not message:
         gum.error(msg.MESSAGE_CANNOT_BE_EMPTY)
