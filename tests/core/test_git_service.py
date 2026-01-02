@@ -1,6 +1,14 @@
+import subprocess
+from unittest.mock import patch
+
 import pytest
 
-from devrules.core.git_service import get_author, resolve_issue_branch
+from devrules.core.git_service import (
+    get_author,
+    get_current_repo_name,
+    remote_branch_exists,
+    resolve_issue_branch,
+)
 from devrules.dtos.github import ProjectItem
 
 
@@ -30,3 +38,31 @@ def test_get_author():
     author = get_author()
     assert isinstance(author, str)
     assert len(author) > 0
+
+
+def test_get_current_repo_name():
+    current_repo = get_current_repo_name()
+    assert isinstance(current_repo, str)
+    assert current_repo == "devrules"
+
+
+@pytest.mark.parametrize(
+    "side_effect, expected",
+    [
+        (None, True),
+        (subprocess.CalledProcessError(2, "git"), False),
+    ],
+)
+def test_remote_branch_exists(side_effect, expected):
+    with patch("subprocess.run") as mock_run:
+        if side_effect:
+            mock_run.side_effect = side_effect
+        else:
+            mock_run.return_value = subprocess.CompletedProcess(
+                args=[],
+                returncode=0,
+                stdout=b"",
+                stderr=b"",
+            )
+
+        assert remote_branch_exists("main") is expected
