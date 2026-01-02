@@ -41,6 +41,7 @@ class CommitConfig:
     forbidden_patterns: list = field(default_factory=list)
     forbidden_paths: list = field(default_factory=list)
     auto_stage: bool = False
+    enable_ai_suggestions: bool = False
 
 
 @dataclass
@@ -255,6 +256,7 @@ DEFAULT_CONFIG = {
         "append_issue_number": True,
         "allow_hook_bypass": False,
         "auto_stage": True,
+        "enable_ai_suggestions": False,
     },
     "pr": {
         "max_loc": 400,
