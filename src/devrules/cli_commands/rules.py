@@ -22,7 +22,7 @@ def _get_custom_rules() -> list[RuleDefinition]:
     return custom_rules
 
 
-def _format_rule_arguments(rule: RuleDefinition) -> str:
+def _format_rule_arguments(rule: RuleDefinition) -> Optional[str]:
     """Format the arguments information for a rule."""
     sig = inspect.signature(rule.func)
     params = []
@@ -45,8 +45,8 @@ def _format_rule_arguments(rule: RuleDefinition) -> str:
 
     if params:
         return "\n".join(f"  - {param}" for param in params)
-    else:
-        return "None"
+
+    return None
 
 
 def _prompt_for_rule_arguments(rule_name: str) -> Dict[str, Any]:
@@ -133,8 +133,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         for rule_description, args in zip(rules_and_descriptions, rules_arguments):
             messages.append(rule_description)
-            messages.append("Arguments:")
-            messages.append(args)
+            if args:
+                messages.append("Arguments:")
+                messages.append(args)
+            else:
+                messages.append("No arguments required")
             messages.append("")
 
         add_typer_block_message(
