@@ -53,6 +53,15 @@ def select_base_branch_interactive(allowed_targets: list[str], suggested: str = 
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
+    """Register PR commands.
+
+    Args:
+        app: Typer application instance.
+
+    Returns:
+        Dictionary mapping command names to their functions.
+    """
+
     @app.command()
     @ensure_git_repo()
     def create_pr(

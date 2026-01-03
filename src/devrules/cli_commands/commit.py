@@ -115,6 +115,15 @@ def _build_commit_with_typer(
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
+    """Register commit commands.
+
+    Args:
+        app: Typer application instance.
+
+    Returns:
+        Dictionary mapping command names to their functions.
+    """
+
     @app.command()
     @ensure_git_repo()
     def check_commit(

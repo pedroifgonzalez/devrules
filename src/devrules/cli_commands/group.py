@@ -150,6 +150,15 @@ def build_group_data_interactive(
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
+    """Register functional group commands.
+
+    Args:
+        app: Typer application instance.
+
+    Returns:
+        Dictionary mapping command names to their functions.
+    """
+
     @app.command("functional-group-status")
     def status():
         """Show the status of all defined functional groups."""

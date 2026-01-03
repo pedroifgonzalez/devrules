@@ -74,6 +74,7 @@ class GitHubConfig:
     status_emojis: dict = field(default_factory=dict)
 
     def _validate(self):
+        """Validate the configuration."""
         if (
             self.integration_comment_status
             and self.valid_statuses

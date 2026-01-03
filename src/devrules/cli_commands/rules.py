@@ -15,6 +15,14 @@ prompter: Prompter = get_default_prompter()
 
 
 def _get_custom_rules() -> list[RuleDefinition]:
+    """Get the list of custom rules.
+
+    Returns:
+        List of RuleDefinition objects.
+
+    Raises:
+        typer.Exit: If no rules are found.
+    """
     custom_rules = RuleRegistry.list_rules()
     if not custom_rules:
         prompter.error("No custom rules found.")
@@ -84,6 +92,13 @@ def _prompt_for_rule_arguments(rule_name: str) -> Dict[str, Any]:
 
 
 def _run_rule(rule: Optional[str] = None, *args, **kwargs):
+    """Execute a custom rule.
+
+    Args:
+        rule: The name of the rule to execute.
+        *args: Positional arguments for the rule.
+        **kwargs: Keyword arguments for the rule.
+    """
     if not rule:
         rule = _select_rule()
 
@@ -101,6 +116,14 @@ def _run_rule(rule: Optional[str] = None, *args, **kwargs):
 
 
 def _select_rule() -> str:
+    """Interactively select a custom rule.
+
+    Returns:
+        The name of the selected rule.
+
+    Raises:
+        typer.Exit: If no rule is selected or multiple are selected.
+    """
     custom_rules = _get_custom_rules()
     rule = prompter.choose(
         options=[rule.name for rule in custom_rules],
@@ -116,6 +139,15 @@ def _select_rule() -> str:
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
+    """Register custom rules commands.
+
+    Args:
+        app: Typer application instance.
+
+    Returns:
+        Dictionary mapping command names to their functions.
+    """
+
     @app.callback()
     def load_rules():
         """Load configured rules before any command runs."""
