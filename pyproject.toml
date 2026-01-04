@@ -13,6 +13,7 @@ dependencies = [
     "cryptography>=41.0.0",
     "yaspin>=3.4.0",
     "typer-di>=0.1.3",
+    "interrogate>=1.7.0",
 ]
 authors = [
     {name = "Pedro Iván Fernández González", email = "pedroifgonzalez@gmail.com"}

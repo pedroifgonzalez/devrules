@@ -20,8 +20,11 @@ def ensure_git_repo() -> Callable[[Callable[P, T]], Callable[P, T]]:
     """
 
     def decorator(func: Callable[P, T]) -> Callable[P, T]:
+        """Decorator that ensures the function is being called from within a Git repository."""
+
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+            """Decorator that ensures the function is being called from within a Git repository."""
             ensure_git_repo_()
             return func(*args, **kwargs)
 
