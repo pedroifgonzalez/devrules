@@ -62,7 +62,7 @@ cd devrules-company-dist
 
 2. Add built package:
 ```bash
-cp https://github.com/pedroifgonzalez/devrules/blob/main/README.md devrules/dist/devrules_company-*.whl .
+cp dist/devrules_company-*.whl .
 git add .
 git commit -m "Add devrules enterprise build"
 git push origin main

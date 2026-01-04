@@ -306,8 +306,8 @@ paths = ["./custom_checks.py"]
 3. **Run manually:**
 ```bash
 devrules list-rules
-devrules run-rules (selects rules interactively)
-devrules run-rules <rule_name>
+devrules run-rule (selects rules interactively)
+devrules run-rule <rule_name>
 ```
 
 ### Lifecycle Hooks
@@ -444,7 +444,7 @@ packages = ["mycompany.devrules"]
 - **Use `ignore_defaults=True`** for hook-triggered rules to avoid interactive prompts
 - **Return clear messages** - Users see these when rules fail
 - **Keep rules fast** - They run on every commit/deploy
-- **Test independently** - Use `devrules rules run <rule-name>` to test
+- **Test independently** - Use `devrules run-rule <rule-name>` to test
 - **Handle errors gracefully** - Return `(False, error_message)` instead of raising exceptions
 
 
