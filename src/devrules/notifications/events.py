@@ -1,3 +1,5 @@
+"""Notification events definitions."""
+
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -10,6 +12,9 @@ class NotificationEvent(Protocol):
 
 @dataclass(frozen=True)
 class DeployEvent(NotificationEvent):
+    """Event triggered during deployment."""
+
+    repo: str
     branch: str
     environment: str
     author: str

@@ -15,7 +15,7 @@ from devrules.core.deployment_service import (
     get_deployed_branch,
     rollback_deployment,
 )
-from devrules.core.git_service import get_author, get_current_branch
+from devrules.core.git_service import get_author, get_current_branch, get_current_repo_name
 from devrules.core.permission_service import can_deploy_to_environment
 from devrules.messages import deploy as msg
 from devrules.notifications import emit
@@ -25,6 +25,15 @@ from devrules.utils.typer import add_typer_block_message
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
+    """Register deployment commands.
+
+    Args:
+        app: Typer application instance.
+
+    Returns:
+        Dictionary mapping command names to their functions.
+    """
+
     @app.command()
     @ensure_git_repo()
     def deploy(
@@ -195,8 +204,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             typer.echo()
             typer.secho("\n💬 Emitting deployment event...", fg=typer.colors.BLUE)
             author = get_author()
+            repo = config.github.repo or get_current_repo_name()
+
             try:
-                emit(DeployEvent(branch=branch, environment=environment, author=author))
+                emit(DeployEvent(repo=repo, branch=branch, environment=environment, author=author))
             except RuntimeError as e:
                 typer.secho(f"⚠ Failed to emit deployment event: {e}", fg=typer.colors.YELLOW)
                 typer.secho(

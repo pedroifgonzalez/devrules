@@ -1,3 +1,5 @@
+"""CLI commands for project management."""
+
 import subprocess
 from typing import Any, Callable, Dict, Optional
 
@@ -23,6 +25,11 @@ from devrules.utils.typer import add_typer_block_message
 
 
 def _get_valid_statuses() -> list[str]:
+    """Get list of valid statuses from config or default.
+
+    Returns:
+        List of valid status strings.
+    """
     config = load_config(None)
     configured_statuses = getattr(config.github, "valid_statuses", None)
     if configured_statuses:
@@ -76,6 +83,19 @@ def _get_project_interactively(projects_keys: list[str]) -> Optional[str]:
 def _fetch_project_items(
     owner: str, project_number: str, exclude_status: Optional[str] = None
 ) -> list[dict]:
+    """Fetch items from a GitHub project.
+
+    Args:
+        owner: The GitHub owner.
+        project_number: The project number.
+        exclude_status: Optional status to exclude.
+
+    Returns:
+        List of project items.
+
+    Raises:
+        typer.Exit: If no items are found.
+    """
     items = []
     with yaspin(text="Fetching project items..."):
         items = list_project_items(
@@ -152,11 +172,22 @@ def _get_repo_owner_and_name(config, owner, issue_repo) -> tuple[str, str]:
     return repo_owner, repo_name
 
 
-def _get_status_interactively(valid_statuses: list[str], current_item_status: str) -> Optional[str]:
+def _get_status_interactively(
+    valid_statuses: list[str], current_item_status: Optional[str] = None
+) -> Optional[str]:
     """Get the new status interactively."""
     statuses_to_choose = valid_statuses.copy()
     if current_item_status and current_item_status in statuses_to_choose:
         statuses_to_choose.remove(current_item_status)
+
+    # Handle empty list case
+    if not statuses_to_choose:
+        if GUM_AVAILABLE:
+            gum.warning("No other statuses available to choose from.")
+        else:
+            typer.secho("No other statuses available to choose from.", fg=typer.colors.YELLOW)
+        return None
+
     if GUM_AVAILABLE:
         output = gum.choose(
             options=statuses_to_choose,
@@ -241,6 +272,15 @@ def _get_issue_and_status_interactively(items: list[Dict]) -> dict:
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
+    """Register project commands.
+
+    Args:
+        app: Typer application instance.
+
+    Returns:
+        Dictionary mapping command names to their functions.
+    """
+
     @app.command()
     def update_issue_status(
         issue: Optional[int] = typer.Argument(None, help="Issue number (e.g. 123)"),
@@ -301,7 +341,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             item_status = issue_data.get("item_status")
 
         # If no status is provided, show interactive status selection
-        if status is None and item_status:
+        if status is None:
             status = _get_status_interactively(valid_statuses, item_status)
 
         # Validate the status

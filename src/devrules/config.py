@@ -41,6 +41,7 @@ class CommitConfig:
     forbidden_patterns: list = field(default_factory=list)
     forbidden_paths: list = field(default_factory=list)
     auto_stage: bool = False
+    enable_ai_suggestions: bool = False
 
 
 @dataclass
@@ -73,6 +74,7 @@ class GitHubConfig:
     status_emojis: dict = field(default_factory=dict)
 
     def _validate(self):
+        """Validate the configuration."""
         if (
             self.integration_comment_status
             and self.valid_statuses
@@ -194,6 +196,14 @@ class PermissionsConfig:
 
 
 @dataclass
+class CustomRulesConfig:
+    """Configuration for custom validation rules."""
+
+    paths: list = field(default_factory=list)
+    packages: list = field(default_factory=list)
+
+
+@dataclass
 class Config:
     """Main configuration container."""
 
@@ -207,6 +217,7 @@ class Config:
     functional_groups: Dict[str, FunctionalGroupConfig] = field(default_factory=dict)
     channel: ChannelConfig = field(default_factory=ChannelConfig)
     permissions: PermissionsConfig = field(default_factory=PermissionsConfig)
+    custom_rules: CustomRulesConfig = field(default_factory=CustomRulesConfig)
 
 
 DEFAULT_CONFIG = {
@@ -246,6 +257,7 @@ DEFAULT_CONFIG = {
         "append_issue_number": True,
         "allow_hook_bypass": False,
         "auto_stage": True,
+        "enable_ai_suggestions": False,
     },
     "pr": {
         "max_loc": 400,
@@ -306,6 +318,10 @@ DEFAULT_CONFIG = {
         "roles": {},
         "default_role": None,
         "user_assignments": {},
+    },
+    "custom_rules": {
+        "paths": [],
+        "packages": [],
     },
 }
 
@@ -486,6 +502,13 @@ def load_config(config_path: Optional[Path] = None) -> Config:
         user_assignments=permissions_data.get("user_assignments", {}),
     )
 
+    # Parse custom rules config
+    custom_rules_data = config_data.get("custom_rules", {})
+    custom_rules_config = CustomRulesConfig(
+        paths=custom_rules_data.get("paths", []),
+        packages=custom_rules_data.get("packages", []),
+    )
+
     return Config(
         branch=BranchConfig(**config_data["branch"]),
         commit=CommitConfig(**{**config_data["commit"], "pattern": commit_pattern}),
@@ -497,4 +520,5 @@ def load_config(config_path: Optional[Path] = None) -> Config:
         functional_groups=functional_groups_dict,
         channel=channel_config,
         permissions=permissions_config,
+        custom_rules=custom_rules_config,
     )

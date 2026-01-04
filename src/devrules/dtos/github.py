@@ -1,3 +1,5 @@
+"""GitHub related DTOs."""
+
 from dataclasses import dataclass
 from typing import Optional
 
@@ -21,6 +23,8 @@ from typing import Optional
 
 @dataclass
 class ProjectItem:
+    """GitHub Project Item data structure."""
+
     assignees: Optional[list[str]] = None
     content: Optional[dict] = None
     id: Optional[str] = None

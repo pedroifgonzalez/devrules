@@ -1,3 +1,5 @@
+"""Slack notification channel implementation."""
+
 from __future__ import annotations
 
 import json
@@ -11,10 +13,14 @@ from .base import NotificationChannel
 
 
 class SlackClient:
+    """Simple client for posting messages to Slack."""
+
     def __init__(self, token: str):
+        """Initialize the Slack client."""
         self.token = token
 
     def post_message(self, channel: str, payload: dict) -> None:
+        """Post a message to Slack."""
         data = json.dumps(
             {
                 "channel": channel,
@@ -39,6 +45,7 @@ class SlackClient:
 
 
 def resolve_slack_channel(event: NotificationEvent, channels_map: Dict[str, str]) -> Optional[str]:
+    """Resolve the Slack channel for a given notification event."""
     if isinstance(event, DeployEvent):
         channel = channels_map.get(event.type)
         if not channel:
@@ -48,20 +55,25 @@ def resolve_slack_channel(event: NotificationEvent, channels_map: Dict[str, str]
 
 
 class SlackChannel(NotificationChannel):
+    """Notification channel for sending messages to Slack."""
+
     def __init__(
         self,
         token: str,
         channel_resolver: Callable[[NotificationEvent, Dict[str, str]], Optional[str]],
         channels_map: Dict[str, str],
     ):
+        """Initialize the Slack channel."""
         self.client = SlackClient(token)
         self.channel_resolver = channel_resolver
         self.channels_map = channels_map
 
     def supports(self, event: NotificationEvent) -> bool:
+        """Return True if this channel handles this event type."""
         return isinstance(event, DeployEvent)
 
     def send(self, event: NotificationEvent) -> None:
+        """Send a notification to Slack."""
         with yaspin(text="Resolving channel...", color="green") as spinner:
             try:
                 channel = self.channel_resolver(event, self.channels_map)
@@ -81,15 +93,17 @@ class SlackChannel(NotificationChannel):
             spinner.ok("✔")
 
     def _format_event(self, event: NotificationEvent) -> dict:
+        """Format a notification event into a Slack message."""
         if isinstance(event, DeployEvent):
             return self._format_deploy_event(event)
 
         raise NotImplementedError(f"Unsupported event: {type(event)}")
 
     def _format_deploy_event(self, event: DeployEvent) -> dict:
+        """Format a deploy event into a Slack message."""
         env_emoji = {
-            "dev": "🧪",
-            "staging": "🚦",
+            "dev": "🔩",
+            "staging": "🧪",
             "prod": "🚀",
         }.get(event.environment, "📦")
 
@@ -105,10 +119,12 @@ class SlackChannel(NotificationChannel):
                 },
                 {
                     "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": f"*Branch:* `{event.branch}`\n*Environment:* `{event.environment}`\n*Author:* `{event.author}`",
-                    },
+                    "fields": [
+                        {"type": "mrkdwn", "text": f"*Repository:*       `{event.repo}`"},
+                        {"type": "mrkdwn", "text": f"*Branch:*    `{event.branch}`"},
+                        {"type": "mrkdwn", "text": f"*Environment:*    `{event.environment}`"},
+                        {"type": "mrkdwn", "text": f"*Author:*    `{event.author}`"},
+                    ],
                 },
             ],
         }

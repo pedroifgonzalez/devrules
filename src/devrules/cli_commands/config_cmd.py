@@ -1,3 +1,5 @@
+"""CLI commands for configuration management."""
+
 import os
 import subprocess
 from typing import Any, Callable, Dict
@@ -130,6 +132,15 @@ def _write_hook_file(hook_path: str, content: str, hook_name: str) -> None:
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
+    """Register configuration commands.
+
+    Args:
+        app: Typer application instance.
+
+    Returns:
+        Dictionary mapping command names to their functions.
+    """
+
     @app.command()
     def init_config(
         path: str = typer.Option(".devrules.toml", "--path", "-p", help="Config file path"),

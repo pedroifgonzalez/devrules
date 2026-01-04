@@ -1,14 +1,19 @@
+"""CLI commands for commit management."""
+
 import os
 from typing import Any, Callable, Dict, Optional
 
 import typer
 from typer_di import Depends
+from yaspin import yaspin
 
+from devrules.adapters.ai import diny
 from devrules.config import Config, load_config
+from devrules.core.enum import DevRulesEvent
 from devrules.core.git_service import get_current_branch, get_current_issue_number
 from devrules.messages import commit as msg
 from devrules.utils import gum
-from devrules.utils.decorators import ensure_git_repo
+from devrules.utils.decorators import emit_event, ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.commit import validate_commit
 from devrules.validators.forbidden_files import (
@@ -18,7 +23,7 @@ from devrules.validators.forbidden_files import (
 from devrules.validators.ownership import validate_branch_ownership
 
 
-def build_commit_message_interactive(tags: list[str]) -> Optional[str]:
+def build_commit_message_interactive(config: Config, tags: list[str]) -> Optional[str]:
     """Build commit message interactively using gum or typer fallback.
 
     Args:
@@ -27,16 +32,31 @@ def build_commit_message_interactive(tags: list[str]) -> Optional[str]:
     Returns:
         Formatted commit message or None if cancelled
     """
+    default_message = None
+    if config.commit.enable_ai_suggestions:
+        with yaspin(text="Generating commit message...", color="green"):
+            default_message = diny.generate_commit_message()
+            if default_message is None:
+                # AI generation failed, continue without suggestion
+                pass
+
     if gum.is_available():
-        return _build_commit_with_gum(tags)
+        return _build_commit_with_gum(config=config, tags=tags, default_message=default_message)
     else:
-        return _build_commit_with_typer(tags)
+        return _build_commit_with_typer(tags, default_message)
 
 
-def _build_commit_with_gum(tags: list[str]) -> Optional[str]:
+def _build_commit_with_gum(
+    config: Config, tags: list[str], default_message: Optional[str] = None
+) -> Optional[str]:
     """Build commit message using gum UI."""
     print(gum.style("📝 Create Commit", foreground=81, bold=True))
     print(gum.style("=" * 50, foreground=81))
+
+    if config.commit.enable_ai_suggestions and default_message:
+        gum.info(f"AI message generated: {default_message}")
+    elif config.commit.enable_ai_suggestions and not default_message:
+        gum.warning("AI message generation failed or timed out")
 
     # Select tag
     tag = gum.choose(tags, header="Select commit tag:")
@@ -45,11 +65,22 @@ def _build_commit_with_gum(tags: list[str]) -> Optional[str]:
         return None
 
     # Write message with history
-    message = gum.input_text_with_history(
-        prompt_type=f"commit_message_{tag}",
-        placeholder="Describe your changes...",
-        header=f"[{tag}] Commit message:",
-    )
+    kwargs = {
+        "placeholder": "Describe your changes...",
+        "header": f"[{tag}] Commit message:",
+    }
+    if default_message:
+        kwargs["default"] = default_message
+
+    if config.commit.enable_ai_suggestions:
+        message = gum.input_text(**kwargs)
+    else:
+        kwargs.update(
+            {
+                "prompt_type": f"commit_message_{tag}",
+            }
+        )
+        message = gum.input_text_with_history(**kwargs)
 
     if not message:
         gum.error(msg.MESSAGE_CANNOT_BE_EMPTY)
@@ -58,7 +89,9 @@ def _build_commit_with_gum(tags: list[str]) -> Optional[str]:
     return f"[{tag}] {message}"
 
 
-def _build_commit_with_typer(tags: list[str]) -> Optional[str]:
+def _build_commit_with_typer(
+    tags: list[str], default_message: Optional[str] = None
+) -> Optional[str]:
     """Build commit message using typer prompts (fallback)."""
     add_typer_block_message(
         header="📝 Create Commit",
@@ -75,7 +108,7 @@ def _build_commit_with_typer(tags: list[str]) -> Optional[str]:
     tag = tags[tag_choice - 1]
 
     # Get message
-    message = typer.prompt(f"\n[{tag}] Enter commit message")
+    message = typer.prompt(f"\n[{tag}] Enter commit message", default=default_message)
 
     if not message:
         typer.secho(f"✘ {msg.MESSAGE_CANNOT_BE_EMPTY}", fg=typer.colors.RED)
@@ -85,6 +118,15 @@ def _build_commit_with_typer(tags: list[str]) -> Optional[str]:
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
+    """Register commit commands.
+
+    Args:
+        app: Typer application instance.
+
+    Returns:
+        Dictionary mapping command names to their functions.
+    """
+
     @app.command()
     @ensure_git_repo()
     def check_commit(
@@ -225,6 +267,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
     @app.command()
     @ensure_git_repo()
+    @emit_event(DevRulesEvent.PRE_COMMIT)
     def icommit(
         skip_checks: bool = typer.Option(
             False, "--skip-checks", help="Skip file validation and documentation checks"
@@ -256,7 +299,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 raise typer.Exit(code=1)
 
         # Build commit message interactively
-        message = build_commit_message_interactive(config.commit.tags)
+        message = build_commit_message_interactive(config=config, tags=config.commit.tags)
 
         if not message:
             typer.secho(f"✘ {msg.COMMIT_CANCELLED}", fg=typer.colors.YELLOW)

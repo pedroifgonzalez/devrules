@@ -1,6 +1,6 @@
 [project]
 name = "devrules"
-version = "0.1.8"
+version = "0.1.9"
 description = "CLI tool for enforcing development guidelines"
 readme = "README.md"
 license = {text = "Business Source License 1.1"}
@@ -52,6 +52,11 @@ enterprise = [
     "build>=1.0.0",
     "twine>=4.0.0",
 ]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocs-awesome-pages-plugin",
+]
 
 
 [dependency-groups]
@@ -68,6 +73,12 @@ dev = [
     "types-requests>=2.32.4.20250913",
     "types-toml>=0.10.8.20240310",
     "vcrpy>=8.1.0",
+    "interrogate>=1.7.0",
+]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocs-awesome-pages-plugin",
 ]
 
 
@@ -77,10 +88,10 @@ devr = "devrules.cli:app"
 
 [project.urls]
 Homepage = "https://github.com/pedroifgonzalez/devrules"
-Documentation = "https://github.com/pedroifgonzalez/devrules/blob/main/README.md"
+Documentation = "https://pedroifgonzalez.github.io/devrules/"
 Repository = "https://github.com/pedroifgonzalez/devrules"
 "Bug Tracker" = "https://github.com/pedroifgonzalez/devrules/issues"
-Changelog = "https://github.com/pedroifgonzalez/devrules/blob/main/docs/changelog.md"
+Changelog = "https://pedroifgonzalez.github.io/devrules/overview/changelog/"
 
 
 [tool.setuptools.packages.find]

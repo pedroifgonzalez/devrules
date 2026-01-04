@@ -1,3 +1,5 @@
+"""Common dependencies for CLI commands."""
+
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -11,4 +13,5 @@ def get_config(
         Optional[Path], Option("--config", "-c", help="Path to config file")
     ] = None,
 ) -> Config:
+    """Get the config file dependency."""
     return load_config(config_file)

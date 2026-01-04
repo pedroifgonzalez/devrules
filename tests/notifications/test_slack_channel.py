@@ -3,6 +3,7 @@ import os
 import pytest
 import vcr
 
+from devrules.core.git_service import get_current_repo_name
 from devrules.notifications.channels.slack import SlackChannel
 from devrules.notifications.events import DeployEvent
 
@@ -28,6 +29,7 @@ def test_slack_channel_send_deploy_event_real():
     )
 
     event = DeployEvent(
+        repo=get_current_repo_name(),
         branch="feature/vcr-test",
         environment="dev",
         author="devrules-test",

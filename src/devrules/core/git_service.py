@@ -1,3 +1,5 @@
+"""Git service for performing git operations."""
+
 import re
 import string
 import subprocess
@@ -428,3 +430,21 @@ def get_author() -> str:
         return result.stdout.strip()
     except subprocess.CalledProcessError:
         return "Unknown Author"
+
+
+def get_current_repo_name() -> str:
+    """Get the current git repository name."""
+    try:
+        result = subprocess.run(
+            ["git", "config", "--get", "remote.origin.url"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        remote_url = result.stdout.strip().rstrip("/")
+        repo_part = remote_url.split("/")[-1]
+        if repo_part.endswith(".git"):
+            repo_part = repo_part[:-4]
+        return repo_part or "Unknown Repository"
+    except subprocess.CalledProcessError:
+        return "Unknown Repository"
