@@ -35,6 +35,10 @@ See [LICENSE](LICENSE) for full details.
 
 ![Branch Name Validation](demos/gifs/devrules-branch-name-validation.gif)
 
+![Run Custom Rules](demos/gifs/devrules-run-rule.gif)
+
+![Custom Rules with Lifecycle Hooks](demos/gifs/devrules-run-rule-hook.gif)
+
 ## 🚀 Features
 
 - ✅ **Branch naming validation** - Enforce consistent branch naming conventions
