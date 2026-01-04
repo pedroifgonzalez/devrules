@@ -23,6 +23,7 @@ class RuleDefinition:
     func: RuleFunction
     description: str = ""
     hooks: Optional[list[DevRulesEvent]] = None
+    ignore_defaults: bool = False
 
 
 class RuleRegistry:
@@ -32,7 +33,11 @@ class RuleRegistry:
 
     @classmethod
     def register(
-        cls, name: str, description: str = "", hooks: Optional[list[DevRulesEvent]] = None
+        cls,
+        name: str,
+        description: str = "",
+        hooks: Optional[list[DevRulesEvent]] = None,
+        ignore_defaults: bool = False,
     ) -> Callable[[RuleFunction], RuleFunction]:
         """Decorator to register a function as a rule."""
 
@@ -41,7 +46,11 @@ class RuleRegistry:
                 # We warn but don't stop, latest definition wins
                 pass
             cls._rules[name] = RuleDefinition(
-                name=name, func=func, description=description, hooks=hooks
+                name=name,
+                func=func,
+                description=description,
+                hooks=hooks,
+                ignore_defaults=ignore_defaults,
             )
             return func
 
@@ -182,6 +191,10 @@ def prompt_for_rule_arguments(rule_name: str) -> Dict[str, Any]:
         param_default = None
         if param.default != inspect.Parameter.empty:
             param_default = param.default
+
+        if rule.ignore_defaults and param_default:
+            kwargs[param_name] = param_default
+            continue
 
         prompt_text = f"Enter value for '{param_name}' ({param_type}):"
         value = prompter.input_text(

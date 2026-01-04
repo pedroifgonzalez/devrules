@@ -8,6 +8,7 @@ from devrules.core.rules_engine import rule
     name="validate_docstrings",
     description="Validate docstrings in the code.",
     hooks=[DevRulesEvent.PRE_COMMIT],
+    ignore_defaults=True,
 )
 def check_docstrings(path: str = "src", fail_under: int = 98) -> tuple[bool, str]:
     """Validate docstrings in the code.

@@ -57,6 +57,7 @@ def emit_event(event: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
                 if not valid:
                     prompter.error(message)
                     prompter.exit(1)
+                prompter.success(message)
             return func(*args, **kwargs)
 
         return cast(Callable[P, T], wrapper)

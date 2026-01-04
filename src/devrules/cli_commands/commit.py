@@ -56,7 +56,7 @@ def _build_commit_with_gum(
     if config.commit.enable_ai_suggestions and default_message:
         gum.info(f"AI message generated: {default_message}")
     elif config.commit.enable_ai_suggestions and not default_message:
-        gum.warn("AI message generation failed or timed out")
+        gum.warning("AI message generation failed or timed out")
 
     # Select tag
     tag = gum.choose(tags, header="Select commit tag:")
