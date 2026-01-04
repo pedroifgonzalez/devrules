@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
 from devrules.config import CustomRulesConfig
+from devrules.core.enum import DevRulesEvent
 
 # Type alias for a rule function
 # A rule function takes arbitrary kwargs and returns (bool, str)
@@ -21,6 +22,7 @@ class RuleDefinition:
     name: str
     func: RuleFunction
     description: str = ""
+    hooks: Optional[list[DevRulesEvent]] = None
 
 
 class RuleRegistry:
@@ -29,14 +31,18 @@ class RuleRegistry:
     _rules: Dict[str, RuleDefinition] = {}
 
     @classmethod
-    def register(cls, name: str, description: str = "") -> Callable[[RuleFunction], RuleFunction]:
+    def register(
+        cls, name: str, description: str = "", hooks: Optional[list[DevRulesEvent]] = None
+    ) -> Callable[[RuleFunction], RuleFunction]:
         """Decorator to register a function as a rule."""
 
         def decorator(func: RuleFunction) -> RuleFunction:
             if name in cls._rules:
                 # We warn but don't stop, latest definition wins
                 pass
-            cls._rules[name] = RuleDefinition(name=name, func=func, description=description)
+            cls._rules[name] = RuleDefinition(
+                name=name, func=func, description=description, hooks=hooks
+            )
             return func
 
         return decorator

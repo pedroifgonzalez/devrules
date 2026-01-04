@@ -9,10 +9,11 @@ from yaspin import yaspin
 
 from devrules.adapters.ai import diny
 from devrules.config import Config, load_config
+from devrules.core.enum import DevRulesEvent
 from devrules.core.git_service import get_current_branch, get_current_issue_number
 from devrules.messages import commit as msg
 from devrules.utils import gum
-from devrules.utils.decorators import ensure_git_repo
+from devrules.utils.decorators import emit_event, ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.commit import validate_commit
 from devrules.validators.forbidden_files import (
@@ -266,6 +267,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
     @app.command()
     @ensure_git_repo()
+    @emit_event(DevRulesEvent.PRE_COMMIT)
     def icommit(
         skip_checks: bool = typer.Option(
             False, "--skip-checks", help="Skip file validation and documentation checks"
