@@ -33,10 +33,13 @@ See [LICENSE](LICENSE) for full details.
 
 ## 🎬 Demo
 
+### Branch Name Validation
 ![Branch Name Validation](demos/gifs/devrules-branch-name-validation.gif)
 
+### Run Custom Rules
 ![Run Custom Rules](demos/gifs/devrules-run-rule.gif)
 
+### Custom Rules with Lifecycle Hooks
 ![Custom Rules with Lifecycle Hooks](demos/gifs/devrules-run-rule-hook.gif)
 
 ## 🚀 Features
