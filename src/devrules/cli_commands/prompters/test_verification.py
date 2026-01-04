@@ -4,7 +4,15 @@ import sys
 from pathlib import Path
 
 # Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+try:
+    from devrules.cli_commands.prompters.factory import get_default_prompter, get_prompter
+    from devrules.cli_commands.prompters.gum_prompter import GumPrompter
+    from devrules.cli_commands.prompters.typer_prompter import TyperPrompter
+except ModuleNotFoundError:
+    # Add src to path for imports when running directly from source tree
+    src_path = str(Path(__file__).resolve().parent.parent.parent.parent)
+    if src_path not in sys.path:
+        sys.path.insert(0, src_path)
 
 from devrules.cli_commands.prompters.factory import get_default_prompter, get_prompter
 from devrules.cli_commands.prompters.gum_prompter import GumPrompter

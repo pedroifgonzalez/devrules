@@ -20,7 +20,7 @@ def validate_no_breakpoints() -> tuple[bool, str]:
         r"\bipdb\.set_trace\(\)",
         r"\bimport\s+pdb\b",
         r"\bimport\s+ipdb\b",
-        r"\bdebugger;",
+        r"\bdebugger\b;?",
         r"\bconsole\.log\(",
         r"\bbinding\.pry\b",
         r"\bbyebug\b",
@@ -67,5 +67,5 @@ def validate_no_breakpoints() -> tuple[bool, str]:
 
         return True, "No debugging statements found in staged changes."
 
-    except subprocess.CalledProcessError as exc:
+    except (subprocess.CalledProcessError, OSError) as exc:
         return False, f"Error checking staged diff: {exc}"

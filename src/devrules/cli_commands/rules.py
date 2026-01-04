@@ -42,14 +42,15 @@ def _format_rule_arguments(rule: RuleDefinition) -> Optional[str]:
     params = []
 
     for param_name, param in sig.parameters.items():
-        if param_name == "kwargs":
+        if param.kind == inspect.Parameter.VAR_KEYWORD:
             continue
 
         param_str = param_name
 
         # Add type annotation if available
         if param.annotation != inspect.Parameter.empty:
-            param_str += f": {param.annotation.__name__}"
+            annotation_name = getattr(param.annotation, "__name__", str(param.annotation))
+            param_str += f": {annotation_name}"
 
         # Add default value if available
         if param.default != inspect.Parameter.empty:

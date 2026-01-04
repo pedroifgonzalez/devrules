@@ -441,6 +441,10 @@ def get_current_repo_name() -> str:
             capture_output=True,
             text=True,
         )
-        return result.stdout.strip().split("/")[-1].split(".")[0]
+        remote_url = result.stdout.strip().rstrip("/")
+        repo_part = remote_url.split("/")[-1]
+        if repo_part.endswith(".git"):
+            repo_part = repo_part[:-4]
+        return repo_part or "Unknown Repository"
     except subprocess.CalledProcessError:
         return "Unknown Repository"

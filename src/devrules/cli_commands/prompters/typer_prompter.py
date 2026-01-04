@@ -75,7 +75,7 @@ class TyperPrompter(Prompter):
                 selection = typer.prompt("Your selection", type=str, default="")
 
                 if selection.lower() == "all":
-                    return options
+                    return options if limit == 0 else options[:limit]
 
                 if not selection.strip():
                     return []

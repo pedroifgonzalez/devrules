@@ -17,8 +17,11 @@ def check_docstrings(path: str = "src", fail_under: int = 98) -> tuple[bool, str
         RESULT: PASSED (minimum: 80.0%, actual: 98.3%)
 
     """
-    result = subprocess.run(
-        ["interrogate", path, "--fail-under", str(fail_under)], capture_output=True, text=True
-    )
+    try:
+        result = subprocess.run(
+            ["interrogate", path, "--fail-under", str(fail_under)], capture_output=True, text=True
+        )
+    except FileNotFoundError as exc:
+        return False, str(exc)
     valid = "PASSED" in result.stdout
     return valid, result.stdout

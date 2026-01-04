@@ -85,12 +85,11 @@ class GumPrompter(Prompter):
             placeholder: Placeholder text to show
             header: Header text to display
             char_limit: Maximum characters allowed (0 for unlimited)
-            default: Default value to pre-fill
 
         Returns:
             User input string or None if cancelled
         """
-        return gum.write(placeholder, header, char_limit, default)
+        return gum.write(placeholder, header, char_limit)
 
     def filter_list(
         self,

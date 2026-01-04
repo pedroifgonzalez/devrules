@@ -185,20 +185,21 @@ def prompt_for_rule_arguments(rule_name: str) -> Dict[str, Any]:
         # Get type information for better prompting
         param_type = "string"
         if param.annotation != inspect.Parameter.empty:
-            param_type = param.annotation.__name__.lower()
+            annotation = param.annotation
+            type_name = getattr(annotation, "__name__", str(annotation))
+            param_type = type_name.lower()
 
         # Prompt for the value
         param_default = None
         if param.default != inspect.Parameter.empty:
             param_default = param.default
 
-        if rule.ignore_defaults and param_default:
-            kwargs[param_name] = param_default
-            continue
+        if rule.ignore_defaults and param.default != inspect.Parameter.empty:
+            kwargs[param_name] = param.default
 
         prompt_text = f"Enter value for '{param_name}' ({param_type}):"
         value = prompter.input_text(
-            prompt_text, default=str(param_default) if param_default else None
+            prompt_text, default=str(param_default) if param_default is not None else None
         )
 
         if not value:
