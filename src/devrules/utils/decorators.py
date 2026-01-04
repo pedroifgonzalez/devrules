@@ -1,3 +1,5 @@
+"""Decorators for CLI commands and services."""
+
 import functools
 from typing import Callable, TypeVar, cast
 

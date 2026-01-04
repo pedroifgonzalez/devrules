@@ -1,3 +1,5 @@
+"""CLI commands for pull requests."""
+
 import re
 from typing import Any, Callable, Dict, Optional
 

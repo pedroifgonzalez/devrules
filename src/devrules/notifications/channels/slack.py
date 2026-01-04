@@ -1,3 +1,5 @@
+"""Slack notification channel implementation."""
+
 from __future__ import annotations
 
 import json
@@ -11,6 +13,8 @@ from .base import NotificationChannel
 
 
 class SlackClient:
+    """Simple client for posting messages to Slack."""
+
     def __init__(self, token: str):
         self.token = token
 
@@ -39,6 +43,7 @@ class SlackClient:
 
 
 def resolve_slack_channel(event: NotificationEvent, channels_map: Dict[str, str]) -> Optional[str]:
+    """Resolve the Slack channel for a given notification event."""
     if isinstance(event, DeployEvent):
         channel = channels_map.get(event.type)
         if not channel:
@@ -48,6 +53,8 @@ def resolve_slack_channel(event: NotificationEvent, channels_map: Dict[str, str]
 
 
 class SlackChannel(NotificationChannel):
+    """Notification channel for sending messages to Slack."""
+
     def __init__(
         self,
         token: str,

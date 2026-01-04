@@ -1,3 +1,5 @@
+"""Notification dispatcher for sending events to multiple channels."""
+
 import logging
 from typing import Iterable
 
@@ -8,6 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 class NotificationDispatcher:
+    """Dispatches notification events to registered channels."""
+
     def __init__(self, channels: Iterable[NotificationChannel]):
         self.channels = list(channels)
 

@@ -1,3 +1,5 @@
+"""CLI commands for configuration management."""
+
 import os
 import subprocess
 from typing import Any, Callable, Dict

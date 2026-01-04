@@ -1,3 +1,5 @@
+"""Project service for interacting with GitHub Projects logic."""
+
 import json
 import subprocess
 from typing import Optional, Tuple

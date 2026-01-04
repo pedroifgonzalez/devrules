@@ -1,3 +1,5 @@
+"""Git service for performing git operations."""
+
 import re
 import string
 import subprocess

@@ -1,3 +1,5 @@
+"""Notifications package for DevRules."""
+
 from .dispatcher import NotificationDispatcher
 from .events import NotificationEvent
 

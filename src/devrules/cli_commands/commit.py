@@ -1,3 +1,5 @@
+"""CLI commands for commit management."""
+
 import os
 from typing import Any, Callable, Dict, Optional
 

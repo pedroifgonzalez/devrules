@@ -1,3 +1,5 @@
+"""Adapter for Diny AI tool."""
+
 import shutil
 import subprocess
 from typing import Optional

@@ -1,3 +1,5 @@
+"""CLI commands for project management."""
+
 import subprocess
 from typing import Any, Callable, Dict, Optional
 

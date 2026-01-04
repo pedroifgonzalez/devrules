@@ -1,3 +1,5 @@
+"""CLI commands for branch management."""
+
 from typing import Any, Callable, Dict, Optional
 
 import typer
