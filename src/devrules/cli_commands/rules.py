@@ -8,7 +8,13 @@ import typer
 from devrules.cli_commands.prompters import Prompter
 from devrules.cli_commands.prompters.factory import get_default_prompter
 from devrules.config import load_config
-from devrules.core.rules_engine import RuleDefinition, RuleRegistry, discover_rules, execute_rule
+from devrules.core.rules_engine import (
+    RuleDefinition,
+    RuleRegistry,
+    discover_rules,
+    execute_rule,
+    prompt_for_rule_arguments,
+)
 from devrules.utils.typer import add_typer_block_message
 
 prompter: Prompter = get_default_prompter()
@@ -57,40 +63,6 @@ def _format_rule_arguments(rule: RuleDefinition) -> Optional[str]:
     return None
 
 
-def _prompt_for_rule_arguments(rule_name: str) -> Dict[str, Any]:
-    """Interactively prompt for rule arguments based on the rule's signature."""
-    rule = RuleRegistry.get_rule(rule_name)
-    if not rule:
-        return {}
-
-    sig = inspect.signature(rule.func)
-    kwargs = {}
-
-    for param_name, param in sig.parameters.items():
-        # Get type information for better prompting
-        param_type = "string"
-        if param.annotation != inspect.Parameter.empty:
-            param_type = param.annotation.__name__.lower()
-
-        # Prompt for the value
-        param_default = None
-        if param.default != inspect.Parameter.empty:
-            param_default = param.default
-
-        prompt_text = f"Enter value for '{param_name}' ({param_type}):"
-        value = prompter.input_text(
-            prompt_text, default=str(param_default) if param_default else None
-        )
-
-        if not value:
-            prompter.error(f"No value provided for required argument '{param_name}'")
-            return prompter.exit(1)
-
-        kwargs[param_name] = value
-
-    return kwargs
-
-
 def _run_rule(rule: Optional[str] = None, *args, **kwargs):
     """Execute a custom rule.
 
@@ -104,7 +76,7 @@ def _run_rule(rule: Optional[str] = None, *args, **kwargs):
 
     # If no arguments provided (both positional and keyword), prompt for required ones interactively
     if not args and not kwargs:
-        prompted_args = _prompt_for_rule_arguments(rule)
+        prompted_args = prompt_for_rule_arguments(rule)
         kwargs.update(prompted_args)
 
     prompter.info(f"Executing rule '{rule}'...")
