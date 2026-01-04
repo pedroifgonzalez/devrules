@@ -461,6 +461,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 Built with:
 - [Typer](https://typer.tiangolo.com/) - Amazing CLI framework
 - [Gum](https://github.com/charmbracelet/gum) - Glamorous shell scripts and terminal UI
+- [Diny](https://github.com/dinoDanic/diny) - Plug and play AI commit generation tool
 
 ## 📧 Contact
 
