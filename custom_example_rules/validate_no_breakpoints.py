@@ -1,3 +1,4 @@
+import re
 import subprocess
 
 from devrules.core.enum import DevRulesEvent
@@ -11,63 +12,60 @@ from devrules.core.rules_engine import rule
     ignore_defaults=True,
 )
 def validate_no_breakpoints() -> tuple[bool, str]:
-    """Check for common debugging breakpoints in staged files.
+    """Check for debugging statements in staged changes and report file paths."""
 
-    Detects:
-    - Python: breakpoint(), pdb.set_trace(), ipdb.set_trace()
-    - JavaScript/TypeScript: debugger;
-    - Ruby: binding.pry, byebug
-    """
-    # Common breakpoint patterns across languages
-    breakpoint_patterns = [
-        r"\bbreakpoint\(\)",  # Python 3.7+
-        r"\bpdb\.set_trace\(\)",  # Python pdb
-        r"\bipdb\.set_trace\(\)",  # Python ipdb
-        r"\bimport\s+pdb",  # Python pdb import
-        r"\bimport\s+ipdb",  # Python ipdb import
-        r"\bdebugger;",  # JavaScript/TypeScript
-        r"\bconsole\.log\(",  # JavaScript console.log (optional)
-        r"\bbinding\.pry",  # Ruby pry
-        r"\bbyebug",  # Ruby byebug
+    patterns = [
+        r"\bbreakpoint\(\)",
+        r"\bpdb\.set_trace\(\)",
+        r"\bipdb\.set_trace\(\)",
+        r"\bimport\s+pdb\b",
+        r"\bimport\s+ipdb\b",
+        r"\bdebugger;",
+        r"\bconsole\.log\(",
+        r"\bbinding\.pry\b",
+        r"\bbyebug\b",
     ]
 
-    # Get staged files
+    combined = re.compile("|".join(patterns))
+
     try:
-        result = subprocess.run(
-            ["git", "diff", "--cached", "--name-only"],
+        diff = subprocess.run(
+            ["git", "diff", "--cached", "--unified=0"],
             capture_output=True,
             text=True,
             check=True,
-        )
-        staged_files = [f.strip() for f in result.stdout.split("\n") if f.strip()]
+        ).stdout
 
-        if not staged_files:
-            return True, "No staged files to check."
+        offending: dict[str, list[str]] = {}
+        current_file: str | None = None
 
-        # Check each pattern in staged files
-        found_breakpoints = []
-        for pattern in breakpoint_patterns:
-            grep_result = subprocess.run(
-                ["git", "grep", "-n", "-E", pattern, "--cached"],
-                capture_output=True,
-                text=True,
-            )
+        for line in diff.splitlines():
+            # Detect file from diff header
+            if line.startswith("+++ b/"):
+                current_file = line[6:]
+                continue
 
-            if grep_result.returncode == 0:
-                # Found matches
-                matches = grep_result.stdout.strip().split("\n")
-                found_breakpoints.extend(matches)
+            # Only added lines (ignore diff metadata)
+            if current_file and line.startswith("+") and not line.startswith("+++"):
+                content = line[1:]
+                if combined.search(content):
+                    offending.setdefault(current_file, []).append(content.strip())
 
-        if found_breakpoints:
-            error_msg = "❌ Breakpoints detected in staged files:\n\n"
-            for match in found_breakpoints[:10]:  # Limit to first 10
-                error_msg += f"  • {match}\n"
-            if len(found_breakpoints) > 10:
-                error_msg += f"\n  ... and {len(found_breakpoints) - 10} more"
-            error_msg += "\n💡 Remove debugging statements before committing."
-            return False, error_msg
+        if offending:
+            msg = "Debugging statements detected in staged changes:\n\n"
 
-        return True, f"✓ No breakpoints found in {len(staged_files)} staged file(s)."
+            for file, lines in offending.items():
+                msg += f"{file}\n"
+                for line in lines[:5]:
+                    msg += f"  • {line}\n"
+                if len(lines) > 5:
+                    msg += f"  ... and {len(lines) - 5} more\n"
+                msg += "\n"
 
-    except subprocess.CalledProcessError as e:
-        return False, f"Error checking for breakpoints: {e}"
+            msg += "💡 Remove debugging statements before committing."
+            return False, msg
+
+        return True, "No debugging statements found in staged changes."
+
+    except subprocess.CalledProcessError as exc:
+        return False, f"Error checking staged diff: {exc}"
