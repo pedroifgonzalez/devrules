@@ -48,6 +48,7 @@ See [LICENSE](LICENSE) for full details.
 - 📊 **TUI Dashboard** - Interactive terminal dashboard for metrics and issue tracking
 - 🏢 **Enterprise builds** - Create custom packages with embedded corporate configuration
 - 🛠️ **Custom Rules Engine** - Define and run your own validation functions
+- 🪝 **Lifecycle Hooks** - Attach custom rules to events (pre-commit, pre-deploy, etc.)
 
 
 ## 📦 Installation
@@ -275,7 +276,9 @@ See [Enterprise Build Guide](docs/ENTERPRISE_BUILD.md) for more details.
 
 ## 🛠️ Custom Validation Rules
 
-Extend DevRules with your own Python validation logic:
+Extend DevRules with your own Python validation logic and attach them to lifecycle events.
+
+### Basic Rule Definition
 
 1. **Define a rule:**
 ```python
@@ -293,11 +296,149 @@ def check_env():
 paths = ["./custom_checks.py"]
 ```
 
-3. **Run:**
+3. **Run manually:**
 ```bash
-devrules rules list
-devrules rules run check-env
+devrules list-rules
+devrules run-rules (selects rules interactively)
+devrules run-rules <rule_name>
 ```
+
+### Lifecycle Hooks
+
+Attach custom rules to specific lifecycle events for automatic execution:
+
+#### Available Events
+
+- **`PRE_COMMIT`** - Before committing changes (blocking)
+- **`POST_COMMIT`** - After successful commit (non-blocking)
+- **`PRE_PUSH`** - Before pushing to remote (blocking)
+- **`PRE_PR`** - Before creating a pull request (blocking)
+- **`PRE_DEPLOY`** - Before deployment (blocking)
+- **`POST_DEPLOY`** - After successful deployment (non-blocking)
+
+#### Hook Registration
+
+```python
+from devrules.core.enum import DevRulesEvent
+from devrules.core.rules_engine import rule
+
+@rule(
+    name="validate_no_breakpoints",
+    description="Ensure no debugging statements in code",
+    hooks=[DevRulesEvent.PRE_COMMIT],  # Auto-run before commits
+    ignore_defaults=True,  # Skip interactive prompts when run as hook
+)
+def validate_no_breakpoints() -> tuple[bool, str]:
+    """Check for debugging breakpoints in staged changes."""
+    # Your validation logic here
+    return True, "No breakpoints found"
+```
+
+#### Example: Multi-Language Breakpoint Detection
+
+```python
+import re
+import subprocess
+from devrules.core.enum import DevRulesEvent
+from devrules.core.rules_engine import rule
+
+@rule(
+    name="validate_no_breakpoints",
+    description="Validate that there are no breakpoints in the code.",
+    hooks=[DevRulesEvent.PRE_COMMIT],
+    ignore_defaults=True,
+)
+def validate_no_breakpoints() -> tuple[bool, str]:
+    """Check for debugging statements in staged changes."""
+    
+    patterns = [
+        r"\bbreakpoint\(\)",           # Python
+        r"\bpdb\.set_trace\(\)",       # Python pdb
+        r"\bdebugger;",                # JavaScript/TypeScript
+        r"\bconsole\.log\(",           # JavaScript console
+        r"\bbinding\.pry\b",           # Ruby pry
+    ]
+    
+    combined = re.compile("|".join(patterns))
+    
+    # Get staged diff
+    diff = subprocess.run(
+        ["git", "diff", "--cached", "--unified=0"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    
+    offending = {}
+    current_file = None
+    
+    for line in diff.splitlines():
+        if line.startswith("+++ b/"):
+            current_file = line[6:]
+        elif current_file and line.startswith("+") and not line.startswith("+++"):
+            if combined.search(line[1:]):
+                offending.setdefault(current_file, []).append(line[1:].strip())
+    
+    if offending:
+        msg = "Debugging statements detected:\n\n"
+        for file, lines in offending.items():
+            msg += f"{file}\n"
+            for line in lines[:5]:
+                msg += f"  • {line}\n"
+        return False, msg
+    
+    return True, "No debugging statements found."
+```
+
+#### Example: Documentation Coverage Check
+
+```python
+import subprocess
+from devrules.core.enum import DevRulesEvent
+from devrules.core.rules_engine import rule
+
+@rule(
+    name="validate_docstrings",
+    description="Validate docstrings in the code.",
+    hooks=[DevRulesEvent.PRE_COMMIT],
+    ignore_defaults=True,
+)
+def check_docstrings(path: str = "src", fail_under: int = 98) -> tuple[bool, str]:
+    """Validate docstrings coverage using interrogate."""
+    result = subprocess.run(
+        ["interrogate", path, "--fail-under", str(fail_under)],
+        capture_output=True,
+        text=True,
+    )
+    valid = "PASSED" in result.stdout
+    return valid, result.stdout
+```
+
+### How Hooks Work
+
+1. **Automatic Execution**: When you run `devrules icommit` or `devrules commit`, all rules registered with `PRE_COMMIT` hooks are automatically executed
+2. **Blocking Behavior**: Pre-hooks (PRE_*) block the operation if validation fails
+3. **Non-Interactive**: Rules with `ignore_defaults=True` use default parameter values instead of prompting
+4. **Clear Feedback**: Hook execution shows which rules are running and their results
+
+### Configuration
+
+```toml
+[custom_rules]
+# Paths to Python files or directories containing rules
+paths = ["./custom_rules/", "./checks.py"]
+
+# Python packages to import (rules will auto-register)
+packages = ["mycompany.devrules"]
+```
+
+### Best Practices
+
+- **Use `ignore_defaults=True`** for hook-triggered rules to avoid interactive prompts
+- **Return clear messages** - Users see these when rules fail
+- **Keep rules fast** - They run on every commit/deploy
+- **Test independently** - Use `devrules rules run <rule-name>` to test
+- **Handle errors gracefully** - Return `(False, error_message)` instead of raising exceptions
 
 
 ## 📚 Documentation
