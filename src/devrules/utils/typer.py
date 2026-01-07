@@ -1,3 +1,5 @@
+"""Typer utilities for better CLI output."""
+
 import typer
 
 
@@ -8,6 +10,7 @@ def add_typer_block_message(
     indent_block: bool = True,
     use_separator: bool = True,
 ):
+    """Add a block message to the output."""
     indent = " " * 4
     all_messages = []
     all_messages.append(header)

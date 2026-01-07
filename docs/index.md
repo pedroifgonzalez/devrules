@@ -18,7 +18,7 @@ DevRules is a powerful CLI tool designed to automate and enforce development gui
 ## Documentation Sections
 
 ### [Overview](overview/one-pager.md)
-General information about DevRules, including the changelog and one pager.
+General information about DevRules, including the changelog and one-pager.
 
 ### [For Decision Makers](decision-makers/comparison.md)
 Business-focused content including comparisons with other tools.

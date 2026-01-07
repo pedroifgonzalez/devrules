@@ -25,6 +25,15 @@ from devrules.utils.typer import add_typer_block_message
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
+    """Register deployment commands.
+
+    Args:
+        app: Typer application instance.
+
+    Returns:
+        Dictionary mapping command names to their functions.
+    """
+
     @app.command()
     @ensure_git_repo()
     def deploy(

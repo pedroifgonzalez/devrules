@@ -1,9 +1,13 @@
+"""Base class for notification channels."""
+
 from abc import ABC, abstractmethod
 
 from devrules.notifications.events import NotificationEvent
 
 
 class NotificationChannel(ABC):
+    """Abstract base class for notification channels."""
+
     @abstractmethod
     def supports(self, event: NotificationEvent) -> bool:
         """Return True if this channel handles this event type."""

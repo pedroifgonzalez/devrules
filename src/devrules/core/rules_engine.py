@@ -5,9 +5,10 @@ import inspect
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from devrules.config import CustomRulesConfig
+from devrules.core.enum import DevRulesEvent
 
 # Type alias for a rule function
 # A rule function takes arbitrary kwargs and returns (bool, str)
@@ -21,6 +22,8 @@ class RuleDefinition:
     name: str
     func: RuleFunction
     description: str = ""
+    hooks: Optional[list[DevRulesEvent]] = None
+    ignore_defaults: bool = False
 
 
 class RuleRegistry:
@@ -29,14 +32,26 @@ class RuleRegistry:
     _rules: Dict[str, RuleDefinition] = {}
 
     @classmethod
-    def register(cls, name: str, description: str = "") -> Callable[[RuleFunction], RuleFunction]:
+    def register(
+        cls,
+        name: str,
+        description: str = "",
+        hooks: Optional[list[DevRulesEvent]] = None,
+        ignore_defaults: bool = False,
+    ) -> Callable[[RuleFunction], RuleFunction]:
         """Decorator to register a function as a rule."""
 
         def decorator(func: RuleFunction) -> RuleFunction:
             if name in cls._rules:
                 # We warn but don't stop, latest definition wins
                 pass
-            cls._rules[name] = RuleDefinition(name=name, func=func, description=description)
+            cls._rules[name] = RuleDefinition(
+                name=name,
+                func=func,
+                description=description,
+                hooks=hooks,
+                ignore_defaults=ignore_defaults,
+            )
             return func
 
         return decorator
@@ -150,3 +165,47 @@ def execute_rule(name: str, *args, **kwargs) -> Tuple[bool, str]:
         return definition.func(*positional_args, **call_args)
     except Exception as e:
         return False, f"Error executing rule '{name}': {e}"
+
+
+def prompt_for_rule_arguments(rule_name: str) -> Dict[str, Any]:
+    """Interactively prompt for rule arguments based on the rule's signature."""
+    from devrules.cli_commands.prompters import Prompter
+    from devrules.cli_commands.prompters.factory import get_default_prompter
+
+    prompter: Prompter = get_default_prompter()
+
+    rule = RuleRegistry.get_rule(rule_name)
+    if not rule:
+        return {}
+
+    sig = inspect.signature(rule.func)
+    kwargs = {}
+
+    for param_name, param in sig.parameters.items():
+        # Get type information for better prompting
+        param_type = "string"
+        if param.annotation != inspect.Parameter.empty:
+            annotation = param.annotation
+            type_name = getattr(annotation, "__name__", str(annotation))
+            param_type = type_name.lower()
+
+        # Prompt for the value
+        param_default = None
+        if param.default != inspect.Parameter.empty:
+            param_default = param.default
+
+        if rule.ignore_defaults and param.default != inspect.Parameter.empty:
+            kwargs[param_name] = param.default
+
+        prompt_text = f"Enter value for '{param_name}' ({param_type}):"
+        value = prompter.input_text(
+            prompt_text, default=str(param_default) if param_default is not None else None
+        )
+
+        if not value:
+            prompter.error(f"No value provided for required argument '{param_name}'")
+            return prompter.exit(1)
+
+        kwargs[param_name] = value
+
+    return kwargs

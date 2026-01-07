@@ -5,6 +5,80 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.9] - 2026-01-03
+
+### Added
+- **Custom Rules Engine** - Extensible validation system for defining custom checks
+  - `@rule` decorator for registering custom validation functions
+  - `list-rules` command to view all registered rules
+  - `run-rule` command to execute rules manually (interactive or by name)
+  - Support for positional and keyword arguments in custom rules
+  - Automatic rule discovery from configured paths and packages
+  - `[custom_rules]` configuration section with `paths` and `packages` options
+- **Lifecycle Hooks System** - Attach custom rules to development workflow events
+  - `DevRulesEvent` enum with 6 lifecycle events: `PRE_COMMIT`, `POST_COMMIT`, `PRE_PUSH`, `PRE_PR`, `PRE_DEPLOY`, `POST_DEPLOY`
+  - `@emit_event` decorator for triggering hooks at specific lifecycle points
+  - `hooks` parameter in `@rule` decorator to register rules for automatic execution
+  - `ignore_defaults` parameter to skip interactive prompts when rules run as hooks
+  - Automatic execution of hooked rules during `icommit` and `commit` commands
+- **Example Custom Rules** - Production-ready validation examples
+  - `validate_no_breakpoints` - Detects debugging statements in staged changes (Python, JavaScript, Ruby)
+  - `validate_docstrings` - Validates documentation coverage using interrogate
+- **AI-Powered Commit Messages** - Generate commit message suggestions using diny
+  - `enable_ai_suggestions` config option in `[commit]` section
+  - Automatic AI-generated commit message suggestions during interactive commits
+  - Graceful fallback with timeout handling if AI generation fails
+  - Security warnings and opt-in configuration
+- **Prompter Interface** - Standardized CLI interaction system
+  - New `Prompter` abstract interface for consistent user interaction
+  - `GumPrompter` implementation for enhanced terminal UI
+  - `TyperPrompter` fallback for environments without gum
+  - Centralized input/output handling across all CLI commands
+- **Enhanced Documentation** - Comprehensive guides and examples
+  - Complete MkDocs documentation site with multi-audience navigation
+  - Developer guides: getting-started, concepts, configuration, CLI, examples
+  - Integration guides: GitHub, CI/CD, Slack
+  - API documentation for adapters, core, DTOs, notifications, utils
+  - Lifecycle hooks documentation with working examples
+  - Demo GIFs showcasing custom rules and hooks in action
+
+### Changed
+- **Rules CLI Experience** - Improved interactive rule execution
+  - Rules without arguments now show "No arguments required" message
+  - Better argument prompting with type information and defaults
+  - Cleaner output formatting and error messages
+- **Commit Workflow** - Enhanced commit command with AI suggestions
+  - AI-generated commit messages appear as default values during interactive commits
+  - Timeout protection (30s default) for AI generation
+  - Visual feedback with yaspin spinner during AI generation
+- **Code Organization** - Better structure and maintainability
+  - Moved rule argument prompting to core engine for reusability
+  - Extracted event system logic into dedicated `events_engine.py` module
+  - Created `enum.py` for centralized event definitions
+  - Improved separation of concerns across modules
+
+### Fixed
+- GitHub issues without status field now handled gracefully
+- Improved color handling in gum integration
+- Better error messages for rule execution failures
+
+### Technical Improvements
+- **Extensibility** - Plugin-like architecture for custom validations
+- **Type Safety** - Enhanced type hints and annotations throughout codebase
+- **Documentation Coverage** - Added docstrings to all major modules and functions
+- **Testing** - Support for testing custom rules independently
+- **Developer Experience** - Clear feedback during hook execution with success/error messages
+
+### Documentation
+- Added comprehensive README section on custom rules and lifecycle hooks
+- Included two complete working examples with explanations
+- Added best practices guide for rule development
+- Updated features list to highlight lifecycle hooks capability
+- Added demo GIFs for visual learning
+
+### Breaking Changes
+None - All new features are opt-in and backward compatible
+
 ## [0.1.8] - 2025-12-24
 
 ### Added

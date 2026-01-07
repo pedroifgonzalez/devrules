@@ -1,3 +1,5 @@
+"""CLI commands for commit management."""
+
 import os
 from typing import Any, Callable, Dict, Optional
 
@@ -7,10 +9,11 @@ from yaspin import yaspin
 
 from devrules.adapters.ai import diny
 from devrules.config import Config, load_config
+from devrules.core.enum import DevRulesEvent
 from devrules.core.git_service import get_current_branch, get_current_issue_number
 from devrules.messages import commit as msg
 from devrules.utils import gum
-from devrules.utils.decorators import ensure_git_repo
+from devrules.utils.decorators import emit_event, ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.commit import validate_commit
 from devrules.validators.forbidden_files import (
@@ -53,7 +56,7 @@ def _build_commit_with_gum(
     if config.commit.enable_ai_suggestions and default_message:
         gum.info(f"AI message generated: {default_message}")
     elif config.commit.enable_ai_suggestions and not default_message:
-        gum.warn("AI message generation failed or timed out")
+        gum.warning("AI message generation failed or timed out")
 
     # Select tag
     tag = gum.choose(tags, header="Select commit tag:")
@@ -115,6 +118,15 @@ def _build_commit_with_typer(
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
+    """Register commit commands.
+
+    Args:
+        app: Typer application instance.
+
+    Returns:
+        Dictionary mapping command names to their functions.
+    """
+
     @app.command()
     @ensure_git_repo()
     def check_commit(
@@ -255,6 +267,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
     @app.command()
     @ensure_git_repo()
+    @emit_event(DevRulesEvent.PRE_COMMIT)
     def icommit(
         skip_checks: bool = typer.Option(
             False, "--skip-checks", help="Skip file validation and documentation checks"

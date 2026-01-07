@@ -70,17 +70,29 @@ class TyperPrompter(Prompter):
                 return None
         else:
             # Multi-selection
-            typer.echo("\nEnter numbers separated by spaces (or 'all' for all options):")
+            max_selections = "unlimited" if limit == 0 else str(limit)
+            typer.echo(
+                f"\nEnter numbers separated by spaces (max: {max_selections}, or 'all' for all options):"
+            )
             try:
                 selection = typer.prompt("Your selection", type=str, default="")
 
-                if selection.lower() == "all":
+                if selection.lower() == "all" and limit == 0:
                     return options
+                elif selection.lower() == "all" and limit > 0:
+                    typer.secho(f"Cannot select all when limit is {limit}", fg=typer.colors.RED)
+                    return None
 
                 if not selection.strip():
                     return []
 
                 indices = [int(x.strip()) for x in selection.split()]
+
+                # Enforce limit if specified
+                if limit > 0 and len(indices) > limit:
+                    typer.secho(f"Too many selections (max: {limit})", fg=typer.colors.RED)
+                    return None
+
                 selected = []
                 for idx in indices:
                     if 1 <= idx <= len(options):

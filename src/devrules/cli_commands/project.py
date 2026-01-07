@@ -1,3 +1,5 @@
+"""CLI commands for project management."""
+
 import subprocess
 from typing import Any, Callable, Dict, Optional
 
@@ -23,6 +25,11 @@ from devrules.utils.typer import add_typer_block_message
 
 
 def _get_valid_statuses() -> list[str]:
+    """Get list of valid statuses from config or default.
+
+    Returns:
+        List of valid status strings.
+    """
     config = load_config(None)
     configured_statuses = getattr(config.github, "valid_statuses", None)
     if configured_statuses:
@@ -76,6 +83,19 @@ def _get_project_interactively(projects_keys: list[str]) -> Optional[str]:
 def _fetch_project_items(
     owner: str, project_number: str, exclude_status: Optional[str] = None
 ) -> list[dict]:
+    """Fetch items from a GitHub project.
+
+    Args:
+        owner: The GitHub owner.
+        project_number: The project number.
+        exclude_status: Optional status to exclude.
+
+    Returns:
+        List of project items.
+
+    Raises:
+        typer.Exit: If no items are found.
+    """
     items = []
     with yaspin(text="Fetching project items..."):
         items = list_project_items(
@@ -252,6 +272,15 @@ def _get_issue_and_status_interactively(items: list[Dict]) -> dict:
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
+    """Register project commands.
+
+    Args:
+        app: Typer application instance.
+
+    Returns:
+        Dictionary mapping command names to their functions.
+    """
+
     @app.command()
     def update_issue_status(
         issue: Optional[int] = typer.Argument(None, help="Issue number (e.g. 123)"),

@@ -14,10 +14,6 @@ theme:
       scheme: slate  # Built-in dark scheme for calm, low-saturation reading
       primary: brown  # Earth-toned brown primary (#a52a2a) for stone tablet immutability metaphor
       accent: amber  # Single accent color (#2dd4bf) for highlights and CLI focus
-      success: green  # Standard green for success states (#10b981)
-      warning: amber  # Amber for warnings (#f59e0b) - authoritative but not alarming
-      danger: red  # Red for errors/blocking (#ef4444) - clear but muted
-      info: teal  # Teal for info/highlights (#2dd4bf) - consistent with accent
       toggle:
         icon: material/brightness-auto
         name: Switch to light mode
@@ -25,11 +21,7 @@ theme:
     - media: "(prefers-color-scheme: light)"
       scheme: default  # Light scheme with stone tones
       primary: brown  # Earth-toned brown primary (#a52a2a) for consistency
-      accent: amber  # Same teal accent (#2dd4bf)
-      success: green  # Same green (#10b981)
-      warning: amber  # Same amber (#f59e0b)
-      danger: red  # Same red (#ef4444)
-      info: teal  # Same teal (#2dd4bf)
+      accent: amber  # Same amber accent
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
@@ -38,10 +30,6 @@ theme:
       scheme: slate
       primary: brown
       accent: amber
-      success: green
-      warning: amber
-      danger: red
-      info: teal
       toggle:
         icon: material/brightness-4
         name: Switch to system preference

@@ -1,3 +1,5 @@
+"""CLI commands for branch management."""
+
 from typing import Any, Callable, Dict, Optional
 
 import typer
@@ -34,6 +36,16 @@ from devrules.validators.repo_state import display_repo_state_issues, validate_r
 
 
 def _handle_forbidden_cross_repo_card(gh_project_item: Any, config: Any, repo_message: str) -> None:
+    """Handle the forbidden cross-repository card scenario by displaying a valid message and exiting.
+
+    Args:
+        gh_project_item: The GitHub project item.
+        config: The configuration object.
+        repo_message: The raw repository message.
+
+    Raises:
+        typer.Exit: Always exits with code 1.
+    """
     # Prefer a concise, user-friendly message using centralized text.
     try:
         # Derive the expected and actual repo labels for the message.
@@ -66,6 +78,15 @@ def _handle_forbidden_cross_repo_card(gh_project_item: Any, config: Any, repo_me
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
+    """Register branch commands.
+
+    Args:
+        app: Typer application instance.
+
+    Returns:
+        Dictionary mapping command names to their functions.
+    """
+
     @app.command()
     @ensure_git_repo()
     def check_branch(

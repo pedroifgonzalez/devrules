@@ -1,3 +1,5 @@
+"""Command aliases registry."""
+
 import typer
 
 ALIAS_MAP = {

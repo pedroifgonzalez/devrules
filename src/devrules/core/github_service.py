@@ -1,3 +1,5 @@
+"""GitHub service for interacting with GitHub API."""
+
 import os
 import shutil
 

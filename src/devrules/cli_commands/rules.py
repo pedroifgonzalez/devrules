@@ -8,13 +8,27 @@ import typer
 from devrules.cli_commands.prompters import Prompter
 from devrules.cli_commands.prompters.factory import get_default_prompter
 from devrules.config import load_config
-from devrules.core.rules_engine import RuleDefinition, RuleRegistry, discover_rules, execute_rule
+from devrules.core.rules_engine import (
+    RuleDefinition,
+    RuleRegistry,
+    discover_rules,
+    execute_rule,
+    prompt_for_rule_arguments,
+)
 from devrules.utils.typer import add_typer_block_message
 
 prompter: Prompter = get_default_prompter()
 
 
 def _get_custom_rules() -> list[RuleDefinition]:
+    """Get the list of custom rules.
+
+    Returns:
+        List of RuleDefinition objects.
+
+    Raises:
+        typer.Exit: If no rules are found.
+    """
     custom_rules = RuleRegistry.list_rules()
     if not custom_rules:
         prompter.error("No custom rules found.")
@@ -28,14 +42,15 @@ def _format_rule_arguments(rule: RuleDefinition) -> Optional[str]:
     params = []
 
     for param_name, param in sig.parameters.items():
-        if param_name == "kwargs":
+        if param.kind == inspect.Parameter.VAR_KEYWORD:
             continue
 
         param_str = param_name
 
         # Add type annotation if available
         if param.annotation != inspect.Parameter.empty:
-            param_str += f": {param.annotation.__name__}"
+            annotation_name = getattr(param.annotation, "__name__", str(param.annotation))
+            param_str += f": {annotation_name}"
 
         # Add default value if available
         if param.default != inspect.Parameter.empty:
@@ -49,47 +64,20 @@ def _format_rule_arguments(rule: RuleDefinition) -> Optional[str]:
     return None
 
 
-def _prompt_for_rule_arguments(rule_name: str) -> Dict[str, Any]:
-    """Interactively prompt for rule arguments based on the rule's signature."""
-    rule = RuleRegistry.get_rule(rule_name)
-    if not rule:
-        return {}
-
-    sig = inspect.signature(rule.func)
-    kwargs = {}
-
-    for param_name, param in sig.parameters.items():
-        # Get type information for better prompting
-        param_type = "string"
-        if param.annotation != inspect.Parameter.empty:
-            param_type = param.annotation.__name__.lower()
-
-        # Prompt for the value
-        param_default = None
-        if param.default != inspect.Parameter.empty:
-            param_default = param.default
-
-        prompt_text = f"Enter value for '{param_name}' ({param_type}):"
-        value = prompter.input_text(
-            prompt_text, default=str(param_default) if param_default else None
-        )
-
-        if not value:
-            prompter.error(f"No value provided for required argument '{param_name}'")
-            return prompter.exit(1)
-
-        kwargs[param_name] = value
-
-    return kwargs
-
-
 def _run_rule(rule: Optional[str] = None, *args, **kwargs):
+    """Execute a custom rule.
+
+    Args:
+        rule: The name of the rule to execute.
+        *args: Positional arguments for the rule.
+        **kwargs: Keyword arguments for the rule.
+    """
     if not rule:
         rule = _select_rule()
 
     # If no arguments provided (both positional and keyword), prompt for required ones interactively
     if not args and not kwargs:
-        prompted_args = _prompt_for_rule_arguments(rule)
+        prompted_args = prompt_for_rule_arguments(rule)
         kwargs.update(prompted_args)
 
     prompter.info(f"Executing rule '{rule}'...")
@@ -101,6 +89,14 @@ def _run_rule(rule: Optional[str] = None, *args, **kwargs):
 
 
 def _select_rule() -> str:
+    """Interactively select a custom rule.
+
+    Returns:
+        The name of the selected rule.
+
+    Raises:
+        typer.Exit: If no rule is selected or multiple are selected.
+    """
     custom_rules = _get_custom_rules()
     rule = prompter.choose(
         options=[rule.name for rule in custom_rules],
@@ -116,6 +112,15 @@ def _select_rule() -> str:
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
+    """Register custom rules commands.
+
+    Args:
+        app: Typer application instance.
+
+    Returns:
+        Dictionary mapping command names to their functions.
+    """
+
     @app.callback()
     def load_rules():
         """Load configured rules before any command runs."""
