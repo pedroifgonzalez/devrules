@@ -1,10 +1,12 @@
 """Tests for repository state validation."""
 
+import subprocess
 from unittest.mock import MagicMock, patch
 
 from devrules.validators.repo_state import (
     check_behind_remote,
     check_uncommitted_changes,
+    display_repo_state_issues,
     validate_repo_state,
 )
 
@@ -71,6 +73,17 @@ def test_check_uncommitted_changes_untracked(mock_run):
 
 
 @patch("devrules.validators.repo_state.subprocess.run")
+def test_check_uncommitted_changes_error(mock_run):
+    """Git errors should surface as error messages without crashing."""
+    mock_run.side_effect = subprocess.CalledProcessError(returncode=1, cmd="git diff")
+
+    has_changes, message = check_uncommitted_changes()
+
+    assert has_changes is False
+    assert "error checking repository state" in message.lower()
+
+
+@patch("devrules.validators.repo_state.subprocess.run")
 def test_check_uncommitted_changes_multiple(mock_run):
     """Test checking uncommitted changes with multiple types."""
     mock_run.side_effect = [
@@ -133,6 +146,33 @@ def test_check_behind_remote_no_remote_branch(mock_run):
 
     assert is_behind is False
     assert "no remote branch" in message.lower()
+
+
+@patch("devrules.validators.repo_state.subprocess.run")
+def test_check_behind_remote_git_error(mock_run):
+    """Errors while checking remote status should be handled gracefully."""
+    mock_run.side_effect = subprocess.CalledProcessError(returncode=1, cmd="git rev-parse")
+
+    is_behind, message = check_behind_remote()
+
+    assert is_behind is False
+    assert "error checking remote status" in message.lower()
+
+
+@patch("devrules.validators.repo_state.subprocess.run")
+def test_check_behind_remote_invalid_output(mock_run):
+    """Invalid git output should return a parsing error message."""
+    mock_run.side_effect = [
+        MagicMock(stdout="main\n", returncode=0),  # rev-parse branch
+        MagicMock(returncode=0),  # fetch
+        MagicMock(returncode=0),  # rev-parse origin/main
+        MagicMock(stdout="not-a-number\n", returncode=0),  # rev-list output invalid
+    ]
+
+    is_behind, message = check_behind_remote()
+
+    assert is_behind is False
+    assert "error parsing git output" in message.lower()
 
 
 @patch("devrules.validators.repo_state.subprocess.run")
@@ -223,3 +263,38 @@ def test_validate_repo_state_skip_checks(mock_run):
 
     # Should not call any git commands
     mock_run.assert_not_called()
+
+
+@patch("devrules.validators.repo_state.typer")
+def test_display_repo_state_issues_warn_only(mock_typer):
+    """Display helper should format warnings correctly."""
+    messages = ["⚠️  Repo has issues"]
+
+    display_repo_state_issues(messages, warn_only=True)
+
+    mock_typer.secho.assert_called_once()
+    assert "warning" in mock_typer.secho.call_args[0][0].lower()
+    mock_typer.echo.assert_any_call(f"  {messages[0]}")
+
+
+@patch("devrules.validators.repo_state.typer")
+def test_display_repo_state_issues_errors(mock_typer):
+    """Display helper should include suggestions when not warn_only."""
+    messages = ["⚠️  Repo has issues"]
+
+    display_repo_state_issues(messages, warn_only=False)
+
+    mock_typer.secho.assert_called_once()
+    assert "error" in mock_typer.secho.call_args[0][0].lower()
+    mock_typer.echo.assert_any_call("  • Commit or stash your changes: git stash")
+    mock_typer.echo.assert_any_call("  • Pull latest changes: git pull")
+
+
+@patch("devrules.validators.repo_state.typer")
+def test_display_repo_state_issues_no_messages(mock_typer):
+    """Display helper should exit early when there are no messages."""
+
+    display_repo_state_issues([], warn_only=False)
+
+    mock_typer.secho.assert_not_called()
+    mock_typer.echo.assert_not_called()

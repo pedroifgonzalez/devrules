@@ -1,10 +1,14 @@
 """Tests for branch validation."""
 
-from src.devrules.config import BranchConfig
+import pytest
+
+from src.devrules.config import BranchConfig, GitHubConfig
+from src.devrules.dtos.github import ProjectItem
 from src.devrules.validators.branch import (
     _extract_issue_number,
     _get_environment,
     validate_branch,
+    validate_cross_repo_card,
     validate_single_branch_per_issue_env,
 )
 
@@ -24,6 +28,19 @@ def test_valid_branch_names():
     for branch in valid_branches:
         is_valid, _ = validate_branch(branch, config)
         assert is_valid, f"{branch} should be valid"
+
+
+@pytest.mark.parametrize(
+    "require_issue_number,branch,is_valid",
+    [(True, "feature/123-login", True), (True, "feature/missing-issue-number", False)],
+)
+def test_validate_branch_issue_number(require_issue_number, branch, is_valid):
+    config = BranchConfig(
+        pattern=r"^(feature|bugfix)/(\d+-)?[a-z0-9-]+", prefixes=["feature", "bugfix"]
+    )
+    config.require_issue_number = require_issue_number
+    result, _ = validate_branch(branch, config)
+    assert result == is_valid
 
 
 def test_invalid_branch_names():
@@ -86,3 +103,66 @@ def test_single_branch_per_issue_per_environment():
     # Branches without issue number should not trigger the rule
     is_valid, _ = validate_single_branch_per_issue_env("feature/no-issue", existing)
     assert is_valid
+
+
+def test_single_branch_per_issue_same_branch_ignored():
+    """Existing identical branch should be ignored when enforcing uniqueness."""
+
+    existing = ["feature/123-same-branch"]
+
+    is_valid, message = validate_single_branch_per_issue_env("feature/123-same-branch", existing)
+    assert is_valid
+    assert "one-branch" in message
+
+
+def test_single_branch_per_issue_existing_without_issue():
+    """Existing branches without issue numbers should not affect validation."""
+
+    existing = ["feature/no-issue-branch"]
+
+    is_valid, _ = validate_single_branch_per_issue_env("feature/123-valid-issue", existing)
+    assert is_valid
+
+
+def test_validate_cross_repo_card_skipped_when_unconfigured():
+    """Cross-repo validation skips when GitHub repo is not configured."""
+
+    github_config = GitHubConfig(owner=None, repo=None)
+    project_item = ProjectItem(content={"repository": "owner/repo"})
+
+    is_valid, message = validate_cross_repo_card(project_item, github_config)
+    assert is_valid
+    assert "not configured" in message
+
+
+def test_validate_cross_repo_card_content_match():
+    """Cross-repo validation passes when content repository matches."""
+
+    github_config = GitHubConfig(owner="pedroifgonzalez", repo="devrules")
+    project_item = ProjectItem(content={"repository": "pedroifgonzalez/devrules"})
+
+    is_valid, message = validate_cross_repo_card(project_item, github_config)
+    assert is_valid
+    assert "configured repository" in message
+
+
+def test_validate_cross_repo_card_repository_url_mismatch():
+    """Cross-repo validation fails when repository URL belongs to another repo."""
+
+    github_config = GitHubConfig(owner="pedroifgonzalez", repo="devrules")
+    project_item = ProjectItem(repository="https://github.com/other/repo")
+
+    is_valid, message = validate_cross_repo_card(project_item, github_config)
+    assert not is_valid
+    assert "does not match" in message
+
+
+def test_validate_cross_repo_card_unknown_repository():
+    """Cross-repo validation is skipped when repository cannot be determined."""
+
+    github_config = GitHubConfig(owner="pedroifgonzalez", repo="devrules")
+    project_item = ProjectItem()
+
+    is_valid, message = validate_cross_repo_card(project_item, github_config)
+    assert is_valid
+    assert "could not be determined" in message
