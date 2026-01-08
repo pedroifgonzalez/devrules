@@ -31,6 +31,16 @@ def get_jenkins_auth(config: Config) -> Tuple[Optional[str], Optional[str]]:
 
 
 def get_environment_config(config: Config, environment: str):
+    """Get configuration for a specific deployment environment.
+
+    Args:
+        config: Application configuration containing deployment settings.
+        environment: Name of the target environment (e.g., dev, staging, prod).
+
+    Returns:
+        The matching EnvironmentConfig or None if not configured. Emits an error message
+        when the environment is missing.
+    """
     env_config = config.deployment.environments.get(environment)
     if not env_config:
         typer.secho(
@@ -42,6 +52,15 @@ def get_environment_config(config: Config, environment: str):
 
 
 def get_jenkins_url(config: Config):
+    """Resolve the Jenkins base URL from configuration.
+
+    Args:
+        config: Application configuration containing deployment settings.
+
+    Returns:
+        Jenkins URL string if available, otherwise None. Emits an error message when
+        the URL is not configured.
+    """
     jenkins_url = config.deployment.jenkins_url
     if not jenkins_url:
         typer.secho(
@@ -53,6 +72,19 @@ def get_jenkins_url(config: Config):
 
 
 def get_jenkins_job_name(config: Config, env_config: EnvironmentConfig):
+    """Determine the Jenkins job name for an environment.
+
+    Prefers the job name defined in the environment config, falling back to the
+    GitHub repository name if missing.
+
+    Args:
+        config: Application configuration.
+        env_config: Environment-specific configuration.
+
+    Returns:
+        Job name string if it can be resolved, otherwise None. Emits an error message
+        when no job name can be determined.
+    """
     job_name = env_config.jenkins_job_name
     if not job_name:
         job_name = config.github.repo
@@ -118,6 +150,15 @@ def check_migration_conflicts(
 
 
 def classify_env(config: Config, branch_name: str) -> Optional[str]:
+    """Map a branch name to an environment using configured patterns.
+
+    Args:
+        config: Application configuration containing environments.
+        branch_name: Name of the branch to classify.
+
+    Returns:
+        Matching environment name, or None if no pattern matches.
+    """
     for env in config.deployment.environments.values():
         if env.pattern and re.match(env.pattern, branch_name):
             return env.name
