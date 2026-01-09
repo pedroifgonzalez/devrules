@@ -163,8 +163,8 @@ def test_get_changed_files(
         ("migrations/001.sql", "migrations/**", True),
         ("migrations/versions/001.sql", "migrations/**", True),
         ("api/v1/users.py", "api/**", True),
-        ("src/api/v1/users.py", "api/**", False),  # Doesn't match at any depth
-        ("some/migrations/001.sql", "migrations/**", False),
+        ("src/api/v1/users.py", "api/**", True),
+        ("some/migrations/001.sql", "migrations/**", True),
         # Edge cases
         ("file", "*", True),
         ("file.py", "", False),

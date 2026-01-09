@@ -57,7 +57,7 @@ def matches_file_pattern(file_path: str, pattern: str) -> bool:
     # Check with full path matching for ** patterns
     if "**" in pattern:
         prefix = pattern.split("**")[0]
-        if file_path.startswith(prefix):
+        if file_path.count(prefix):
             return True
 
     return False
