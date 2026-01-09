@@ -4,12 +4,14 @@ import re
 from typing import Optional
 
 from devrules.config import GitHubConfig, PRConfig
+from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
 from devrules.dtos.github import PRInfo
+from devrules.validators.branch import _extract_issue_number
 
 
 def validate_pr_issue_status(
     current_branch: str,
-    config: PRConfig,
+    pr_config: PRConfig,
     github_config: GitHubConfig,
     project_override: Optional[list[str]] = None,
 ) -> tuple[bool, list[str]]:
@@ -24,10 +26,11 @@ def validate_pr_issue_status(
     Returns:
         Tuple of (is_valid, messages)
     """
-    from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
-    from devrules.validators.branch import _extract_issue_number
-
     messages = []
+
+    if not current_branch:
+        messages.append("✘ No branch name provided")
+        return False, messages
 
     # Extract issue number from branch
     issue_number = _extract_issue_number(current_branch)
@@ -39,7 +42,7 @@ def validate_pr_issue_status(
     # Determine which projects to check
     # CLI override takes precedence over config
     projects_to_check = (
-        project_override if project_override is not None else config.project_for_status_check
+        project_override if project_override is not None else pr_config.project_for_status_check
     )
 
     if not projects_to_check:
@@ -73,7 +76,7 @@ def validate_pr_issue_status(
 
     # Check if status is allowed
     current_status = project_item.status
-    allowed_statuses = config.allowed_pr_statuses
+    allowed_statuses = pr_config.allowed_pr_statuses
 
     if not allowed_statuses:
         messages.append("⚠ No allowed statuses configured - all statuses permitted")
