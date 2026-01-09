@@ -17,6 +17,7 @@ from devrules.utils.typer import add_typer_block_message
 from devrules.validators.documentation import display_documentation_guidance
 from devrules.validators.pr import validate_pr
 from devrules.validators.pr_target import (
+    check_pr_already_merged,
     suggest_pr_target,
     validate_pr_base_not_protected,
     validate_pr_target,
@@ -100,12 +101,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 typer.secho(f"\n✘ {base_message}", fg=typer.colors.RED)
                 raise typer.Exit(code=1)
 
-        # Validate PR target branch
-        if not skip_checks:
+            # Validate PR target branch
             is_valid_target, target_message = validate_pr_target(
                 source_branch=current_branch,
                 target_branch=base,
-                config=config.pr,
+                pr_config=config.pr,
             )
 
             if not is_valid_target:
@@ -119,6 +119,19 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                     header=msg.INVALID_PR_TARGET,
                     subheader="",
                     messages=msg_list,
+                    indent_block=False,
+                )
+                raise typer.Exit(code=1)
+
+            already_merged, messages = check_pr_already_merged(
+                source_branch=current_branch,
+                target_branch=base,
+            )
+            if already_merged:
+                add_typer_block_message(
+                    header=msg.INVALID_PR_TARGET,
+                    subheader="",
+                    messages=messages,
                     indent_block=False,
                 )
                 raise typer.Exit(code=1)
@@ -374,7 +387,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             is_valid_target, target_message = validate_pr_target(
                 source_branch=current_branch,
                 target_branch=base,
-                config=config.pr,
+                pr_config=config.pr,
             )
 
             if not is_valid_target:

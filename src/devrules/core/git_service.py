@@ -458,3 +458,34 @@ def get_current_repo_name() -> str:
         return repo_part or "Unknown Repository"
     except subprocess.CalledProcessError:
         return "Unknown Repository"
+
+
+def get_default_branch() -> str:
+    """Get the default branch (main or master).
+
+    Returns:
+        Default branch name
+    """
+    try:
+        # Try to get from remote
+        result = subprocess.run(
+            ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            # Output is like "refs/remotes/origin/main"
+            return result.stdout.strip().split("/")[-1]
+    except subprocess.CalledProcessError:
+        pass
+
+    # Fallback: check which exists
+    for branch in ["main", "master"]:
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", f"refs/heads/{branch}"],
+            capture_output=True,
+        )  # type: ignore
+        if result.returncode == 0:
+            return branch
+
+    return "main"  # Default fallback

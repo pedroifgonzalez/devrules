@@ -97,7 +97,7 @@ def validate_pr_issue_status(
 
 def validate_pr(
     pr_info: PRInfo,
-    config: PRConfig,
+    pr_config: PRConfig,
     current_branch: Optional[str] = None,
     github_config: Optional[GitHubConfig] = None,
 ) -> tuple:
@@ -116,10 +116,10 @@ def validate_pr(
     is_valid = True
 
     # Check issue status if enabled
-    if config.require_issue_status_check:
+    if pr_config.require_issue_status_check:
         if current_branch and github_config:
             status_valid, status_messages = validate_pr_issue_status(
-                current_branch, config, github_config
+                current_branch, pr_config, github_config
             )
             messages.extend(status_messages)
             if not status_valid:
@@ -132,8 +132,8 @@ def validate_pr(
     total_loc = pr_info.additions + pr_info.deletions
 
     # Check title format
-    if config.require_title_tag:
-        pattern = re.compile(config.title_pattern)
+    if pr_config.require_title_tag:
+        pattern = re.compile(pr_config.title_pattern)
         if pattern.match(pr_info.title):
             messages.append("✔ PR title valid")
         else:
@@ -141,15 +141,15 @@ def validate_pr(
             is_valid = False
 
     # Check LOC
-    if total_loc > config.max_loc:
-        messages.append(f"✘ PR too large: {total_loc} LOC (max: {config.max_loc})")
+    if total_loc > pr_config.max_loc:
+        messages.append(f"✘ PR too large: {total_loc} LOC (max: {pr_config.max_loc})")
         is_valid = False
     else:
         messages.append(f"✔ PR size acceptable: {total_loc} LOC")
 
     # Check files
-    if pr_info.changed_files > config.max_files:
-        messages.append(f"✘ Too many files: {pr_info.changed_files} (max: {config.max_files})")
+    if pr_info.changed_files > pr_config.max_files:
+        messages.append(f"✘ Too many files: {pr_info.changed_files} (max: {pr_config.max_files})")
         is_valid = False
     else:
         messages.append(f"✔ File count acceptable: {pr_info.changed_files}")
