@@ -2,11 +2,9 @@
 
 import fnmatch
 import subprocess
-from pathlib import Path
 from typing import List, Tuple
 
 from devrules.config import DocumentationRule
-from devrules.utils import gum
 
 
 def get_changed_files(base_branch: str = "HEAD") -> List[str]:
@@ -57,18 +55,10 @@ def matches_file_pattern(file_path: str, pattern: str) -> bool:
         return True
 
     # Check with full path matching for ** patterns
-    path_obj = Path(file_path)
-
-    # Convert pattern to parts for recursive matching
     if "**" in pattern:
-        file_parts = list(path_obj.parts)
-
-        # Try to match pattern at any depth
-        for i in range(len(file_parts)):
-            test_path = "/".join(file_parts[i:])
-            test_pattern = pattern.replace("**/", "")
-            if fnmatch.fnmatch(test_path, test_pattern):
-                return True
+        prefix = pattern.split("**")[0]
+        if file_path.startswith(prefix):
+            return True
 
     return False
 
@@ -127,66 +117,6 @@ def format_documentation_message(
 
     # Always use list format for documentation display
     return _format_docs_list(rule_groups, show_files)
-
-
-def _format_docs_table(rule_groups: dict, show_files: bool) -> str:
-    """Format documentation as a table using gum."""
-    lines = []
-
-    # Header
-    lines.append(gum.style("\n📚 Context-Aware Documentation", foreground=81, bold=True))
-    lines.append(gum.style("=" * 60, foreground=81))
-    lines.append("")
-
-    # Build table rows
-    table_rows = []
-    for group_data in rule_groups.values():
-        rule = group_data["rule"]
-        files = group_data["files"]
-
-        # Pattern column
-        pattern = rule.file_pattern
-
-        # Files column
-        if show_files and len(files) <= 3:
-            files_str = ", ".join(files)
-        elif show_files:
-            files_str = f"{len(files)} file(s)"
-        else:
-            files_str = "-"
-
-        # Info column (message or docs URL)
-        info = rule.message or rule.docs_url or "-"
-        if len(info) > 40:
-            info = info[:37] + "..."
-
-        table_rows.append([pattern, files_str, info])
-
-    # Print table
-    lines.append(
-        gum.table(
-            table_rows,
-            headers=["Pattern", "Files", "Info"],
-            border="rounded",
-            border_foreground=99,
-        )
-    )
-
-    # Show checklists separately (they don't fit well in tables)
-    for group_data in rule_groups.values():
-        rule = group_data["rule"]
-        if rule.checklist:
-            lines.append("")
-            lines.append(gum.style(f"✅ Checklist for {rule.file_pattern}:", foreground=82))
-            for item in rule.checklist:
-                lines.append(f"   • {item}")
-
-        # Show full docs URL if truncated
-        if rule.docs_url and len(rule.docs_url) > 40:
-            lines.append(gum.style(f"🔗 {rule.docs_url}", foreground=81))
-
-    lines.append("")
-    return "\n".join(lines)
 
 
 def _format_docs_list(rule_groups: dict, show_files: bool) -> str:
