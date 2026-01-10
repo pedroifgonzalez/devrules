@@ -58,7 +58,7 @@ class CommitMessages:
     )
 
     # Success messages
-    COMMITTED_CHANGES = "✔ Committed changes!"
+    COMMITTED_CHANGES = "Committed changes!"
 
     # Info messages
     COMMIT_CANCELLED = "Commit cancelled"

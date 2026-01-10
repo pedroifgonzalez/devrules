@@ -8,6 +8,7 @@ from typer_di import Depends
 from yaspin import yaspin
 
 from devrules.adapters.ai import diny
+from devrules.cli_commands.prompters.factory import get_default_prompter
 from devrules.config import Config, load_config
 from devrules.core.enum import DevRulesEvent
 from devrules.core.git_service import get_current_branch, get_current_issue_number
@@ -21,6 +22,8 @@ from devrules.validators.forbidden_files import (
     validate_no_forbidden_files,
 )
 from devrules.validators.ownership import validate_branch_ownership
+
+prompter = get_default_prompter()
 
 
 def build_commit_message_interactive(config: Config, tags: list[str]) -> Optional[str]:
@@ -277,26 +280,48 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         """Interactive commit - build commit message with guided prompts."""
         import subprocess
 
-        typer.secho("Checking commit requirements...", fg=typer.colors.BLUE)
+        current_branch = get_current_branch()
 
         # Check for forbidden files (unless skipped)
         if not skip_checks and (config.commit.forbidden_patterns or config.commit.forbidden_paths):
-            is_valid, validation_message = validate_no_forbidden_files(
-                forbidden_patterns=config.commit.forbidden_patterns,
-                forbidden_paths=config.commit.forbidden_paths,
-                check_staged=True,
-            )
-
-            if not is_valid:
-                add_typer_block_message(
-                    header=msg.FORBIDDEN_FILES_DETECTED,
-                    subheader=validation_message,
-                    messages=["💡 Suggestions:"]
-                    + [f"• {suggestion}" for suggestion in get_forbidden_file_suggestions()],
-                    indent_block=False,
-                    use_separator=False,
+            with yaspin(text="Checking forbidden files...") as spinner:
+                is_valid, validation_message = validate_no_forbidden_files(
+                    forbidden_patterns=config.commit.forbidden_patterns,
+                    forbidden_paths=config.commit.forbidden_paths,
+                    check_staged=True,
                 )
-                raise typer.Exit(code=1)
+
+                if not is_valid:
+                    add_typer_block_message(
+                        header=msg.FORBIDDEN_FILES_DETECTED,
+                        subheader=validation_message,
+                        messages=["💡 Suggestions:"]
+                        + [f"• {suggestion}" for suggestion in get_forbidden_file_suggestions()],
+                        indent_block=False,
+                        use_separator=False,
+                    )
+                    raise typer.Exit(code=1)
+                spinner.ok("✔")
+
+        # Check if current branch is protected
+        if config.commit.protected_branch_prefixes:
+            with yaspin(text="Validating protected branches...") as spinner:
+                for prefix in config.commit.protected_branch_prefixes:
+                    if current_branch.count(prefix):
+                        typer.secho(
+                            msg.CANNOT_COMMIT_TO_PROTECTED_BRANCH.format(current_branch, prefix),
+                            fg=typer.colors.RED,
+                        )
+                        raise typer.Exit(code=1)
+                spinner.ok("✔")
+
+        if config.commit.restrict_branch_to_owner:
+            with yaspin(text="Checking branch ownership...") as spinner:
+                is_owner, ownership_message = validate_branch_ownership(current_branch)
+                if not is_owner:
+                    typer.secho(f"✘ {ownership_message}", fg=typer.colors.RED)
+                    raise typer.Exit(code=1)
+                spinner.ok("✔")
 
         # Build commit message interactively
         message = build_commit_message_interactive(config=config, tags=config.commit.tags)
@@ -306,34 +331,19 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise typer.Exit(code=0)
 
         # Validate commit message
-        is_valid, result_message = validate_commit(message, config.commit)
-
-        if not is_valid:
-            typer.secho(f"\n✘ {result_message}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
-
-        current_branch = get_current_branch()
-
-        # Check if current branch is protected
-        if config.commit.protected_branch_prefixes:
-            for prefix in config.commit.protected_branch_prefixes:
-                if current_branch.count(prefix):
-                    typer.secho(
-                        msg.CANNOT_COMMIT_TO_PROTECTED_BRANCH.format(current_branch, prefix),
-                        fg=typer.colors.RED,
-                    )
-                    raise typer.Exit(code=1)
-
-        if config.commit.restrict_branch_to_owner:
-            is_owner, ownership_message = validate_branch_ownership(current_branch)
-            if not is_owner:
-                typer.secho(f"✘ {ownership_message}", fg=typer.colors.RED)
+        with yaspin(text="Validating commit message...") as spinner:
+            is_valid, result_message = validate_commit(message, config.commit)
+            if not is_valid:
+                typer.secho(f"\n✘ {result_message}", fg=typer.colors.RED)
                 raise typer.Exit(code=1)
+            spinner.ok("✔")
 
         if config.commit.append_issue_number:
-            issue_number = get_current_issue_number()
-            if issue_number and f"#{issue_number}" not in message:
-                message = f"#{issue_number} {message}"
+            with yaspin(text="Checking issue number...") as spinner:
+                issue_number = get_current_issue_number()
+                if issue_number and f"#{issue_number}" not in message:
+                    message = f"#{issue_number} {message}"
+                spinner.ok("✔")
 
         # Get documentation guidance
         doc_message = None
@@ -349,20 +359,13 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 doc_message = None
 
         # Confirm before committing
-        if gum.is_available():
-            print(f"\n📝 Commit message: {gum.style(message, foreground=82)}")
-            confirmed = gum.confirm("Proceed with commit?")
-            if confirmed is False:
-                typer.secho(msg.COMMIT_CANCELLED, fg=typer.colors.YELLOW)
-                raise typer.Exit(code=0)
-        else:
-            typer.echo(f"\n📝 Commit message: {message}")
-            if not typer.confirm("Proceed with commit?", default=True):
-                typer.secho(msg.COMMIT_CANCELLED, fg=typer.colors.YELLOW)
-                raise typer.Exit(code=0)
+        prompter.info(f"\n📝 Commit message: {message}")
+        if not prompter.confirm("Proceed with commit?", default=True):
+            prompter.warning(msg.COMMIT_CANCELLED)
+            raise typer.Exit(code=0)
 
         if config.commit.auto_stage:
-            typer.secho("Auto staging files...", fg=typer.colors.GREEN)
+            prompter.info("Auto staging files...")
             subprocess.run(
                 [
                     "git",
@@ -382,10 +385,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         try:
             subprocess.run(["git", "commit", *options], check=True)
-            typer.secho(f"\n{msg.COMMITTED_CHANGES}", fg=typer.colors.GREEN)
+            prompter.success(msg.COMMITTED_CHANGES)
 
             if doc_message:
-                typer.secho(f"{doc_message}", fg=typer.colors.YELLOW)
+                prompter.info(doc_message)
         except subprocess.CalledProcessError as e:
             typer.secho(f"\n{msg.FAILED_TO_COMMIT_CHANGES.format(e)}", fg=typer.colors.RED)
             raise typer.Exit(code=1) from e
