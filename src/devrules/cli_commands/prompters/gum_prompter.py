@@ -191,3 +191,7 @@ class GumPrompter(Prompter):
             code: Exit code
         """
         raise SystemExit(code)
+
+    def header(self, header: str) -> None:
+        print(gum.style(header, foreground=81, bold=True))
+        print(gum.style("=" * 50, foreground=81))

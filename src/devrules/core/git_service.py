@@ -448,3 +448,32 @@ def get_current_repo_name() -> str:
         return repo_part or "Unknown Repository"
     except subprocess.CalledProcessError:
         return "Unknown Repository"
+
+
+def stage_files():
+    try:
+        subprocess.run(
+            [
+                "git",
+                "add",
+                "--all",
+            ],
+            check=True,
+        )
+    except subprocess.CalledProcessError:
+        return
+
+
+def commit(message: str, config: Config):
+    options = []
+    if config.commit.gpg_sign:
+        options.append("-S")
+    if config.commit.allow_hook_bypass:
+        options.append("-n")
+    options.append("-m")
+    options.append(message)
+    try:
+        subprocess.run(["git", "commit", *options], check=True)
+        return True, "Changes commited"
+    except subprocess.CalledProcessError as e:
+        return False, str(e)
