@@ -160,7 +160,7 @@ def _get_documentation_guidance(
 
 
 def _confirm_commit(message: str):
-    prompter.info(f"\n📝 Commit message: {message}")
+    prompter.info(f"📝 Commit message: {message}")
     if not prompter.confirm("Proceed with commit?", default=True):
         prompter.warning(msg.COMMIT_CANCELLED)
         raise typer.Exit(code=0)
@@ -179,7 +179,7 @@ def _perform_commit(message: str, config: Config, doc_message: Optional[str] = N
         raise typer.Exit(code=1)
     prompter.success(msg.COMMITTED_CHANGES)
     if doc_message:
-        prompter.info(doc_message)
+        prompter.info(doc_message.strip("\n"))
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
