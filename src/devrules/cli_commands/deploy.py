@@ -15,12 +15,13 @@ from devrules.core.deployment_service import (
     get_deployed_branch,
     rollback_deployment,
 )
+from devrules.core.enum import DevRulesEvent
 from devrules.core.git_service import get_author, get_current_branch, get_current_repo_name
 from devrules.core.permission_service import can_deploy_to_environment
 from devrules.messages import deploy as msg
 from devrules.notifications import emit
 from devrules.notifications.events import DeployEvent
-from devrules.utils.decorators import ensure_git_repo
+from devrules.utils.decorators import emit_events, ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
 
 
@@ -35,6 +36,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     """
 
     @app.command()
+    @emit_events(DevRulesEvent.PRE_DEPLOY, DevRulesEvent.POST_DEPLOY)
     @ensure_git_repo()
     def deploy(
         environment: str = typer.Argument(..., help="Target environment (dev, staging, prod)"),

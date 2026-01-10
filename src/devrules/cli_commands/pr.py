@@ -8,11 +8,12 @@ from typer_di import Depends
 from yaspin import yaspin
 
 from devrules.config import Config, load_config
+from devrules.core.enum import DevRulesEvent
 from devrules.core.git_service import get_current_branch, remote_branch_exists
 from devrules.core.github_service import ensure_gh_installed, fetch_pr_info
 from devrules.messages import pr as msg
 from devrules.utils import gum
-from devrules.utils.decorators import ensure_git_repo
+from devrules.utils.decorators import emit_events, ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.documentation import display_documentation_guidance
 from devrules.validators.pr import validate_pr
@@ -319,6 +320,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         raise typer.Exit(code=0 if is_valid else 1)
 
     @app.command()
+    @emit_events(DevRulesEvent.PRE_PR)
     @ensure_git_repo()
     def ipr(
         project: Optional[str] = typer.Option(

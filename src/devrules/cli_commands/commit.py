@@ -77,6 +77,16 @@ def build_commit_message_interactive(config: Config, tags: list[str]) -> str:
 
 @inject_spinner(Spinners.dots, text="Validating commit message...", color="yellow")
 def _validate_commit(spinner: Yaspin, message: str, config: Config):
+    """Validates commit message
+
+    Args:
+        spinner (Yaspin): injected spinner
+        message (str): commit message
+        config (Config): config
+
+    Raises:
+        prompter.exit: if commit message is invalid
+    """
     is_valid, result_message = validate_commit(message, config.commit)
     spinner.ok("✔")
     if not is_valid:
@@ -87,6 +97,13 @@ def _validate_commit(spinner: Yaspin, message: str, config: Config):
 
 @inject_spinner(Spinners.dots, text="Checking issue number...", color="magenta")
 def _auto_append_issue_number(spinner: Yaspin, message: str, config: Config):
+    """Auto append issue number to commit message if necessary
+
+    Args:
+        spinner (Yaspin): injected spinner
+        message (str): commit message
+        config (Config): config
+    """
     if config.commit.append_issue_number:
         issue_number = get_current_issue_number()
         if issue_number and f"#{issue_number}" not in message:
@@ -97,6 +114,16 @@ def _auto_append_issue_number(spinner: Yaspin, message: str, config: Config):
 
 @inject_spinner(Spinners.dots, text="Checking forbidden files...", color="yellow")
 def _validate_forbidden_files(spinner: Yaspin, skip_checks: bool, config: Config):
+    """Validates forbidden files
+
+    Args:
+        spinner (Yaspin): injected spinner
+        skip_checks (bool): skip checks
+        config (Config): config
+
+    Raises:
+        prompter.exit: if forbidden files are detected
+    """
     if not skip_checks and (config.commit.forbidden_patterns or config.commit.forbidden_paths):
         is_valid, validation_message = validate_no_forbidden_files(
             forbidden_patterns=config.commit.forbidden_patterns,
@@ -113,29 +140,48 @@ def _validate_forbidden_files(spinner: Yaspin, skip_checks: bool, config: Config
                 indent_block=False,
                 use_separator=False,
             )
-            raise typer.Exit(code=1)
+            raise prompter.exit(code=1)
 
 
 @inject_spinner(Spinners.dots, text="Validating protected branches...", color="yellow")
 def _validate_branch_protection(spinner: Yaspin, current_branch: str, config: Config):
+    """Validates protected branches
+
+    Args:
+        spinner (Yaspin): injected spinner
+        current_branch (str): current branch
+        config (Config): config
+
+    Raises:
+        prompter.exit: if current branch is protected
+    """
     if config.commit.protected_branch_prefixes:
         for prefix in config.commit.protected_branch_prefixes:
             if current_branch.count(prefix):
-                typer.secho(
+                prompter.error(
                     msg.CANNOT_COMMIT_TO_PROTECTED_BRANCH.format(current_branch, prefix),
-                    fg=typer.colors.RED,
                 )
-                raise typer.Exit(code=1)
+                raise prompter.exit(code=1)
         spinner.ok("✔")
 
 
 @inject_spinner(Spinners.dots, text="Checking branch ownership...", color="yellow")
 def _validate_ownership(spinner: Yaspin, current_branch: str, config: Config):
+    """Validate current branch ownserhip if necessary
+
+    Args:
+        spinner (Yaspin): injected spinner
+        current_branch (str): current branch
+        config (Config): config
+
+    Raises:
+        prompter.exit: if current branch is not owned by the user
+    """
     if config.commit.restrict_branch_to_owner:
         is_owner, ownership_message = validate_branch_ownership(current_branch)
         if not is_owner:
             typer.secho(f"✘ {ownership_message}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+            raise prompter.exit(code=1)
         spinner.ok("✔")
 
 
@@ -143,6 +189,16 @@ def _validate_ownership(spinner: Yaspin, current_branch: str, config: Config):
 def _get_documentation_guidance(
     spinner: Yaspin, skip_checks: bool, config: Config
 ) -> Optional[str]:
+    """Get documentation guidance
+
+    Args:
+        spinner (Yaspin): injected spinner
+        skip_checks (bool): skip checks
+        config (Config): config
+
+    Returns:
+        Optional[str]: documentation guidance
+    """
     if not skip_checks and config.documentation.show_on_commit and config.documentation.rules:
         from devrules.validators.documentation import get_relevant_documentation
 
@@ -157,23 +213,46 @@ def _get_documentation_guidance(
 
 
 def _confirm_commit(message: str):
+    """Confirm commit
+
+    Args:
+        message (str): commit message
+
+    Raises:
+        prompter.exit: if confirmation is false
+    """
     prompter.info(f"📝 Commit message: {message}")
     if not prompter.confirm("Proceed with commit?", default=True):
         prompter.warning(msg.COMMIT_CANCELLED)
-        raise typer.Exit(code=0)
+        raise prompter.exit(code=0)
 
 
 def _stage_files(config: Config):
+    """Auto stage files if necessary
+
+    Args:
+        config (Config): config
+    """
     if config.commit.auto_stage:
         prompter.info("Auto staging files...")
         stage_files()
 
 
 def _perform_commit(message: str, config: Config, doc_message: Optional[str] = None):
+    """Perform commit
+
+    Args:
+        message (str): commit message
+        config (Config): config
+        doc_message (Optional[str], optional): documentation message. Defaults to None.
+
+    Raises:
+        prompter.exit: if any error occurs
+    """
     success, message = _commit(message, config)
     if not success:
-        typer.secho(f"\n{msg.FAILED_TO_COMMIT_CHANGES.format(message)}", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
+        prompter.error(msg.FAILED_TO_COMMIT_CHANGES.format(message))
+        raise prompter.exit(code=1)
     prompter.success(msg.COMMITTED_CHANGES)
     if doc_message:
         prompter.info(doc_message.strip("\n"))
