@@ -46,8 +46,6 @@ def build_commit_message_interactive(config: Config, tags: list[str]) -> str:
                 # AI generation failed, continue without suggestion
                 pass
 
-    prompter.header("📝 Create Commit")
-
     if config.commit.enable_ai_suggestions and default_message:
         prompter.info(f"AI message generated: {default_message}")
     elif config.commit.enable_ai_suggestions and not default_message:
@@ -83,19 +81,18 @@ def _validate_commit(spinner: Yaspin, message: str, config: Config):
     spinner.ok("✔")
     if not is_valid:
         spinner.fail("✘")
-        typer.secho(f"\n✘ {result_message}", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
+        prompter.error(result_message)
+        raise prompter.exit(code=1)
 
 
 @inject_spinner(Spinners.dots, text="Checking issue number...", color="magenta")
 def _auto_append_issue_number(spinner: Yaspin, message: str, config: Config):
     if config.commit.append_issue_number:
-        with yaspin(text="", color="yellow") as spinner:
-            issue_number = get_current_issue_number()
-            if issue_number and f"#{issue_number}" not in message:
-                spinner.text = "Issue number appended to commit message."
-                message = f"#{issue_number} {message}"
-            spinner.ok("✔")
+        issue_number = get_current_issue_number()
+        if issue_number and f"#{issue_number}" not in message:
+            spinner.text = "Issue number appended to commit message."
+            message = f"#{issue_number} {message}"
+        spinner.ok("✔")
 
 
 @inject_spinner(Spinners.dots, text="Checking forbidden files...", color="yellow")
