@@ -4,12 +4,14 @@ import re
 from typing import Optional
 
 from devrules.config import GitHubConfig, PRConfig
+from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
 from devrules.dtos.github import PRInfo
+from devrules.validators.branch import _extract_issue_number
 
 
 def validate_pr_issue_status(
     current_branch: str,
-    config: PRConfig,
+    pr_config: PRConfig,
     github_config: GitHubConfig,
     project_override: Optional[list[str]] = None,
 ) -> tuple[bool, list[str]]:
@@ -24,10 +26,11 @@ def validate_pr_issue_status(
     Returns:
         Tuple of (is_valid, messages)
     """
-    from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
-    from devrules.validators.branch import _extract_issue_number
-
     messages = []
+
+    if not current_branch:
+        messages.append("✘ No branch name provided")
+        return False, messages
 
     # Extract issue number from branch
     issue_number = _extract_issue_number(current_branch)
@@ -39,7 +42,7 @@ def validate_pr_issue_status(
     # Determine which projects to check
     # CLI override takes precedence over config
     projects_to_check = (
-        project_override if project_override is not None else config.project_for_status_check
+        project_override if project_override is not None else pr_config.project_for_status_check
     )
 
     if not projects_to_check:
@@ -73,7 +76,7 @@ def validate_pr_issue_status(
 
     # Check if status is allowed
     current_status = project_item.status
-    allowed_statuses = config.allowed_pr_statuses
+    allowed_statuses = pr_config.allowed_pr_statuses
 
     if not allowed_statuses:
         messages.append("⚠ No allowed statuses configured - all statuses permitted")
@@ -94,7 +97,7 @@ def validate_pr_issue_status(
 
 def validate_pr(
     pr_info: PRInfo,
-    config: PRConfig,
+    pr_config: PRConfig,
     current_branch: Optional[str] = None,
     github_config: Optional[GitHubConfig] = None,
 ) -> tuple:
@@ -113,10 +116,10 @@ def validate_pr(
     is_valid = True
 
     # Check issue status if enabled
-    if config.require_issue_status_check:
+    if pr_config.require_issue_status_check:
         if current_branch and github_config:
             status_valid, status_messages = validate_pr_issue_status(
-                current_branch, config, github_config
+                current_branch, pr_config, github_config
             )
             messages.extend(status_messages)
             if not status_valid:
@@ -129,8 +132,8 @@ def validate_pr(
     total_loc = pr_info.additions + pr_info.deletions
 
     # Check title format
-    if config.require_title_tag:
-        pattern = re.compile(config.title_pattern)
+    if pr_config.require_title_tag:
+        pattern = re.compile(pr_config.title_pattern)
         if pattern.match(pr_info.title):
             messages.append("✔ PR title valid")
         else:
@@ -138,15 +141,15 @@ def validate_pr(
             is_valid = False
 
     # Check LOC
-    if total_loc > config.max_loc:
-        messages.append(f"✘ PR too large: {total_loc} LOC (max: {config.max_loc})")
+    if total_loc > pr_config.max_loc:
+        messages.append(f"✘ PR too large: {total_loc} LOC (max: {pr_config.max_loc})")
         is_valid = False
     else:
         messages.append(f"✔ PR size acceptable: {total_loc} LOC")
 
     # Check files
-    if pr_info.changed_files > config.max_files:
-        messages.append(f"✘ Too many files: {pr_info.changed_files} (max: {config.max_files})")
+    if pr_info.changed_files > pr_config.max_files:
+        messages.append(f"✘ Too many files: {pr_info.changed_files} (max: {pr_config.max_files})")
         is_valid = False
     else:
         messages.append(f"✔ File count acceptable: {pr_info.changed_files}")

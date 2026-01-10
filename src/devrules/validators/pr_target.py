@@ -5,61 +5,13 @@ import subprocess
 from typing import List, Optional, Tuple
 
 from devrules.config import PRConfig
-
-
-def get_current_branch() -> Optional[str]:
-    """Get the current git branch name.
-
-    Returns:
-        Branch name or None if error
-    """
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return result.stdout.strip()
-    except subprocess.CalledProcessError:
-        return None
-
-
-def get_default_branch() -> str:
-    """Get the default branch (main or master).
-
-    Returns:
-        Default branch name
-    """
-    try:
-        # Try to get from remote
-        result = subprocess.run(
-            ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode == 0:
-            # Output is like "refs/remotes/origin/main"
-            return result.stdout.strip().split("/")[-1]
-    except subprocess.CalledProcessError:
-        pass
-
-    # Fallback: check which exists
-    for branch in ["main", "master"]:
-        result = subprocess.run(
-            ["git", "rev-parse", "--verify", f"refs/heads/{branch}"],
-            capture_output=True,
-        )  # type: ignore
-        if result.returncode == 0:
-            return branch
-
-    return "main"  # Default fallback
+from devrules.core.git_service import get_default_branch
 
 
 def validate_pr_target(
     source_branch: str,
     target_branch: str,
-    config: PRConfig,
+    pr_config: PRConfig,
 ) -> Tuple[bool, str]:
     """Validate that PR target branch is allowed.
 
@@ -72,24 +24,21 @@ def validate_pr_target(
         Tuple of (is_valid, message)
     """
     # If no restrictions configured, allow any target
-    if not config.allowed_targets and not config.target_rules:
+    if not pr_config.allowed_targets and not pr_config.target_rules:
         return True, "No PR target restrictions configured"
 
     # Check simple allowed targets list
-    if config.allowed_targets:
-        if target_branch not in config.allowed_targets:
-            allowed = ", ".join(config.allowed_targets)
+    if pr_config.allowed_targets:
+        if target_branch not in pr_config.allowed_targets:
+            allowed = ", ".join(pr_config.allowed_targets)
             return False, (
                 f"Target branch '{target_branch}' is not in allowed list.\n"
                 f"Allowed targets: {allowed}"
             )
 
     # Check complex target rules
-    if config.target_rules:
-        for rule in config.target_rules:
-            if not isinstance(rule, dict):
-                continue
-
+    if pr_config.target_rules:
+        for rule in pr_config.target_rules:
             source_pattern = rule.get("source_pattern", "")
             allowed_targets = rule.get("allowed_targets", [])
             message = rule.get("disallowed_message", "")
@@ -123,9 +72,6 @@ def suggest_pr_target(source_branch: str, config: PRConfig) -> Optional[str]:
     # Check target rules for suggestions
     if config.target_rules:
         for rule in config.target_rules:
-            if not isinstance(rule, dict):
-                continue
-
             source_pattern = rule.get("source_pattern", "")
             allowed_targets = rule.get("allowed_targets", [])
 
@@ -183,28 +129,6 @@ def validate_pr_base_not_protected(
     return True, f"Base branch '{base_branch}' is not protected"
 
 
-def get_merge_base(source_branch: str, target_branch: str) -> Optional[str]:
-    """Get the common ancestor commit between two branches.
-
-    Args:
-        source_branch: Source branch
-        target_branch: Target branch
-
-    Returns:
-        Commit SHA of merge base or None
-    """
-    try:
-        result = subprocess.run(
-            ["git", "merge-base", source_branch, target_branch],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return result.stdout.strip()
-    except subprocess.CalledProcessError:
-        return None
-
-
 def check_pr_already_merged(source_branch: str, target_branch: str) -> Tuple[bool, str]:
     """Check if source branch is already merged into target.
 
@@ -223,13 +147,15 @@ def check_pr_already_merged(source_branch: str, target_branch: str) -> Tuple[boo
             text=True,
         )
 
-        if result.returncode == 0:
-            output = result.stdout.strip()
-            if not output:
-                # No unique commits, already merged
-                return True, f"Branch '{source_branch}' is already merged into '{target_branch}'"
+        if result.returncode != 0:
+            return False, "Could not check merge status"
+
+        output = result.stdout.strip()
+        if not output:
+            # No unique commits, already merged
+            return True, f"Branch '{source_branch}' is already merged into '{target_branch}'"
 
         return False, "Branch has unique commits"
 
-    except subprocess.CalledProcessError:
+    except Exception:
         return False, "Could not check merge status"

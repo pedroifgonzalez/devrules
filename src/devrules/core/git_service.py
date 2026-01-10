@@ -201,34 +201,21 @@ def _get_branch_name_with_typer(config: Config) -> str:
 
 
 def detect_scope(config: Config, project_item: ProjectItem) -> str:
-    # Detect the scope based on the project item with hierarchy
-    scope = config.branch.prefixes[0]
-    labels_mappping = config.branch.labels_mapping
+    # Default scope
+    default_scope = config.branch.prefixes[0]
+
     if not project_item.labels:
-        return scope
+        return default_scope
 
-    # Build scope priority from config (higher index = higher priority)
-    scope_priority = {}
-    if config.branch.labels_hierarchy:
-        for idx, scope_name in enumerate(config.branch.labels_hierarchy, start=1):
-            scope_priority[scope_name] = idx
+    labels_mapping = config.branch.labels_mapping
+    labels_hierarchy = config.branch.labels_hierarchy or []
 
-    # Find the highest priority scope among matching labels
-    best_scope = None
-    best_priority = 0
+    # Respect hierarchy order (first match wins)
+    for label in labels_hierarchy:
+        if label in project_item.labels and label in labels_mapping:
+            return labels_mapping[label]
 
-    for label in project_item.labels:
-        if label in labels_mappping:
-            mapped_scope = labels_mappping[label]
-            priority = scope_priority.get(mapped_scope, 0)
-            if priority > best_priority:
-                best_priority = priority
-                best_scope = mapped_scope
-
-    if best_scope:
-        scope = best_scope
-
-    return scope
+    return default_scope
 
 
 def create_staging_branch_name(current_branch: str) -> str:
@@ -432,6 +419,29 @@ def get_author() -> str:
         return "Unknown Author"
 
 
+def get_files_difference_between_branches_in_path(
+    repo_path: str, path: str, base_branch: str, target_branch: str
+):
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--name-only",
+                f"{base_branch}...{target_branch}",
+                "--",
+                path,
+            ],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip().splitlines()
+    except subprocess.CalledProcessError:
+        return []
+
+
 def get_current_repo_name() -> str:
     """Get the current git repository name."""
     try:
@@ -448,3 +458,34 @@ def get_current_repo_name() -> str:
         return repo_part or "Unknown Repository"
     except subprocess.CalledProcessError:
         return "Unknown Repository"
+
+
+def get_default_branch() -> str:
+    """Get the default branch (main or master).
+
+    Returns:
+        Default branch name
+    """
+    try:
+        # Try to get from remote
+        result = subprocess.run(
+            ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            # Output is like "refs/remotes/origin/main"
+            return result.stdout.strip().split("/")[-1]
+    except subprocess.CalledProcessError:
+        pass
+
+    # Fallback: check which exists
+    for branch in ["main", "master"]:
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", f"refs/heads/{branch}"],
+            capture_output=True,
+        )  # type: ignore
+        if result.returncode == 0:
+            return branch
+
+    return "main"  # Default fallback

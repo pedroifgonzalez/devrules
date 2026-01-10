@@ -1,3 +1,4 @@
+---
 repos:
   - repo: https://github.com/psf/black
     rev: 25.11.0
@@ -29,3 +30,8 @@ repos:
           - "--ignore-missing-imports"
           - "--check-untyped-defs"
         files: "^src/"
+
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.33.0  # Use the latest stable tag or revision
+    hooks:
+      - id: yamllint
