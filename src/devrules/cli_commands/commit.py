@@ -28,7 +28,7 @@ from devrules.validators.ownership import validate_branch_ownership
 prompter: Prompter = get_default_prompter()
 
 
-def build_commit_message_interactive(config: Config, tags: list[str]) -> str:
+def build_commit_message_interactive(config: Config, tags: list[str], prompter: Prompter) -> str:
     """Build commit message interactively using gum or typer fallback.
 
     Args:
@@ -109,6 +109,7 @@ def _auto_append_issue_number(spinner: Yaspin, message: str, config: Config):
             spinner.text = "Issue number appended to commit message."
             message = f"#{issue_number} {message}"
         spinner.ok("✔")
+    return message
 
 
 @inject_spinner(Spinners.dots, text="Checking forbidden files...", color="yellow")
@@ -185,7 +186,7 @@ def _validate_ownership(spinner: Yaspin, current_branch: str, config: Config):
 
 
 @inject_spinner(Spinners.dots, text="Getting context aware documentation...", color="blue")
-def _get_documentation_guidance(
+def fetch_documentation_guidance(
     spinner: Yaspin, skip_checks: bool, config: Config
 ) -> Optional[str]:
     """Get documentation guidance
@@ -257,6 +258,17 @@ def _perform_commit(message: str, config: Config, doc_message: Optional[str] = N
         prompter.info(doc_message.strip("\n"))
 
 
+def run_validations(
+    *,
+    skip_checks: bool,
+    current_branch: str,
+    config: Config,
+):
+    _validate_forbidden_files(skip_checks, config)
+    _validate_branch_protection(current_branch, config)
+    _validate_ownership(current_branch, config)
+
+
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     """Register commit commands.
 
@@ -285,22 +297,22 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         """Interactive commit - build commit message with guided prompts."""
         prompter.header("📝 Create Commit")
         current_branch = get_current_branch()
-        # Perform validations
-        _validate_forbidden_files(skip_checks, config)
-        _validate_branch_protection(current_branch, config)
-        _validate_ownership(current_branch, config)
-        # Build commit message
-        if not message:
-            message = build_commit_message_interactive(config=config, tags=config.commit.tags)
-        # Validate commit message
+        run_validations(
+            skip_checks=skip_checks,
+            current_branch=current_branch,
+            config=config,
+        )
+        message = message or build_commit_message_interactive(
+            config=config,
+            tags=config.commit.tags,
+            prompter=prompter,
+        )
         _validate_commit(message, config)
-        # Perform post-commit validation operations
-        _auto_append_issue_number(message, config)
-        doc_message = _get_documentation_guidance(skip_checks, config)
-        _stage_files(config=config)
-        # Confirm before committing
-        _confirm_commit(message=message)
-        _perform_commit(message=message, config=config, doc_message=doc_message)
+        message = _auto_append_issue_number(message, config)
+        doc_message = fetch_documentation_guidance(skip_checks, config)
+        _stage_files(config)
+        _confirm_commit(message)
+        _perform_commit(message, config, doc_message)
 
     return {
         "commit": commit,
