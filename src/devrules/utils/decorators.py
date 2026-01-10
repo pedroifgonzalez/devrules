@@ -5,6 +5,7 @@ from typing import Callable, TypeVar, cast
 
 from typing_extensions import ParamSpec
 
+from devrules.core.enum import DevRulesEvent
 from devrules.core.events_engine import attach_event
 from devrules.core.git_service import ensure_git_repo as ensure_git_repo_
 from devrules.core.rules_engine import RuleDefinition, execute_rule, prompt_for_rule_arguments
@@ -35,7 +36,7 @@ def ensure_git_repo() -> Callable[[Callable[P, T]], Callable[P, T]]:
     return decorator
 
 
-def emit_event(event: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
+def emit_events(*events: list[DevRulesEvent]) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """
     Decorator that emits an event for running custom rules hooked to that event
     """
@@ -49,7 +50,10 @@ def emit_event(event: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             """Decorator that ensures the function is being called from within a Git repository."""
-            custom_rules: list[RuleDefinition] = attach_event(event)
+            custom_rules: list[RuleDefinition] = []
+            for event in events:
+                custom_rules.extend(attach_event(event))
+            prompter.header("Running custom rules...")
             for custom_rule in custom_rules:
                 prompter.info(f"Running custom rule: {custom_rule.name}")
                 prompted_kwargs = prompt_for_rule_arguments(custom_rule.name)
@@ -57,7 +61,7 @@ def emit_event(event: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
                 if not valid:
                     prompter.error(message)
                     prompter.exit(1)
-                prompter.success(message)
+                prompter.success(message.strip("\n"))
             return func(*args, **kwargs)
 
         return cast(Callable[P, T], wrapper)

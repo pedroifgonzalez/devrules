@@ -17,7 +17,7 @@ from devrules.core.enum import DevRulesEvent
 from devrules.core.git_service import commit as _commit
 from devrules.core.git_service import get_current_branch, get_current_issue_number, stage_files
 from devrules.messages import commit as msg
-from devrules.utils.decorators import emit_event, ensure_git_repo
+from devrules.utils.decorators import emit_events, ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.commit import validate_commit
 from devrules.validators.forbidden_files import (
@@ -80,11 +80,11 @@ def build_commit_message_interactive(config: Config, tags: list[str]) -> str:
 @inject_spinner(Spinners.dots, text="Validating commit message...", color="yellow")
 def _validate_commit(spinner: Yaspin, message: str, config: Config):
     is_valid, result_message = validate_commit(message, config.commit)
+    spinner.ok("✔")
     if not is_valid:
         spinner.fail("✘")
         typer.secho(f"\n✘ {result_message}", fg=typer.colors.RED)
         raise typer.Exit(code=1)
-    spinner.ok("✔")
 
 
 @inject_spinner(Spinners.dots, text="Checking issue number...", color="magenta")
@@ -106,7 +106,7 @@ def _validate_forbidden_files(spinner: Yaspin, skip_checks: bool, config: Config
             forbidden_paths=config.commit.forbidden_paths,
             check_staged=True,
         )
-
+        spinner.ok("✔")
         if not is_valid:
             add_typer_block_message(
                 header=msg.FORBIDDEN_FILES_DETECTED,
@@ -117,21 +117,19 @@ def _validate_forbidden_files(spinner: Yaspin, skip_checks: bool, config: Config
                 use_separator=False,
             )
             raise typer.Exit(code=1)
-        spinner.ok("✔")
 
 
 @inject_spinner(Spinners.dots, text="Validating protected branches...", color="yellow")
 def _validate_branch_protection(spinner: Yaspin, current_branch: str, config: Config):
     if config.commit.protected_branch_prefixes:
-        with yaspin(text="") as spinner:
-            for prefix in config.commit.protected_branch_prefixes:
-                if current_branch.count(prefix):
-                    typer.secho(
-                        msg.CANNOT_COMMIT_TO_PROTECTED_BRANCH.format(current_branch, prefix),
-                        fg=typer.colors.RED,
-                    )
-                    raise typer.Exit(code=1)
-            spinner.ok("✔")
+        for prefix in config.commit.protected_branch_prefixes:
+            if current_branch.count(prefix):
+                typer.secho(
+                    msg.CANNOT_COMMIT_TO_PROTECTED_BRANCH.format(current_branch, prefix),
+                    fg=typer.colors.RED,
+                )
+                raise typer.Exit(code=1)
+        spinner.ok("✔")
 
 
 @inject_spinner(Spinners.dots, text="Checking branch ownership...", color="yellow")
@@ -334,7 +332,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
     @app.command()
     @ensure_git_repo()
-    @emit_event(DevRulesEvent.PRE_COMMIT)
+    @emit_events(DevRulesEvent.PRE_COMMIT, DevRulesEvent.POST_COMMIT)
     def icommit(
         skip_checks: bool = typer.Option(
             False, "--skip-checks", help="Skip file validation and documentation checks"
@@ -342,24 +340,20 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config: Config = Depends(load_config),
     ):
         """Interactive commit - build commit message with guided prompts."""
+        prompter.header("📝 Create Commit")
         current_branch = get_current_branch()
-
         # Perform validations
         _validate_forbidden_files(skip_checks, config)
         _validate_branch_protection(current_branch, config)
         _validate_ownership(current_branch, config)
-
         # Build commit message
         message = build_commit_message_interactive(config=config, tags=config.commit.tags)
-
         # Validate commit message
         _validate_commit(message, config)
-
         # Perform post-commit validation operations
         _auto_append_issue_number(message, config)
         doc_message = _get_documentation_guidance(skip_checks, config)
         _stage_files(config=config)
-
         # Confirm before committing
         _confirm_commit(message=message)
         _perform_commit(message=message, config=config, doc_message=doc_message)
