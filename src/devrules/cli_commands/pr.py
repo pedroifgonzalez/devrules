@@ -270,7 +270,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
     @app.command()
     def check_pr(
-        pr_number: int,
+        pr_number: Optional[int] = typer.Option(None, "--pr-number", "-p"),
         owner: Optional[str] = typer.Option(None, "--owner", "-o"),
         repo: Optional[str] = typer.Option(None, "--repo", "-r"),
         config: Config = Depends(load_config),
@@ -279,21 +279,35 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         prompter.header("🔍 Validate Pull Request")
         github_owner = owner or config.github.owner
         github_repo = repo or config.github.repo
+        pr_number_selected = pr_number or prompter.input_text(
+            header="PR Number:", placeholder="PR Number"
+        )
 
         if not github_owner or not github_repo:
             prompter.error("GitHub owner and repo must be provided via CLI or config.")
             raise prompter.exit(code=1)
 
         try:
-            pr_info = fetch_pr_info(
-                github_owner,
-                github_repo,
-                pr_number,
-                config.github,
-            )
-        except Exception as e:
-            prompter.error(str(e))
+            pr_number_selected = int(pr_number_selected)
+        except ValueError:
+            pr_number_selected = None
+
+        if not pr_number_selected:
+            prompter.error("PR number invalid")
             raise prompter.exit(code=1)
+
+        with yaspin(text="Searching PR information...") as spinner:
+            try:
+                pr_info = fetch_pr_info(
+                    github_owner,
+                    github_repo,
+                    pr_number_selected,
+                    config.github,
+                )
+            except Exception as e:
+                spinner.stop()
+                prompter.error(str(e))
+                raise prompter.exit(code=1)
 
         prompter.info(f"PR Title: {pr_info.title}")
         prompter.info(f"Total LOC: {pr_info.additions + pr_info.deletions}")
@@ -314,7 +328,13 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         )
 
         for m in messages:
-            prompter.success(m) if is_valid else prompter.error(m)
+            lower_m = m.lower()
+            if "valid" in lower_m or "acceptable" in lower_m or "skipped" in lower_m:
+                prompter.success(m)
+            elif "too" in lower_m or "does not" in lower_m:
+                prompter.error(m)
+            else:
+                prompter.info(m)
 
         raise prompter.exit(code=0 if is_valid else 1)
 
