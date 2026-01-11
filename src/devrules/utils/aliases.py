@@ -3,13 +3,10 @@
 import typer
 
 ALIAS_MAP = {
-    "check_branch": ["cb"],
-    "check_commit": ["cc"],
     "check_pr": ["cpr"],
     "init_config": ["init"],
     "create_branch": ["nb"],
     "commit": ["ci"],
-    "icommit": ["ic"],
     "create_pr": ["pr"],
     "ipr": ["ipr"],
     "list_owned_branches": ["lob"],

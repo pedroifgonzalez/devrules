@@ -33,7 +33,7 @@ def validate_pr_issue_status(
     issue_number = _extract_issue_number(current_branch)
     if issue_number is None:
         # No issue number in branch, skip check
-        messages.append("ℹ No issue number found in branch name - status check skipped")
+        messages.append("No issue number found in branch name - status check skipped")
         return True, messages
 
     # Determine which projects to check
@@ -122,9 +122,7 @@ def validate_pr(
             if not status_valid:
                 is_valid = False
         else:
-            messages.append(
-                "⚠ Issue status check enabled but branch/config not provided - skipping"
-            )
+            messages.append("Issue status check enabled but branch/config not provided - skipping")
 
     total_loc = pr_info.additions + pr_info.deletions
 
@@ -132,23 +130,23 @@ def validate_pr(
     if config.require_title_tag:
         pattern = re.compile(config.title_pattern)
         if pattern.match(pr_info.title):
-            messages.append("✔ PR title valid")
+            messages.append("PR title valid")
         else:
-            messages.append("✘ PR title does not follow required format")
+            messages.append("PR title does not follow required format")
             is_valid = False
 
     # Check LOC
     if total_loc > config.max_loc:
-        messages.append(f"✘ PR too large: {total_loc} LOC (max: {config.max_loc})")
+        messages.append(f"PR too large: {total_loc} LOC (max: {config.max_loc})")
         is_valid = False
     else:
-        messages.append(f"✔ PR size acceptable: {total_loc} LOC")
+        messages.append(f"PR size acceptable: {total_loc} LOC")
 
     # Check files
     if pr_info.changed_files > config.max_files:
-        messages.append(f"✘ Too many files: {pr_info.changed_files} (max: {config.max_files})")
+        messages.append(f"Too many files: {pr_info.changed_files} (max: {config.max_files})")
         is_valid = False
     else:
-        messages.append(f"✔ File count acceptable: {pr_info.changed_files}")
+        messages.append(f"File count acceptable: {pr_info.changed_files}")
 
     return is_valid, messages
