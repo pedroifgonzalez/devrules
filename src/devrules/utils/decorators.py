@@ -53,7 +53,7 @@ def emit_events(*events: list[DevRulesEvent]) -> Callable[[Callable[P, T]], Call
             custom_rules: list[RuleDefinition] = []
             for event in events:
                 custom_rules.extend(attach_event(event))
-            prompter.header("Running custom rules...")
+            prompter.header("Running custom rules...") if custom_rules else None
             for custom_rule in custom_rules:
                 prompter.info(f"Running custom rule: {custom_rule.name}")
                 prompted_kwargs = prompt_for_rule_arguments(custom_rule.name)
