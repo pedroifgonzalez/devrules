@@ -58,8 +58,6 @@ def select_base_branch_interactive(
     suggested: str,
 ) -> str:
     """Select base branch using the unified prompter."""
-    prompter.header("🎯 Select Target Branch")
-
     if not allowed_targets:
         allowed_targets = ["develop", "main", "master"]
 
@@ -68,7 +66,7 @@ def select_base_branch_interactive(
 
     selected = prompter.choose(
         allowed_targets,
-        header="Select base branch for PR:",
+        header="🎯 Select Target Branch",
     )
 
     if not selected:
