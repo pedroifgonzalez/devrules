@@ -204,5 +204,14 @@ class Prompter(ABC):
         """
         raise SystemExit(code)
 
+    @abstractmethod
+    def header(self, header: str) -> None:
+        """Display a header
+
+        Args:
+            header (str): Header content message
+        """
+        pass
+
 
 __all__ = ["Prompter"]
