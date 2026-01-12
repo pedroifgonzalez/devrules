@@ -298,3 +298,12 @@ class TyperPrompter(Prompter):
             code: Exit code
         """
         raise typer.Exit(code)
+
+    def header(self, header: str) -> None:
+        """Print a header title
+
+        Args:
+            header (str): header's content
+        """
+        typer.secho(header, fg=typer.colors.BLUE, bold=True)
+        typer.secho("=" * 50, fg=typer.colors.BLUE)
