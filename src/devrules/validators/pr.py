@@ -140,14 +140,14 @@ def validate_pr(
 
     # Check LOC
     if total_loc > pr_config.max_loc:
-        messages.append(f"✘ PR too large: {total_loc} LOC (max: {pr_config.max_loc})")
+        messages.append(f"PR too large: {total_loc} LOC (max: {pr_config.max_loc})")
         is_valid = False
     else:
         messages.append(f"PR size acceptable: {total_loc} LOC")
 
     # Check files
     if pr_info.changed_files > pr_config.max_files:
-        messages.append(f"✘ Too many files: {pr_info.changed_files} (max: {pr_config.max_files})")
+        messages.append(f"Too many files: {pr_info.changed_files} (max: {pr_config.max_files})")
         is_valid = False
     else:
         messages.append(f"File count acceptable: {pr_info.changed_files}")
