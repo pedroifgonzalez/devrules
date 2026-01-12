@@ -98,6 +98,30 @@ class TestHistoryManager(unittest.TestCase):
             manager2 = get_history_manager()
             self.assertIs(manager1, manager2)
 
+    def test_load_corrupted_json(self):
+        self.history_path.write_text("{ invalid json }")
+        history = self.manager._load_history()
+        self.assertEqual(history, {})
+
+    def test_load_io_error(self):
+        with patch("builtins.open", side_effect=IOError("Permission denied")):
+            history = self.manager._load_history()
+            self.assertEqual(history, {})
+
+    def test_save_io_error(self):
+        with patch("builtins.open", side_effect=IOError("Permission denied")):
+            self.manager._save_history({"test": [{"value": "test"}]})
+
+    def test_add_entry_empty_value(self):
+        self.manager.add_entry("test_type", "")
+        recent = self.manager.get_recent("test_type")
+        self.assertEqual(recent, [])
+
+    def test_add_entry_whitespace_only(self):
+        self.manager.add_entry("test_type", "   ")
+        recent = self.manager.get_recent("test_type")
+        self.assertEqual(recent, [])
+
 
 if __name__ == "__main__":
     unittest.main()

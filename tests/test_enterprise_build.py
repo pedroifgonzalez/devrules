@@ -171,6 +171,31 @@ class TestEnterpriseBuild:
         assert "test-devrules-company" in readme
         assert "Encryption Key" not in readme
 
+    def test_build_package(self, project_root, monkeypatch):
+        """Test building the package."""
+        import subprocess
+
+        # Mock subprocess.run to avoid actual build
+        mock_run_called = []
+
+        def mock_run(*args, **kwargs):
+            mock_run_called.append((args, kwargs))
+            return None
+
+        monkeypatch.setattr(subprocess, "run", mock_run)
+
+        builder = EnterpriseBuilder(project_root)
+        output_path = builder.build_package(output_dir="dist")
+
+        # Verify build was called
+        assert len(mock_run_called) == 1
+        call_args, call_kwargs = mock_run_called[0]
+        assert "python" in call_args[0]
+        assert "-m" in call_args[0]
+        assert "build" in call_args[0]
+        assert call_kwargs.get("check") is True
+        assert output_path == project_root / "dist"
+
 
 class TestConfigurationPriority:
     """Test configuration priority system."""

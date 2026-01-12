@@ -158,3 +158,11 @@ class TestConfigCrypto:
         encrypted = crypto.encrypt_field(original)
         decrypted = crypto2.decrypt_field(encrypted)
         assert decrypted == original
+
+    def test_save_key_without_key_raises_error(self, tmp_path):
+        """Test that save_key raises error when no key is set."""
+        crypto = ConfigCrypto(key=None)
+        key_file = tmp_path / "test.key"
+
+        with pytest.raises(ValueError, match="No key to save"):
+            crypto.save_key(str(key_file))
