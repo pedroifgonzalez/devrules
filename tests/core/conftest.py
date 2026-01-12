@@ -33,7 +33,7 @@ def config() -> Config:
     """Create test configuration."""
     from devrules.config import load_config
 
-    config = load_config()
+    config = load_config(".devrules.toml.example")
     config.deployment.migration_detection_enabled = True
     config.deployment.migration_paths = ["migrations/", "db/migrations/"]
     return config

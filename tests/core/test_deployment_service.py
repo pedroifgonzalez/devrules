@@ -421,7 +421,13 @@ def test_get_deployed_branch(
 @pytest.mark.parametrize(
     "env, default_branch, pattern, branch_name, expected",
     [
-        ("dev", "develop", "^(?!(main|staging)).*$", "staging-this-is-not-a-develop-branch", None),
+        (
+            "dev",
+            "develop",
+            "^(?!(main|staging)).*$",
+            "staging-this-is-not-a-develop-branch",
+            "staging",
+        ),
         ("dev", "develop", "^(?!(main|staging)).*$", "feature/23-this-is-a-develop-branch", "dev"),
         ("staging", "", "^(staging)", "staging-this-is-a-staging-branch", "staging"),
     ],
