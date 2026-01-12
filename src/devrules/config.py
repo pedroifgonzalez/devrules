@@ -58,6 +58,7 @@ class PRConfig:
     allowed_targets: list = field(default_factory=list)
     target_rules: list = field(default_factory=list)
     auto_push: bool = False
+    prefixes_tags: dict = field(default_factory=dict)
 
 
 @dataclass

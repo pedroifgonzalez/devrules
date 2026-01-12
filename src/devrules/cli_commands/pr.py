@@ -28,7 +28,7 @@ from devrules.validators.pr_target import (
 prompter: Prompter = get_default_prompter()
 
 
-def derive_pr_title(branch: str) -> str:
+def derive_pr_title(branch: str, config: Config) -> str:
     """Derive a human-friendly PR title from a branch name."""
     prefix = None
     name_part = branch
@@ -36,15 +36,9 @@ def derive_pr_title(branch: str) -> str:
     if "/" in branch:
         prefix, name_part = branch.split("/", 1)
 
-    prefix_to_tag = {
-        "feature": "FTR",
-        "bugfix": "FIX",
-        "hotfix": "FIX",
-        "docs": "DOCS",
-        "release": "REF",
-    }
-
-    tag = prefix_to_tag.get(prefix or "", "FTR")
+    tag = None
+    if prefix_to_tag := config.pr.prefixes_tags:
+        tag = prefix_to_tag.get(prefix or "", "FTR")
 
     issue_match = re.match(r"^(\d+)-(.*)$", name_part)
     if issue_match:
@@ -56,7 +50,7 @@ def derive_pr_title(branch: str) -> str:
     if humanized:
         humanized = humanized.capitalize()
 
-    return f"[{tag}] {humanized}" if humanized else f"[{tag}] {branch}"
+    return f"[{tag}] {humanized}" if tag else humanized
 
 
 def select_base_branch_interactive(
@@ -64,8 +58,6 @@ def select_base_branch_interactive(
     suggested: str,
 ) -> str:
     """Select base branch using the unified prompter."""
-    prompter.header("🎯 Select Target Branch")
-
     if not allowed_targets:
         allowed_targets = ["develop", "main", "master"]
 
@@ -74,7 +66,7 @@ def select_base_branch_interactive(
 
     selected = prompter.choose(
         allowed_targets,
-        header="Select base branch for PR:",
+        header="🎯 Select Target Branch",
     )
 
     if not selected:
@@ -249,7 +241,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         base = select_base_branch_interactive(allowed_targets, suggested)
 
-        title = derive_pr_title(current_branch)
+        title = derive_pr_title(current_branch, config)
 
         edited = prompter.input_text(
             header="📝 PR Title:",
