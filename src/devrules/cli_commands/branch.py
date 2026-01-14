@@ -25,6 +25,7 @@ from devrules.utils import gum
 from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.dependencies import get_config
 from devrules.utils.gum import GUM_AVAILABLE
+from devrules.utils.issue_mapping import get_issue_mapping_manager
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.branch import (
     validate_branch,
@@ -149,6 +150,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                     raise typer.Exit(code=0)
 
         # Determine branch name from different sources
+        project_number = None
         if for_staging:
             current_branch = get_current_branch()
             final_branch_name = create_staging_branch_name(current_branch)
@@ -207,6 +209,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         if not typer.confirm("\n  Create and checkout?", default=True):
             typer.echo("Cancelled.")
             raise typer.Exit(code=0)
+
+        # Store the mapping for future use
+        if project_number:
+            mapping_manager = get_issue_mapping_manager()
+            mapping_manager.add_mapping(issue, final_branch_name, project_number)
 
         # Create and checkout branch
         create_and_checkout_branch(final_branch_name)

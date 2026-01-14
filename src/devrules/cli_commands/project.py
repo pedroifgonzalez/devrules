@@ -8,6 +8,7 @@ from yaspin import yaspin
 
 from devrules.cli_commands.prompters.factory import get_default_prompter
 from devrules.config import load_config
+from devrules.core.git_service import get_current_branch, get_current_issue_number
 from devrules.core.github_service import ensure_gh_installed
 from devrules.core.permission_service import can_transition_status
 from devrules.core.project_service import (
@@ -24,6 +25,7 @@ from devrules.core.project_service import (
 )
 from devrules.utils import gum
 from devrules.utils.gum import GUM_AVAILABLE
+from devrules.utils.issue_mapping import get_issue_mapping_manager
 from devrules.utils.typer import add_typer_block_message
 
 prompter = get_default_prompter()
@@ -352,9 +354,20 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         valid_statuses = _get_valid_statuses()
         projects_keys = list(config.github.projects.keys())
-        project_key = project
-        if project_key is None:
-            project_key = _get_project_interactively(projects_keys=projects_keys)
+
+        # Try to get mapping from current branch first
+        mapping_manager = get_issue_mapping_manager()
+        current_branch = get_current_branch()
+        branch_mapping = mapping_manager.get_mapping_by_branch(current_branch)
+
+        if branch_mapping:
+            project_key = branch_mapping["project_key"]
+            issue = branch_mapping["issue_number"]
+            prompter.info("Found mapping for branch, continuing...")
+        else:
+            project_key = project
+            if project_key is None:
+                project_key = _get_project_interactively(projects_keys=projects_keys)
 
         if not project_key:
             typer.secho("Not valid project was selected", fg=typer.colors.RED)
@@ -362,6 +375,16 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         # Resolve project owner and number using existing logic
         owner, project_number = resolve_project_number(project_key)
+
+        # Extract issue from branch if possible (skip if already found from mapping)
+        if issue is None:
+            with yaspin(text="Extracting issue from branch") as spinner:
+                extracted_issue_number = get_current_issue_number()
+                if extracted_issue_number is not None:
+                    issue = int(extracted_issue_number)
+                    spinner.write(f"✔ Issue {extracted_issue_number} found")
+                else:
+                    spinner.write("✘ No issue found")
 
         # If no issue is provided, show interactive selection
         item_status = None
@@ -451,6 +474,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             f"✔ Updated status of project item for issue #{issue} to '{status}' (title: {item_title})",
             fg=typer.colors.GREEN,
         )
+
+        # Store the mapping for future use
+        mapping_manager.add_mapping(issue, current_branch, project_key)
 
         if integration_comment and issue_repo and issue:
             repo_owner, repo_name = _get_repo_owner_and_name(
