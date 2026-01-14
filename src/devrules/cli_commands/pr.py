@@ -164,12 +164,7 @@ def create_pr_internal(
             spinner.stop()
 
             for m in messages:
-                if "✔" in m or "ℹ" in m:
-                    prompter.success(m)
-                elif "⚠" in m:
-                    prompter.warning(m)
-                else:
-                    prompter.error(m)
+                prompter.info(m)
 
             if not is_valid:
                 prompter.error("Cannot create PR: Issue status check failed")
