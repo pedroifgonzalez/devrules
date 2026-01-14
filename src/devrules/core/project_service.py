@@ -14,6 +14,7 @@ VIDEO_EXTENSIONS = (".mp4", ".webm", ".gif")
 
 
 def extract_media_urls(text: str) -> list[str]:
+    """Extract media URLs from a given text."""
     if not text:
         return []
 
@@ -659,6 +660,7 @@ def show_issue_on_web(issue: str) -> bool:
 
 
 def get_issue_evidence(issue: str) -> list[str]:
+    """Get issue list of assets added as evidence"""
     evidence: list[str] = []
 
     try:
