@@ -201,6 +201,8 @@ def create_pr_internal(
         "--title",
         title,
         "--fill",
+        "--assignee",
+        "@me",
     ]
 
     try:
