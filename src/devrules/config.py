@@ -404,7 +404,7 @@ def load_config(config_path: Optional[Path] = None) -> Config:
             print(f"Warning: Error loading user config file: {e}")
 
     # Merge configurations with priority
-    config_data: Dict[str, Any] = {**DEFAULT_CONFIG}
+    config_data: Dict[str, Any] = {}
 
     # Apply user config if not locked by enterprise
     if user_config_data and not is_locked:
