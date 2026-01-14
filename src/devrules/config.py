@@ -72,6 +72,7 @@ class GitHubConfig:
     projects: dict = field(default_factory=dict)
     valid_statuses: list = field(default_factory=list)
     integration_comment_status: str = "Waiting Integration"
+    require_evidence_status: Optional[str] = None
     status_emojis: dict = field(default_factory=dict)
 
     def _validate(self):
@@ -83,6 +84,16 @@ class GitHubConfig:
         ):
             typer.secho(
                 f"Invalid integration comment status: {self.integration_comment_status}",
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(code=1)
+        if (
+            self.require_evidence_status
+            and self.valid_statuses
+            and self.require_evidence_status not in self.valid_statuses
+        ):
+            typer.secho(
+                f"Invalid evidence status: {self.require_evidence_status}",
                 fg=typer.colors.RED,
             )
             raise typer.Exit(code=1)
@@ -277,12 +288,14 @@ DEFAULT_CONFIG = {
         "repo": None,
         "projects": {},
         "integration_comment_status": "Waiting Integration",
+        "require_evidence_status": "Tech Lead Review",
         "valid_statuses": [
             "Backlog",
             "Blocked",
             "To Do",
             "In Progress",
             "Waiting Integration",
+            "Tech Lead Review",
             "QA Testing",
             "QA In Progress",
             "QA Approved",

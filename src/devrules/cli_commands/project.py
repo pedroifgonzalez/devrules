@@ -6,22 +6,27 @@ from typing import Any, Callable, Dict, Optional
 import typer
 from yaspin import yaspin
 
+from devrules.cli_commands.prompters.factory import get_default_prompter
 from devrules.config import load_config
 from devrules.core.github_service import ensure_gh_installed
 from devrules.core.permission_service import can_transition_status
 from devrules.core.project_service import (
     add_issue_comment,
     find_project_item_for_issue,
+    get_issue_evidence,
     get_project_id,
     get_status_field_id,
     get_status_option_id,
     list_project_items,
     print_project_items,
     resolve_project_number,
+    show_issue_on_web,
 )
 from devrules.utils import gum
 from devrules.utils.gum import GUM_AVAILABLE
 from devrules.utils.typer import add_typer_block_message
+
+prompter = get_default_prompter()
 
 
 def _get_valid_statuses() -> list[str]:
@@ -151,6 +156,34 @@ def _ask_for_integration_comment() -> Optional[str]:
             typer.echo("Cancelled.")
             raise typer.Exit(code=0)
     return integration_comment
+
+
+def _ask_for_evidence(issue: str) -> None:
+    """Show to user the issue on web and aks him to complete adding some evidence"""
+    with yaspin(text="Checking if there are evidence assets..."):
+        evidence = get_issue_evidence(issue)
+
+    if evidence:
+        prompter.info("Evidence assets found, continuing...")
+        return None
+
+    with yaspin(text="Loading issue on web...", color="yellow"):
+        show_issue_on_web(issue)
+
+    prompter.info("The issue was opened on your browser. Please add evidence")
+    prompter.confirm("Are you done adding evidence?")
+
+    # check evidence was added
+    with yaspin(text="Checking evidence...", color="yellow"):
+        evidence = get_issue_evidence(issue)
+
+    # if evidence was added continue, if warn user and ask to continue anyway
+    if not evidence:
+        prompter.warning("No evidence found")
+        confirm = prompter.confirm("Continue without evidence?", default=False)
+        if not confirm:
+            prompter.error("Cancelled.")
+            raise prompter.exit(0)
 
 
 def _get_repo_owner_and_name(config, owner, issue_repo) -> tuple[str, str]:
@@ -372,6 +405,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         integration_comment = None
         if status == config.github.integration_comment_status:
             integration_comment = _ask_for_integration_comment()
+
+        if status == config.github.require_evidence_status:
+            _ask_for_evidence(issue=str(issue))
 
         with yaspin(text="Get project id..."):
             project_id = get_project_id(owner, project_number)

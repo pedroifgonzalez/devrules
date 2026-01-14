@@ -1,6 +1,7 @@
 """Project service for interacting with GitHub Projects logic."""
 
 import json
+import re
 import subprocess
 from typing import Optional, Tuple
 
@@ -8,6 +9,23 @@ import typer
 
 from devrules.config import load_config
 from devrules.dtos.github import ProjectItem
+
+VIDEO_EXTENSIONS = (".mp4", ".webm", ".gif")
+
+
+def extract_media_urls(text: str) -> list[str]:
+    if not text:
+        return []
+
+    url_regex = r"https?://[^\s\)]+"
+    urls = re.findall(url_regex, text)
+
+    return [
+        url
+        for url in urls
+        if url.lower().endswith(VIDEO_EXTENSIONS)
+        or "https://github.com/user-attachments/assets/" in url
+    ]
 
 
 def resolve_project_number(project: str) -> Tuple[str, str]:
@@ -627,3 +645,56 @@ def print_project_items(
             typer.echo(f"{emoji} #{number} [{status or '-'}] ({priority or '-'}) {title}")
         else:
             typer.echo(f"{emoji} [{status or '-'}] ({priority or '-'}) {title}")
+
+
+def show_issue_on_web(issue: str) -> bool:
+    """Open an issue on the web using GitHub CLI."""
+    cmd = ["gh", "issue", "view", issue, "--web"]
+    try:
+        result = subprocess.run(cmd, capture_output=True, check=True, text=True)
+        return True if result.returncode == 0 else False
+    except Exception as e:
+        typer.secho(f"Error opening issue on web: {e}", fg=typer.colors.RED)
+        return False
+
+
+def get_issue_evidence(issue: str) -> list[str]:
+    evidence: list[str] = []
+
+    try:
+        result = subprocess.run(
+            [
+                "gh",
+                "issue",
+                "view",
+                issue,
+                "--json",
+                "body,comments",
+            ],
+            capture_output=True,
+            check=True,
+            text=True,
+        )
+
+        data = json.loads(result.stdout)
+
+        # Issue body
+        evidence.extend(extract_media_urls(data.get("body", "")))
+
+        # Comments
+        for comment in data.get("comments", []):
+            evidence.extend(extract_media_urls(comment.get("body", "")))
+
+    except subprocess.CalledProcessError as e:
+        typer.secho(
+            f"gh command failed: {e.stderr or e}",
+            fg=typer.colors.RED,
+        )
+    except Exception as e:
+        typer.secho(
+            f"Error getting issue evidence: {e}",
+            fg=typer.colors.RED,
+        )
+
+    # Remove duplicates while preserving order
+    return list(dict.fromkeys(evidence))
