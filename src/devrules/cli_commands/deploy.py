@@ -6,15 +6,17 @@ from typing import Any, Callable, Dict, Optional
 
 import typer
 from typer_di import Depends
+from yaspin import yaspin
 
+from devrules.cli_commands.prompters.factory import get_default_prompter
 from devrules.config import Config, load_config
 from devrules.core.deployment_service import (
     check_deployment_readiness,
     check_migration_conflicts,
     execute_deployment,
-    get_deployed_branch,
-    rollback_deployment,
 )
+from devrules.core.deployment_service import get_deployed_branch as _get_deployed_branch
+from devrules.core.deployment_service import rollback_deployment
 from devrules.core.enum import DevRulesEvent
 from devrules.core.git_service import get_author, get_current_branch, get_current_repo_name
 from devrules.core.permission_service import can_deploy_to_environment
@@ -23,6 +25,8 @@ from devrules.notifications import emit
 from devrules.notifications.events import DeployEvent
 from devrules.utils.decorators import emit_events, ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
+
+prompter = get_default_prompter()
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
@@ -317,7 +321,21 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             typer.echo(f"\n❌ Branch '{branch}' is NOT ready for deployment")
             raise typer.Exit(code=1)
 
+    @app.command()
+    @ensure_git_repo()
+    def get_deployed_branch(
+        environment: str = typer.Argument(..., help="Target environment (dev, staging, prod)"),
+        config: Config = Depends(load_config),
+    ):
+        """Get the currently deployed branch for the given environment."""
+        prompter.header("Get deployed branch")
+        # Get deployed branch
+        with yaspin(text="Getting deployed branch..."):
+            deployed_branch = _get_deployed_branch(environment, config)
+        prompter.info(f"Currently deployed branch on {environment}: {deployed_branch}")
+
     return {
         "deploy": deploy,
         "check_deployment": check_deployment,
+        "get_deployed_branch": get_deployed_branch,
     }
