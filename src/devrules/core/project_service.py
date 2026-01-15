@@ -671,7 +671,7 @@ def get_issue_evidence(issue: str) -> list[str]:
                 "view",
                 issue,
                 "--json",
-                "body,comments",
+                "comments",
             ],
             capture_output=True,
             check=True,

@@ -173,7 +173,11 @@ def _ask_for_evidence(issue: str) -> None:
         show_issue_on_web(issue)
 
     prompter.info("The issue was opened on your browser. Please add evidence")
-    prompter.confirm("Are you done adding evidence?")
+    response = prompter.confirm("Are you done adding evidence?")
+
+    if response is False:
+        prompter.error("Cancelled.")
+        raise prompter.exit(0)
 
     # check evidence was added
     with yaspin(text="Checking evidence...", color="yellow"):
