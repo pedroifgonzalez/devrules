@@ -89,7 +89,7 @@ class GumPrompter(Prompter):
         Returns:
             User input string or None if cancelled
         """
-        return gum.write(placeholder, header, char_limit)
+        return gum.write(placeholder, header, char_limit, default)
 
     def filter_list(
         self,

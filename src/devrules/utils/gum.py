@@ -108,9 +108,7 @@ def input_text(
 
 
 def write(
-    placeholder: str = "",
-    header: str = "",
-    char_limit: int = 0,
+    placeholder: str = "", header: str = "", char_limit: int = 0, default: str = ""
 ) -> Optional[str]:
     """Multi-line text input.
 
@@ -118,6 +116,7 @@ def write(
         placeholder: Placeholder text
         header: Header text
         char_limit: Maximum characters (0 for unlimited)
+        default: Default text
 
     Returns:
         User input or None if cancelled
@@ -132,6 +131,8 @@ def write(
         cmd.extend(["--header", header])
     if char_limit > 0:
         cmd.extend(["--char-limit", str(char_limit)])
+    if default:
+        cmd.extend(["--value", default])
 
     try:
         # Don't capture stderr so user sees the interactive UI

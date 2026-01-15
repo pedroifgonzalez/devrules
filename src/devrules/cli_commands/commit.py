@@ -63,7 +63,7 @@ def build_commit_message_interactive(config: Config, tags: list[str], prompter: 
     if default_message:
         kwargs["default"] = default_message
 
-    message = prompter.input_text(**kwargs)
+    message = prompter.write(**kwargs)
 
     if not message:
         prompter.warning(f"{msg.COMMIT_CANCELLED}")
