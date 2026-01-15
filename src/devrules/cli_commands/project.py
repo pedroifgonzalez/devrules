@@ -191,6 +191,9 @@ def _ask_for_evidence(issue: str) -> None:
             prompter.error("Cancelled.")
             raise prompter.exit(0)
 
+    prompter.info("Evidence assets found, continuing...")
+    return None
+
 
 def _get_repo_owner_and_name(config, owner, issue_repo) -> tuple[str, str]:
     """Get the repository owner and name."""
