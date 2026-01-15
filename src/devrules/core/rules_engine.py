@@ -196,6 +196,7 @@ def prompt_for_rule_arguments(rule_name: str) -> Dict[str, Any]:
 
         if rule.ignore_defaults and param.default != inspect.Parameter.empty:
             kwargs[param_name] = param.default
+            continue
 
         prompt_text = f"Enter value for '{param_name}' ({param_type}):"
         value = prompter.input_text(
