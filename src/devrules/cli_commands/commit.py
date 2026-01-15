@@ -157,6 +157,7 @@ def _validate_branch_protection(spinner: Yaspin, current_branch: str, config: Co
     """
     if config.commit.protected_branch_prefixes:
         for prefix in config.commit.protected_branch_prefixes:
+            spinner.stop()
             if current_branch.count(prefix):
                 prompter.error(
                     msg.CANNOT_COMMIT_TO_PROTECTED_BRANCH.format(current_branch, prefix),

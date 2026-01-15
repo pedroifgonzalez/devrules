@@ -50,11 +50,11 @@ class CommitMessages:
     # Error messages
     MESSAGE_CANNOT_BE_EMPTY = "Message cannot be empty"
     NO_TAG_SELECTED = "No tag selected"
-    INVALID_CHOICE = "✘ Invalid choice"
+    INVALID_CHOICE = "Invalid choice"
     COMMIT_MESSAGE_FILE_NOT_FOUND = "Commit message file not found: {}"
-    FORBIDDEN_FILES_DETECTED = "✘ Forbidden Files Detected"
+    FORBIDDEN_FILES_DETECTED = "Forbidden Files Detected"
     CANNOT_COMMIT_TO_PROTECTED_BRANCH = (
-        "✘ Cannot commit directly to '{}'. Branches containing '{}' are protected (merge-only)."
+        "Cannot commit directly to '{}'. Branches containing '{}' are protected (merge-only)."
     )
 
     # Success messages
