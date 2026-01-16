@@ -100,6 +100,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config: Config = Depends(load_config),
     ):
         """Validate branch naming convention."""
+        prompter.header("Validate branch")
         is_valid, message = validate_branch(branch, config.branch)
 
         if is_valid:
@@ -130,6 +131,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config: Config = Depends(get_config),
     ):
         """Create a new Git branch with validation (interactive mode)."""
+        prompter.header("Create branch")
 
         def at_least_one_validation_repo_state_set():
             return any((config.validation.check_uncommitted, config.validation.check_behind_remote))
@@ -251,7 +253,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @ensure_git_repo()
     def list_owned_branches():
         """Show all local Git branches owned by the current user."""
-
+        prompter.header("List owned branches")
         try:
             branches = list_user_owned_branches()
         except RuntimeError as e:
@@ -281,7 +283,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         force: bool = typer.Option(False, "--force", "-f", help="Force delete even if not merged"),
     ):
         """Delete a branch locally and on the remote, enforcing ownership rules."""
-
+        prompter.header("Delete branch")
         # Load owned branches first (used for interactive and validation)
         try:
             owned_branches = list_user_owned_branches()
@@ -377,7 +379,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         remote: str = typer.Option("origin", "--remote", "-r", help="Remote name"),
     ):
         """Delete branches that have been merged into develop (interactive)."""
-
+        prompter.header("Delete merged branches")
         if GUM_AVAILABLE:
             gum.print_stick_header(header="Delete merged branches")
 
@@ -475,6 +477,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config: Config = Depends(get_config),
     ):
         """Interactively switch to another branch (alias: sb)."""
+        prompter.header("Switch branch")
         checkout_branch_interactive(config)
 
     # Alias for switch-branch
