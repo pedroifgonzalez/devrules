@@ -80,6 +80,14 @@ def resolve_project_number(project: str) -> Tuple[str, str]:
         )
         raise typer.Exit(code=1)
 
+    # Validate project exists using cache if available
+    if getattr(config.github, "project_cache_enabled", False):
+        cache_mgr = get_project_cache_manager(getattr(config.github, "project_cache_path", None))
+        cached_id = cache_mgr.get_project_id(owner, project_number)
+        if cached_id:
+            # Project exists in cache, validation successful
+            return owner, project_number
+
     return owner, project_number
 
 
