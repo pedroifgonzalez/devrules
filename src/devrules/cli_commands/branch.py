@@ -4,7 +4,10 @@ from typing import Any, Callable, Dict, Optional
 
 import typer
 from typer_di import Depends
+from yaspin import yaspin
 
+from devrules.cli_commands.commons import _fetch_project_items, _get_issue_and_status_interactively
+from devrules.cli_commands.prompters.factory import get_default_prompter
 from devrules.config import Config, load_config
 from devrules.core.git_service import (
     checkout_branch_interactive,
@@ -34,6 +37,8 @@ from devrules.validators.branch import (
 )
 from devrules.validators.ownership import list_user_owned_branches
 from devrules.validators.repo_state import display_repo_state_issues, validate_repo_state
+
+prompter = get_default_prompter()
 
 
 def _handle_forbidden_cross_repo_card(gh_project_item: Any, config: Any, repo_message: str) -> None:
@@ -157,11 +162,35 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             typer.echo(f"\n🔄 Creating staging branch from: {current_branch}")
         elif branch_name:
             final_branch_name = branch_name
-        elif issue and project:
-            owner, project_number = resolve_project_number(project=project)
-            gh_project_item = find_project_item_for_issue(
-                owner=owner, project_number=project_number, issue=issue
-            )
+        elif issue or project:
+            selected_project: str = str(project)
+            if not project:
+                available_projects = [k for k, _ in config.github.projects.items()]
+                if not available_projects:
+                    prompter.error("No projects found.")
+                    raise prompter.exit(1)
+                selected_project = prompter.choose(
+                    options=available_projects,
+                    header="Choose a project:",
+                )
+
+            if not selected_project:
+                prompter.error("No project selected.")
+                raise prompter.exit(1)
+
+            owner, project_number = resolve_project_number(project=selected_project)
+
+            selected_issue = issue
+            if not issue:
+                items = _fetch_project_items(owner, project_number)
+                issue_data = _get_issue_and_status_interactively(items)
+                selected_issue = int(issue_data.get("issue", 0))
+
+            with yaspin(text="Extracting information from issue"):
+                assert isinstance(selected_issue, int)
+                gh_project_item = find_project_item_for_issue(
+                    owner=owner, project_number=project_number, issue=int(selected_issue)
+                )
 
             # Optional rule: forbid creating branches for cards/issues that belong
             # to a different repository than the one configured for this project.
@@ -175,7 +204,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
             scope = detect_scope(config=config, project_item=gh_project_item)
             final_branch_name = resolve_issue_branch(
-                scope=scope, project_item=gh_project_item, issue=issue
+                scope=scope, project_item=gh_project_item, issue=selected_issue
             )
         else:
             final_branch_name = get_branch_name_interactive(config)

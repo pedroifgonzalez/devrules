@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, Optional
 import typer
 from yaspin import yaspin
 
+from devrules.cli_commands.commons import _fetch_project_items, _get_issue_and_status_interactively
 from devrules.cli_commands.prompters.factory import get_default_prompter
 from devrules.config import load_config
 from devrules.core.git_service import get_current_branch, get_current_issue_number
@@ -18,7 +19,6 @@ from devrules.core.project_service import (
     get_project_id,
     get_status_field_id,
     get_status_option_id,
-    list_project_items,
     print_project_items,
     resolve_project_number,
     show_issue_on_web,
@@ -66,35 +66,6 @@ def _get_project_interactively(projects_keys: list[str]) -> Optional[str]:
     header = "Select a project"
     project_key = prompter.choose(options=projects_keys, header=header)
     return project_key
-
-
-def _fetch_project_items(
-    owner: str, project_number: str, exclude_status: Optional[str] = None
-) -> list[dict]:
-    """Fetch items from a GitHub project.
-
-    Args:
-        owner: The GitHub owner.
-        project_number: The project number.
-        exclude_status: Optional status to exclude.
-
-    Returns:
-        List of project items.
-
-    Raises:
-        typer.Exit: If no items are found.
-    """
-    items = []
-    with yaspin(text="Fetching project items..."):
-        items = list_project_items(
-            owner=owner,
-            project_number=project_number,
-            exclude_status=exclude_status,
-        )
-    if not items:
-        typer.secho("✘ No items found in the project", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
-    return items
 
 
 def _ask_for_integration_comment() -> Optional[str]:
@@ -221,30 +192,6 @@ def _validate_status(status: str, valid_statuses: list[str]) -> None:
             fg=typer.colors.RED,
         )
         raise typer.Exit(code=1)
-
-
-def _get_issue_and_status_interactively(items: list[Dict]) -> dict:
-    """Get issue and status interactively."""
-    selected = prompter.filter_list(
-        options=[f"{item.get('content', {}).get('number')}.{item.get('title')}" for item in items],
-        header="Select an issue to update",
-    )
-    if selected is None:
-        prompter.error("No selected issue")
-        raise prompter.exit(1)
-
-    issue, title = selected.split(".")
-    item_status = None
-    for item in items:
-        number = item.get("content", {}).get("number")
-        if not number:
-            continue
-        if str(number) == issue:
-            item_status = item.get("status")
-    if not item_status:
-        prompter.error("No issue number was found")
-        prompter.exit(1)
-    return dict(issue=issue, item_title=title, item_status=item_status)
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
