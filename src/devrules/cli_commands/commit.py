@@ -181,7 +181,7 @@ def _validate_ownership(spinner: Yaspin, current_branch: str, config: Config):
     if config.commit.restrict_branch_to_owner:
         is_owner, ownership_message = validate_branch_ownership(current_branch)
         if not is_owner:
-            typer.secho(f"✘ {ownership_message}", fg=typer.colors.RED)
+            prompter.error(ownership_message)
             raise prompter.exit(code=1)
         spinner.ok("✔")
 

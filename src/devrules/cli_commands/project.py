@@ -23,8 +23,6 @@ from devrules.core.project_service import (
     resolve_project_number,
     show_issue_on_web,
 )
-from devrules.utils import gum
-from devrules.utils.gum import GUM_AVAILABLE
 from devrules.utils.issue_mapping import get_issue_mapping_manager
 from devrules.utils.typer import add_typer_block_message
 
@@ -66,24 +64,7 @@ def _get_project_interactively(projects_keys: list[str]) -> Optional[str]:
         Optional[str]: Selected project key or None if cancelled
     """
     header = "Select a project"
-    subheader = "Available projects:"
-    if GUM_AVAILABLE:
-        project_key = gum.choose(
-            options=projects_keys,
-            header=header,
-        )
-        assert isinstance(project_key, str)
-    else:
-        add_typer_block_message(
-            header=header,
-            subheader=subheader,
-            messages=[f"{idx}. {b}" for idx, b in enumerate(projects_keys, 1)],
-        )
-        project_number = typer.prompt("Enter number", type=int)
-        if project_number < 1 or project_number > len(projects_keys):
-            typer.secho("✘ Invalid choice", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
-        project_key = projects_keys[project_number - 1]
+    project_key = prompter.choose(options=projects_keys, header=header)
     return project_key
 
 
@@ -224,32 +205,10 @@ def _get_status_interactively(
 
     # Handle empty list case
     if not statuses_to_choose:
-        if GUM_AVAILABLE:
-            gum.warning("No other statuses available to choose from.")
-        else:
-            typer.secho("No other statuses available to choose from.", fg=typer.colors.YELLOW)
+        prompter.warning("No other statuses available to choose from.")
         return None
 
-    if GUM_AVAILABLE:
-        output = gum.choose(
-            options=statuses_to_choose,
-            header="Select the new status",
-        )
-        status = output if isinstance(output, str) else None
-    else:
-        typer.echo("\n📋 Select the new status:")
-        for i, status_option in enumerate(statuses_to_choose, 1):
-            typer.echo(f"{i}. {status_option}")
-
-        while True:
-            try:
-                selection = typer.prompt("\nEnter the number of the status", type=int)
-                if 1 <= selection <= len(statuses_to_choose):
-                    status = statuses_to_choose[selection - 1]
-                    break
-                typer.secho("Invalid selection. Please try again.", fg=typer.colors.YELLOW)
-            except ValueError:
-                typer.secho("Please enter a valid number.", fg=typer.colors.YELLOW)
+    status = prompter.choose(options=statuses_to_choose, header="Select the new status")
     return status
 
 
@@ -266,51 +225,26 @@ def _validate_status(status: str, valid_statuses: list[str]) -> None:
 
 def _get_issue_and_status_interactively(items: list[Dict]) -> dict:
     """Get issue and status interactively."""
-    if GUM_AVAILABLE:
-        options = [
-            f"#{item.get('content', {}).get('number')} - {item.get('title', 'No title')} [{item.get('status', 'No status')}]"
-            for item in items
-        ]
-        selected = gum.choose(
-            options=options,
-            header="Select an issue to update",
-        )
-        if not isinstance(selected, str):
-            typer.secho("No issue selected.", fg=typer.colors.YELLOW)
-            raise typer.Exit(0)
-        issue = int(selected.split(" ")[0][1:])
-        selected_item = next(
-            (item for item in items if str(item.get("content", {}).get("number")) == str(issue)),
-            None,
-        )
-        if selected_item is None:
-            typer.secho("Could not find selected issue.", fg=typer.colors.RED)
-            raise typer.Exit(1)
-        item_title = selected_item.get("title")
-        item_status = selected_item.get("status")
-    else:
-        typer.echo("\n📋 Select an issue to update:")
-        for i, item in enumerate(items, 1):
-            issue_num = item.get("content", {}).get("number")
-            title = item.get("title", "No title")
-            it_status = item.get("status", "No status")
-            typer.echo(f"{i}. #{issue_num} - {title} [{it_status}]")
+    selected = prompter.filter_list(
+        options=[f"{item.get('content', {}).get('number')}.{item.get('title')}" for item in items],
+        header="Select an issue to update",
+    )
+    if selected is None:
+        prompter.error("No selected issue")
+        raise prompter.exit(1)
 
-        while True:
-            try:
-                selection = typer.prompt("\nEnter the number of the issue", type=int)
-                if 1 <= selection <= len(items):
-                    selected_item = items[selection - 1]
-                    if selected_item:
-                        issue = selected_item["content"]["number"]
-                        item_title = selected_item["title"]
-                        item_status = selected_item.get("status", "No status")
-                        break
-                typer.secho("Invalid selection. Please try again.", fg=typer.colors.YELLOW)
-            except ValueError:
-                typer.secho("Please enter a valid number.", fg=typer.colors.YELLOW)
-
-    return dict(issue=issue, item_title=item_title, item_status=item_status)
+    issue, title = selected.split(".")
+    item_status = None
+    for item in items:
+        number = item.get("content", {}).get("number")
+        if not number:
+            continue
+        if number == issue:
+            item_status = item.get("status")
+    if not item_status:
+        prompter.error("No issue number was found")
+        prompter.exit(1)
+    return dict(issue=issue, item_title=title, item_status=item_status)
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
@@ -351,13 +285,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         If no issue or status is provided, an interactive prompt will be shown to select them.
         """
+
+        prompter.header("Update issue status")
+
         ensure_gh_installed()
         config = load_config(None)
-
-        if GUM_AVAILABLE:
-            # Add sticked header for GUM
-            print(gum.style("Update issue status", foreground=81, bold=True))
-            print(gum.style("=" * 50, foreground=81))
 
         valid_statuses = _get_valid_statuses()
         projects_keys = list(config.github.projects.keys())
@@ -377,8 +309,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 project_key = _get_project_interactively(projects_keys=projects_keys)
 
         if not project_key:
-            typer.secho("Not valid project was selected", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+            prompter.error("Not valid project was selected")
+            raise prompter.exit(1)
 
         # Resolve project owner and number using existing logic
         owner, project_number = resolve_project_number(project_key)
@@ -409,8 +341,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         # Validate the status
         if status is None:
-            typer.secho("Status is required.", fg=typer.colors.RED)
-            raise typer.Exit(1)
+            prompter.error("Status is required.")
+            raise prompter.exit(1)
+
         _validate_status(status, valid_statuses)
 
         # Permission check for status transition
@@ -418,10 +351,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             is_permitted, permission_msg = can_transition_status(status, config)
             if permission_msg and is_permitted:
                 # Warning case - allowed but with warning
-                typer.secho(f"⚠ {permission_msg}", fg=typer.colors.YELLOW)
+                prompter.warning(permission_msg)
             elif not is_permitted:
-                typer.secho(f"✘ {permission_msg}", fg=typer.colors.RED)
-                raise typer.Exit(code=1)
+                prompter.error(permission_msg)
+                raise prompter.exit(1)
 
         # If we got here with an issue number but no item_id, look up the item
         issue_repo, item_title = None, None
@@ -469,17 +402,13 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                     text=True,
                 )
         except subprocess.CalledProcessError as e:
-            typer.secho(
-                f"✘ Failed to update project item status: {e}",
-                fg=typer.colors.RED,
+            prompter.error(
+                f"Failed to update project item status: {e}",
             )
-            if e.stderr:
-                typer.echo(e.stderr)
-            raise typer.Exit(code=1)
+            raise prompter.exit(1)
 
-        typer.secho(
-            f"✔ Updated status of project item for issue #{issue} to '{status}' (title: {item_title})",
-            fg=typer.colors.GREEN,
+        prompter.success(
+            f"Updated status of project item for issue #{issue} to '{status}' (title: {item_title})",
         )
 
         # Store the mapping for future use
@@ -492,9 +421,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             if repo_name and issue:
                 with yaspin(text=f"Adding integration comment to issue #{issue}", color="green"):
                     add_issue_comment(repo_owner, repo_name, issue, integration_comment)
-                    typer.secho(
-                        f"✔ Added integration comment to issue #{issue} (title: {item_title})",
-                        fg=typer.colors.GREEN,
+                    prompter.success(
+                        f"Added integration comment to issue #{issue} (title: {item_title})",
                     )
 
     @app.command()
