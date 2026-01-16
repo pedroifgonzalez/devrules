@@ -5,6 +5,7 @@ from collections import OrderedDict
 from typing import Callable, Tuple
 
 import typer
+from yaspin import yaspin
 
 
 def check_uncommitted_changes() -> Tuple[bool, str]:
@@ -135,15 +136,16 @@ def validate_repo_state(
 
     MAP_CHECKINGS: dict[str, tuple[bool, Callable]] = OrderedDict(
         {
-            "\n🆕 Checking uncommitted changes": (check_uncommitted, check_uncommitted_changes),
-            "\n🏎️ Checking behind HEAD": (check_behind, check_behind_remote),
+            "Checking uncommitted changes": (check_uncommitted, check_uncommitted_changes),
+            "Checking behind HEAD": (check_behind, check_behind_remote),
         }
     )
 
     for label, (check, func) in MAP_CHECKINGS.items():
         if check:
-            typer.echo(label)
-            issues, msg = func()
+            with yaspin(text=label) as spinner:
+                issues, msg = func()
+                spinner.ok("✔")
             if issues:
                 has_issues = True
                 messages.append(f"⚠️  {msg}")

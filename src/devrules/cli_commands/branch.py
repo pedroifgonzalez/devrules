@@ -138,12 +138,14 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         # Validate repository state before creating branch
         if not skip_checks and at_least_one_validation_repo_state_set():
-            typer.echo("\n🔍 Checking repository state...")
-            is_valid, messages = validate_repo_state(
-                check_uncommitted=config.validation.check_uncommitted,
-                check_behind=config.validation.check_behind_remote,
-                warn_only=config.validation.warn_only,
-            )
+            with yaspin(text="Checking repository state...") as spinner:
+                is_valid, messages = validate_repo_state(
+                    check_uncommitted=config.validation.check_uncommitted,
+                    check_behind=config.validation.check_behind_remote,
+                    warn_only=config.validation.warn_only,
+                )
+                spinner.ok("✔")
+                spinner.stop()
 
             if not is_valid:
                 display_repo_state_issues(messages, warn_only=False)
@@ -212,8 +214,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             final_branch_name = get_branch_name_interactive(config)
 
         # Validate branch name
-        typer.echo(f"\n🔍 Validating branch name: {final_branch_name}")
-        is_valid, message = validate_branch(final_branch_name, config.branch)
+        with yaspin(text=f"Validating branch name: {final_branch_name}") as spinner:
+            is_valid, message = validate_branch(final_branch_name, config.branch)
+            spinner.ok("✔")
 
         if not is_valid:
             typer.secho(f"\n✘ {message}", fg=typer.colors.RED)
