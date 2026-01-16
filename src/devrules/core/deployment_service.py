@@ -315,7 +315,11 @@ def get_deployed_branch(environment: str, config: Config) -> Optional[str]:
 
 
 def check_deployment_readiness(
-    repo_path: str, branch: str, environment: str, config: Config
+    repo_path: str,
+    branch: str,
+    environment: str,
+    config: Config,
+    deployed_branch: Optional[str] = None,
 ) -> Tuple[bool, str]:
     """Check if a branch is ready for deployment.
 
@@ -337,7 +341,7 @@ def check_deployment_readiness(
         return False, "Jenkins URL is not configured"
 
     # Get currently deployed branch
-    deployed_branch = get_deployed_branch(environment, config)
+    deployed_branch = deployed_branch or get_deployed_branch(environment, config)
     if not deployed_branch:
         return False, "Could not determine currently deployed branch"
 
