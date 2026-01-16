@@ -239,7 +239,7 @@ def _get_issue_and_status_interactively(items: list[Dict]) -> dict:
         number = item.get("content", {}).get("number")
         if not number:
             continue
-        if number == issue:
+        if str(number) == issue:
             item_status = item.get("status")
     if not item_status:
         prompter.error("No issue number was found")
