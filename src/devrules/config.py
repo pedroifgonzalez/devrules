@@ -74,6 +74,8 @@ class GitHubConfig:
     integration_comment_status: str = "Waiting Integration"
     require_evidence_status: Optional[str] = None
     status_emojis: dict = field(default_factory=dict)
+    project_cache_enabled: bool = False
+    project_cache_path: Optional[str] = None
 
     def _validate(self):
         """Validate the configuration."""
@@ -303,6 +305,8 @@ DEFAULT_CONFIG = {
             "Done",
         ],
         "status_emojis": {},
+        "project_cache_enabled": False,
+        "project_cache_path": None,
     },
     "deployment": {
         "jenkins_url": "",

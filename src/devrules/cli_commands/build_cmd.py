@@ -440,6 +440,51 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             with open(config_path, "w") as f:
                 toml.dump(config_data, f)
 
+            enable_cache = typer.confirm(
+                "\nEnable GitHub Project metadata cache (faster project commands)?",
+                default=bool(config_data.get("github", {}).get("project_cache_enabled", False)),
+            )
+
+            if enable_cache:
+                if "github" not in config_data:
+                    config_data["github"] = {}
+                config_data["github"]["project_cache_enabled"] = True
+
+                default_cache_path = config_data.get("github", {}).get("project_cache_path") or ""
+                cache_path = typer.prompt(
+                    "Project cache path (leave empty for default)",
+                    default=str(default_cache_path),
+                    show_default=False,
+                ).strip()
+                config_data["github"]["project_cache_path"] = cache_path or None
+
+                # Persist cache settings before preloading so project_service sees it via load_config(None)
+                with open(config_path, "w") as f:
+                    toml.dump(config_data, f)
+
+                preload_cache = typer.confirm(
+                    "Preload cache now for selected projects?",
+                    default=True,
+                )
+                if preload_cache:
+                    from devrules.core.project_service import get_project_id, get_status_field_id
+
+                    with yaspin(text="Preloading project cache...") as spinner:
+                        for proj in selected_projects:
+                            proj_number = proj.get("number")
+                            if not proj_number:
+                                continue
+                            get_project_id(github_owner, str(proj_number))
+                            get_status_field_id(github_owner, str(proj_number))
+                        spinner.ok("✔")
+            else:
+                if "github" not in config_data:
+                    config_data["github"] = {}
+                config_data["github"]["project_cache_enabled"] = False
+
+            with open(config_path, "w") as f:
+                toml.dump(config_data, f)
+
             typer.secho(
                 f"\n✔ Successfully added {added_count} projects to {config_path}",
                 fg=typer.colors.GREEN,

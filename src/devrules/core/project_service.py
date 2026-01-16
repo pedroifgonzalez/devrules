@@ -1,5 +1,6 @@
 """Project service for interacting with GitHub Projects logic."""
 
+import functools
 import json
 import re
 import subprocess
@@ -9,6 +10,7 @@ import typer
 
 from devrules.config import load_config
 from devrules.dtos.github import ProjectItem
+from devrules.utils.project_cache import get_project_cache_manager
 
 VIDEO_EXTENSIONS = (".mp4", ".webm", ".gif")
 
@@ -219,11 +221,75 @@ def find_project_item_for_issue(owner: str, project_number: str, issue: int) -> 
     return project_item
 
 
+@functools.lru_cache(maxsize=64)
+def _get_project_fields(owner: str, project_number: str) -> list[dict]:
+    config = load_config(None)
+    if getattr(config.github, "project_cache_enabled", False):
+        cache_mgr = get_project_cache_manager(getattr(config.github, "project_cache_path", None))
+        cached_fields = cache_mgr.get_fields(owner, project_number)
+        if cached_fields is not None:
+            return cached_fields
+
+    cmd = [
+        "gh",
+        "project",
+        "field-list",
+        project_number,
+        "--owner",
+        owner,
+        "--format",
+        "json",
+    ]
+
+    try:
+        result = subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        typer.secho(
+            f"✘ Failed to list project fields: {e}",
+            fg=typer.colors.RED,
+        )
+        if e.stderr:
+            typer.echo(e.stderr)
+        raise typer.Exit(code=1)
+
+    try:
+        data = json.loads(result.stdout or "[]")
+    except json.JSONDecodeError:
+        typer.echo(result.stdout)
+        raise typer.Exit(code=1)
+
+    if isinstance(data, dict) and "fields" in data:
+        fields = data.get("fields", [])
+    elif isinstance(data, list):
+        fields = data
+    else:
+        fields = []
+
+    if getattr(config.github, "project_cache_enabled", False) and fields:
+        cache_mgr = get_project_cache_manager(getattr(config.github, "project_cache_path", None))
+        cache_mgr.set_fields(owner, project_number, fields)
+
+    return fields
+
+
+@functools.lru_cache(maxsize=64)
 def get_project_id(owner: str, project_number: str) -> str:
     """Return project node id using gh project view.
 
     Mirrors cli._get_project_id.
     """
+
+    config = load_config(None)
+    if getattr(config.github, "project_cache_enabled", False):
+        cache_mgr = get_project_cache_manager(getattr(config.github, "project_cache_path", None))
+        cached_id = cache_mgr.get_project_id(owner, project_number)
+        if cached_id:
+            return cached_id
 
     cmd = [
         "gh",
@@ -265,49 +331,17 @@ def get_project_id(owner: str, project_number: str) -> str:
         )
         raise typer.Exit(code=1)
 
+    if getattr(config.github, "project_cache_enabled", False):
+        cache_mgr = get_project_cache_manager(getattr(config.github, "project_cache_path", None))
+        cache_mgr.set_project_id(owner, project_number, str(project_id))
+
     return project_id
 
 
 def get_status_field_id(owner: str, project_number: str) -> str:
     """Return the field id for the project's "Status" field."""
 
-    cmd = [
-        "gh",
-        "project",
-        "field-list",
-        project_number,
-        "--owner",
-        owner,
-        "--format",
-        "json",
-    ]
-
-    try:
-        result = subprocess.run(
-            cmd,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except subprocess.CalledProcessError as e:
-        typer.secho(
-            f"✘ Failed to list project fields: {e}",
-            fg=typer.colors.RED,
-        )
-        if e.stderr:
-            typer.echo(e.stderr)
-        raise typer.Exit(code=1)
-
-    try:
-        data = json.loads(result.stdout or "[]")
-    except json.JSONDecodeError:
-        typer.echo(result.stdout)
-        raise typer.Exit(code=1)
-
-    if isinstance(data, dict) and "fields" in data:
-        fields = data.get("fields", [])
-    else:
-        fields = data
+    fields = _get_project_fields(owner, project_number)
 
     for field in fields:
         if field.get("name") == "Status":
@@ -322,43 +356,7 @@ def get_status_field_id(owner: str, project_number: str) -> str:
 def get_status_option_id(owner: str, project_number: str, status: str) -> str:
     """Return the option id for a given Status value in the project."""
 
-    cmd = [
-        "gh",
-        "project",
-        "field-list",
-        project_number,
-        "--owner",
-        owner,
-        "--format",
-        "json",
-    ]
-
-    try:
-        result = subprocess.run(
-            cmd,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except subprocess.CalledProcessError as e:
-        typer.secho(
-            f"✘ Failed to list project fields: {e}",
-            fg=typer.colors.RED,
-        )
-        if e.stderr:
-            typer.echo(e.stderr)
-        raise typer.Exit(code=1)
-
-    try:
-        data = json.loads(result.stdout or "[]")
-    except json.JSONDecodeError:
-        typer.echo(result.stdout)
-        raise typer.Exit(code=1)
-
-    if isinstance(data, dict) and "fields" in data:
-        fields = data.get("fields", [])
-    else:
-        fields = data
+    fields = _get_project_fields(owner, project_number)
 
     for field in fields:
         if field.get("name") != "Status":

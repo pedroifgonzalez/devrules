@@ -19,6 +19,7 @@ class IssueMapping:
     issue_number: int
     branch_name: str
     project_key: str
+    item_id: Optional[str] = None
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
 
 
@@ -74,7 +75,13 @@ class IssueMappingManager:
             # Silently fail if we can't write - don't break user's workflow
             pass
 
-    def add_mapping(self, issue_number: int, branch_name: str, project_key: str) -> None:
+    def add_mapping(
+        self,
+        issue_number: int,
+        branch_name: str,
+        project_key: str,
+        item_id: Optional[str] = None,
+    ) -> None:
         """Add a new issue-branch-project mapping.
 
         Args:
@@ -102,6 +109,8 @@ class IssueMappingManager:
         if existing_mapping is not None:
             # Update timestamp of existing mapping
             mappings[existing_mapping]["timestamp"] = datetime.now().isoformat()
+            if item_id:
+                mappings[existing_mapping]["item_id"] = item_id
         else:
             # Add new mapping at the front
             mappings.insert(
@@ -110,6 +119,7 @@ class IssueMappingManager:
                     "issue_number": issue_number,
                     "branch_name": branch_name,
                     "project_key": project_key,
+                    "item_id": item_id,
                     "timestamp": datetime.now().isoformat(),
                 },
             )

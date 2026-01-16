@@ -302,6 +302,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         if branch_mapping:
             project_key = branch_mapping["project_key"]
             issue = branch_mapping["issue_number"]
+            if item_id is None and getattr(config.github, "project_cache_enabled", False):
+                item_id = branch_mapping.get("item_id")
             prompter.info("Found mapping for branch, continuing...")
         else:
             project_key = project
@@ -359,6 +361,15 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         # If we got here with an issue number but no item_id, look up the item
         issue_repo, item_title = None, None
         if item_id is None and issue:
+            if getattr(config.github, "project_cache_enabled", False):
+                issue_mapping = mapping_manager.get_mapping_by_issue(int(issue))
+                if (
+                    issue_mapping
+                    and issue_mapping.get("project_key") == project_key
+                    and issue_mapping.get("item_id")
+                ):
+                    item_id = issue_mapping.get("item_id")
+
             with yaspin(text="Looking up project item..."):
                 project_item = find_project_item_for_issue(owner, project_number, issue)
                 item_id, item_title = project_item.id, project_item.title
@@ -412,7 +423,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         )
 
         # Store the mapping for future use
-        mapping_manager.add_mapping(issue, current_branch, project_key)
+        mapping_manager.add_mapping(issue, current_branch, project_key, item_id=item_id)
 
         if integration_comment and issue_repo and issue:
             repo_owner, repo_name = _get_repo_owner_and_name(
