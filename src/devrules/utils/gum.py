@@ -45,7 +45,7 @@ def choose(
     if not GUM_AVAILABLE or not options:
         return None
 
-    cmd = ["gum", "choose"]
+    cmd = ["gum", "choose", "--height", "5"]
     if header:
         cmd.extend(["--header", header])
     if limit == 0:
