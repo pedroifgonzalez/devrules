@@ -19,6 +19,7 @@ from devrules.messages import commit as msg
 from devrules.utils.decorators import emit_events, ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.commit import validate_commit
+from devrules.validators.documentation import load_changed_files
 from devrules.validators.forbidden_files import (
     get_forbidden_file_suggestions,
     validate_no_forbidden_files,
@@ -306,6 +307,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             prompter=prompter,
         )
         _validate_commit(message, config)
+        load_changed_files()
         message = _auto_append_issue_number(message, config)
         _stage_files(config)
         _confirm_commit(message)

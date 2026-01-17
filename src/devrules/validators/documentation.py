@@ -7,6 +7,13 @@ from typing import List, Tuple
 
 from devrules.config import DocumentationRule
 
+changed_files = []
+
+
+def load_changed_files():
+    global changed_files
+    changed_files = get_changed_files()
+
 
 def get_changed_files(base_branch: str = "HEAD") -> List[str]:
     """Get list of changed files.

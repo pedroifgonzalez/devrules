@@ -7,7 +7,7 @@ from yaspin import yaspin
 from devrules.cli_commands.prompters.factory import get_default_prompter
 from devrules.config import DocumentationRule
 from devrules.core.project_service import list_project_items
-from devrules.validators.documentation import find_matching_rules, get_changed_files
+from devrules.validators.documentation import find_matching_rules, load_changed_files
 
 prompter = get_default_prompter()
 
@@ -79,7 +79,7 @@ def _show_relevant_documentation(
         return None
 
     # Get changed files
-    files = get_changed_files(base_branch)
+    files = load_changed_files()
     if not files:
         return None
 
