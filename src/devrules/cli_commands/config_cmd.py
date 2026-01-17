@@ -6,6 +6,10 @@ from typing import Any, Callable, Dict
 
 import typer
 
+from devrules.cli_commands.prompters.factory import get_default_prompter
+
+prompter = get_default_prompter()
+
 
 def _install_commit_msg_hook(hooks_dir: str, devrules_path: str) -> None:
     """Install commit-msg hook to validate commit messages."""
@@ -146,6 +150,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         path: str = typer.Option(".devrules.toml", "--path", "-p", help="Config file path"),
     ):
         """Generate example configuration file."""
+        prompter.header("Initialize configuration file")
 
         github_owner = "your-github-username"
         github_repo = "your-repo-name"
@@ -331,6 +336,7 @@ show_on_pr = true
     @app.command()
     def install_hooks():
         """Install git hooks to enforce devrules validation on commits and pushes."""
+        prompter.header("Install hooks")
         hooks_dir = ".git/hooks"
 
         if not os.path.exists(".git"):
@@ -366,6 +372,7 @@ show_on_pr = true
     @app.command()
     def uninstall_hooks():
         """Remove devrules git hooks."""
+        prompter.header("Uninstall hooks")
         hooks = [
             ".git/hooks/commit-msg",
             ".git/hooks/pre-commit",
