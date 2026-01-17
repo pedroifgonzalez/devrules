@@ -12,6 +12,7 @@ from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.dependencies import get_config
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.branch import validate_branch
+from devrules.validators.documentation import build_documentation_context, get_changed_files
 from devrules.validators.forbidden_files import (
     get_forbidden_file_suggestions,
     validate_no_forbidden_files,
@@ -143,18 +144,22 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 indent_block=False,
             )
 
-        # Show any relevant documentation
+        # Show any relevant documentation using snapshot pattern
         if config.documentation.show_on_commit and config.documentation.rules:
-            from devrules.validators.documentation import get_relevant_documentation
+            from devrules.cli_commands.commons import show_documentation_context
 
-            has_docs, doc_message = get_relevant_documentation(
-                rules=config.documentation.rules,
-                base_branch=branch,
-                show_files=False,
-            )
-            if has_docs:
-                typer.echo()
-                typer.secho(doc_message, fg=typer.colors.YELLOW)
+            # 1️⃣ Capture documentation context (snapshot)
+            changed_files = get_changed_files(base_branch=branch or "HEAD")
+            if changed_files:
+                doc_contexts = build_documentation_context(
+                    rules=config.documentation.rules,
+                    changed_files=changed_files,
+                )
+
+                # 2️⃣ Show documentation context
+                if doc_contexts:
+                    typer.echo()
+                    show_documentation_context(doc_contexts, show_files=False)
 
     return {
         "pre-commit-check": pre_commit_check,
