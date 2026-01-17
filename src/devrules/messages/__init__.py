@@ -20,17 +20,18 @@ class BranchMessages:
     )
     NO_SELECTED_BRANCHES_TO_DELETE = "No branches were selected nor provided to be deleted"
     DELETE_BRANCHES_STATEMENT = "You are about to delete the following branches:"
+    CONFIRM_DELETE_BRANCHES = "Continue?"
 
     # Error messages
-    INVALID_CHOICE = "✘ Invalid choice"
-    REFUSING_TO_DELETE_SHARED_BRANCH = "✘ Refusing to delete shared branch '{}' via CLI."
-    UNABLE_TO_DETERMINE_CURRENT_BRANCH = "✘ Unable to determine current branch"
-    CANNOT_DELETE_CURRENT_BRANCH = "✘ Cannot delete the branch you are currently on."
+    INVALID_CHOICE = "Invalid choice"
+    REFUSING_TO_DELETE_SHARED_BRANCH = "Refusing to delete shared branch '{}' via CLI."
+    UNABLE_TO_DETERMINE_CURRENT_BRANCH = "Unable to determine current branch"
+    CANNOT_DELETE_CURRENT_BRANCH = "Cannot delete the branch you are currently on."
     NOT_ALLOWED_TO_DELETE_BRANCH = (
-        "✘ You are not allowed to delete branch '{}' because you do not own it."
+        "You are not allowed to delete branch '{}' because you do not own it."
     )
     CROSS_REPO_CARD_FORBIDDEN = (
-        "✘ Cannot create branch: the selected issue/card belongs to a different repository "
+        "Cannot create branch: the selected issue/card belongs to a different repository "
         "("
         "{}"
         " vs "
@@ -70,14 +71,14 @@ class PRMessages:
     """Messages related to pull request operations."""
 
     # Error messages
-    INVALID_PR_TARGET = "✘ Invalid PR Target"
+    INVALID_PR_TARGET = "Invalid PR Target"
     CURRENT_BRANCH_SAME_AS_BASE = (
-        "✘ Current branch is the same as the base branch; nothing to create a PR for."
+        "Current branch is the same as the base branch; nothing to create a PR for."
     )
-    FAILED_TO_CREATE_PR = "✘ Failed to create PR: {}"
+    FAILED_TO_CREATE_PR = "Failed to create PR: {}"
 
     # Success messages
-    PR_CREATED_SUCCESSFULLY = "✔ PR created successfully!"
+    PR_CREATED_SUCCESSFULLY = "PR created successfully!"
 
     # Info messages
     PR_CANCELLED = "PR cancelled"
@@ -88,7 +89,7 @@ class DeployMessages:
     """Messages related to deployment operations."""
 
     # Prompts
-    CONFIRM_DEPLOYMENT = "¿Confirma que desea desplegar '{}' en '{}'?"
+    CONFIRM_DEPLOYMENT = "Confirm deployment of '{}' to '{}'?"
     DEPLOYMENT_CANCELLED = "Deployment cancelled."
 
     # Info messages
@@ -100,11 +101,11 @@ class GitMessages:
     """Messages related to Git operations."""
 
     # Error messages
-    NOT_A_GIT_REPOSITORY = "✘ Not a git repository"
-    UNABLE_TO_DETERMINE_CURRENT_BRANCH = "✘ Unable to determine current branch"
-    BRANCH_NAME_ALREADY_EXISTS = "\n✘ Branch '{}' already exists!"
-    FAILED_TO_CREATE_BRANCH = "\n✘ Failed to create branch: {}"
-    DESCRIPTION_CAN_NOT_BE_EMPTY = "✘ Description cannot be empty"
+    NOT_A_GIT_REPOSITORY = "Not a git repository"
+    UNABLE_TO_DETERMINE_CURRENT_BRANCH = "Unable to determine current branch"
+    BRANCH_NAME_ALREADY_EXISTS = "Branch '{}' already exists!"
+    FAILED_TO_CREATE_BRANCH = "Failed to create branch: {}"
+    DESCRIPTION_CAN_NOT_BE_EMPTY = "Description cannot be empty"
 
 
 # Singleton instances for easy access

@@ -136,8 +136,8 @@ def validate_repo_state(
 
     MAP_CHECKINGS: dict[str, tuple[bool, Callable]] = OrderedDict(
         {
-            "Checking uncommitted changes": (check_uncommitted, check_uncommitted_changes),
-            "Checking behind HEAD": (check_behind, check_behind_remote),
+            "Checking uncommitted changes...": (check_uncommitted, check_uncommitted_changes),
+            "Checking behind HEAD...": (check_behind, check_behind_remote),
         }
     )
 
@@ -148,14 +148,11 @@ def validate_repo_state(
                 spinner.ok("✔")
             if issues:
                 has_issues = True
-                messages.append(f"⚠️  {msg}")
+                messages.append(msg)
                 break
 
     if not has_issues:
-        messages.append("✅ Repository state is clean")
-        return True, messages
-
-    if warn_only:
+        messages.append("Repository state is clean")
         return True, messages
 
     return False, messages

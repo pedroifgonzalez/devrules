@@ -15,15 +15,16 @@ from devrules.core.git_service import (
     create_staging_branch_name,
     delete_branch_local_and_remote,
     detect_scope,
-    get_branch_name_interactive,
     get_current_branch,
     get_existing_branches,
     get_merged_branches,
     handle_existing_branch,
     resolve_issue_branch,
+    sanitize_description,
 )
 from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
 from devrules.messages import branch as msg
+from devrules.messages import git as git_msg
 from devrules.utils import gum
 from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.dependencies import get_config
@@ -39,6 +40,48 @@ from devrules.validators.ownership import list_user_owned_branches
 from devrules.validators.repo_state import display_repo_state_issues, validate_repo_state
 
 prompter = get_default_prompter()
+
+
+def _get_branch_name_interactive(config: Config):
+    """Conform a branch name interactively"""
+
+    branch_type = prompter.choose(
+        options=config.branch.prefixes,
+        header="Select branch type:",
+    )
+
+    if not branch_type:
+        prompter.error("No branch type selected")
+        raise prompter.exit(1)
+
+    # Step 2: Issue/ticket number (optional)
+    issue_number = prompter.input_text(
+        placeholder="Enter number or leave empty to skip",
+        header="Issue/ticket number (optional):",
+    )
+
+    # Step 3: Branch description
+    description = prompter.input_text(
+        placeholder="Enter a short description of branch intent",
+        header="Branch description:",
+    )
+
+    if not description:
+        prompter.error(git_msg.DESCRIPTION_CAN_NOT_BE_EMPTY)
+        raise prompter.exit(code=1)
+
+    # Clean and format description
+    description = sanitize_description(description)
+
+    if not description:
+        prompter.error(git_msg.DESCRIPTION_SANITATION_ERROR)
+        raise prompter.exit(1)
+
+    # Build branch name
+    if issue_number:
+        return f"{branch_type}/{issue_number}-{description}"
+    else:
+        return f"{branch_type}/{description}"
 
 
 def _handle_forbidden_cross_repo_card(gh_project_item: Any, config: Any, repo_message: str) -> None:
@@ -149,37 +192,31 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
             if not is_valid:
                 display_repo_state_issues(messages, warn_only=False)
-                typer.echo()
-                raise typer.Exit(code=1)
-            elif messages and not all("✅" in msg for msg in messages):
-                # Show warnings but continue
-                display_repo_state_issues(messages, warn_only=True)
-                if not typer.confirm("\n  Continue anyway?", default=False):
-                    typer.echo("Cancelled.")
-                    raise typer.Exit(code=0)
+                raise prompter.exit(code=1)
 
         # Determine branch name from different sources
         project_number = None
         if for_staging:
             current_branch = get_current_branch()
             final_branch_name = create_staging_branch_name(current_branch)
-            typer.echo(f"\n🔄 Creating staging branch from: {current_branch}")
+            prompter.info(f"Creating staging branch from: {current_branch}")
         elif branch_name:
             final_branch_name = branch_name
         elif issue or project:
-            selected_project: str = str(project)
+            selected_project: str | list[str] | None = str(project)
             if not project:
                 available_projects = [k for k, _ in config.github.projects.items()]
                 if not available_projects:
                     prompter.error("No projects found.")
                     raise prompter.exit(1)
+
                 selected_project = prompter.choose(
                     options=available_projects,
                     header="Choose a project:",
                 )
 
-            if not selected_project:
-                prompter.error("No project selected.")
+            if not selected_project or isinstance(selected_project, list):
+                prompter.error(msg.INVALID_CHOICE)
                 raise prompter.exit(1)
 
             owner, project_number = resolve_project_number(project=selected_project)
@@ -211,7 +248,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 scope=scope, project_item=gh_project_item, issue=selected_issue
             )
         else:
-            final_branch_name = get_branch_name_interactive(config)
+            final_branch_name = _get_branch_name_interactive(config)
 
         # Validate branch name
         with yaspin(text=f"Validating branch name: {final_branch_name}") as spinner:
@@ -219,10 +256,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             spinner.ok("✔")
 
         if not is_valid:
-            typer.secho(f"\n✘ {message}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+            prompter.error(message)
+            raise prompter.exit(1)
 
-        typer.secho("✔ Branch name is valid!", fg=typer.colors.GREEN)
+        prompter.success("Branch name is valid!")
 
         # Enforce one-branch-per-issue-per-environment rule when enabled
         if config.branch.enforce_single_branch_per_issue_env:
@@ -230,24 +267,23 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             is_unique, uniqueness_message = validate_single_branch_per_issue_env(
                 final_branch_name, existing_branches
             )
-
             if not is_unique:
-                typer.secho(f"\n✘ {uniqueness_message}", fg=typer.colors.RED)
-                raise typer.Exit(code=1)
+                prompter.error(uniqueness_message)
+                raise prompter.exit(1)
 
         # Check if branch already exists and handle it
         handle_existing_branch(final_branch_name)
 
         # Confirm creation
-        typer.echo(f"\n📌 Ready to create branch: {final_branch_name}")
-        if not typer.confirm("\n  Create and checkout?", default=True):
-            typer.echo("Cancelled.")
-            raise typer.Exit(code=0)
+        prompter.info(f"Ready to create branch: {final_branch_name}")
+        if not prompter.confirm("Create and checkout?", default=True):
+            prompter.info("Cancelled.")
+            raise prompter.exit(0)
 
         # Store the mapping for future use
-        if project_number:
+        if project_number and issue:
             mapping_manager = get_issue_mapping_manager()
-            mapping_manager.add_mapping(issue, final_branch_name, project_number)
+            mapping_manager.add_mapping(int(issue), final_branch_name, project_number)
 
         # Create and checkout branch
         create_and_checkout_branch(final_branch_name)
@@ -291,42 +327,24 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         try:
             owned_branches = list_user_owned_branches()
         except RuntimeError as e:
-            typer.secho(f"✘ {e}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+            prompter.error(str(e))
+            raise prompter.exit(1)
 
         if not owned_branches:
-            typer.secho(msg.NO_OWNED_BRANCHES_TO_DELETE, fg=typer.colors.YELLOW)
-            raise typer.Exit(code=0)
+            prompter.warning(msg.NO_OWNED_BRANCHES_TO_DELETE)
+            raise prompter.exit(0)
 
         # Interactive selection if branch not provided
         branches = [branch] if branch else []
         if not branches:
-            if GUM_AVAILABLE:
-                print(gum.style("🗑 Delete branches", foreground=81, bold=True))
-                print(gum.style("=" * 50, foreground=81))
-                branches = gum.choose(
-                    options=owned_branches, header="Select branches to be deleted:", limit=0
-                )
-            else:
-                add_typer_block_message(
-                    header="🗑 Delete Branches",
-                    subheader="📋 Select branches to be deleted:",
-                    messages=[f"{idx}. {b}" for idx, b in enumerate(owned_branches, 1)],
-                )
-                typer.echo()
-                choices = typer.prompt("Enter number, multiple separated by a space", type=str)
-                choices = choices.split(" ")
-                try:
-                    choices = [int(choice) for choice in choices]
-                except ValueError:
-                    typer.secho(msg.INVALID_CHOICE, fg=typer.colors.RED)
-                    raise typer.Exit(code=1)
-                for choice in choices:
-                    if choice < 1 or choice > len(owned_branches):
-                        typer.secho(msg.INVALID_CHOICE, fg=typer.colors.RED)
-                        raise typer.Exit(code=1)
-                    to_delete = owned_branches[choice - 1]
-                    branches.append(to_delete)
+            branches = prompter.choose(
+                options=owned_branches,
+                header="Select branches to delete",
+                limit=0,
+            )
+            if not branches:
+                prompter.warning(msg.INVALID_CHOICE)
+                raise prompter.exit(0)
 
         # Basic safety: don't delete main shared branches through this command
         current_branch = get_current_branch()
@@ -334,47 +352,41 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             protected_branches = ("main", "master", "develop")
             is_release_branch = selected_branch.startswith("release/")
             if selected_branch in protected_branches or is_release_branch:
-                typer.secho(
+                prompter.error(
                     msg.REFUSING_TO_DELETE_SHARED_BRANCH.format(selected_branch),
-                    fg=typer.colors.RED,
                 )
-                raise typer.Exit(code=1)
+                raise prompter.exit(1)
 
             # Prevent deleting the currently checked-out branch
             if current_branch == selected_branch:
-                typer.secho(msg.CANNOT_DELETE_CURRENT_BRANCH, fg=typer.colors.RED)
-                raise typer.Exit(code=1)
+                prompter.error(msg.CANNOT_DELETE_CURRENT_BRANCH)
+                raise prompter.exit(1)
 
             # Enforce ownership rules before allowing delete using the same logic
             if selected_branch not in owned_branches:
-                typer.secho(
-                    msg.NOT_ALLOWED_TO_DELETE_BRANCH.format(selected_branch), fg=typer.colors.RED
+                prompter.error(
+                    msg.NOT_ALLOWED_TO_DELETE_BRANCH.format(selected_branch),
                 )
-                raise typer.Exit(code=1)
+                raise prompter.exit(1)
 
         if branches:
-            typer.echo()
-            typer.secho(msg.DELETE_BRANCHES_STATEMENT)
-            messages = [f"✘ {b}" for _, b in enumerate(branches, 1)]
+            prompter.info(msg.DELETE_BRANCHES_STATEMENT)
+            messages = [f"{b}" for _, b in enumerate(branches, 1)]
             for message in messages:
-                typer.secho(f"    {message}")
-            typer.echo()
+                prompter.info(f"{message}")
 
-            if GUM_AVAILABLE:
-                confirmation = gum.confirm(message="Continue?")
-            else:
-                confirmation = typer.confirm("Continue?", default=False)
+            confirmation = prompter.confirm(msg.CONFIRM_DELETE_BRANCHES)
 
             if not confirmation:
-                typer.echo(msg.CANCELLED)
-                raise typer.Exit(code=0)
+                prompter.error(msg.CANCELLED)
+                raise prompter.exit(0)
 
             for selected_branch in branches:
                 delete_branch_local_and_remote(selected_branch, remote, force)
         else:
-            typer.secho(msg.NO_SELECTED_BRANCHES_TO_DELETE, fg=typer.colors.YELLOW)
+            prompter.error(msg.NO_SELECTED_BRANCHES_TO_DELETE)
 
-        raise typer.Exit(code=0)
+        raise prompter.exit(0)
 
     @app.command()
     @ensure_git_repo()
