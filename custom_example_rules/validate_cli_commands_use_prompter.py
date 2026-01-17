@@ -1,103 +1,113 @@
+import ast
+from pathlib import Path
+from typing import Optional
+
+from devrules.core.enum import DevRulesEvent
 from devrules.core.rules_engine import rule
+
+
+class _BodyUsageDetector(ast.NodeVisitor):
+    def __init__(self) -> None:
+        self.typer_calls: set[str] = set()
+        self.gum_calls: set[str] = set()
+
+    def visit_Call(self, node: ast.Call) -> None:
+        # Detect typer.method() calls
+        if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
+            module_name = node.func.value.id
+            attr_name = node.func.attr
+
+            if module_name == "typer":
+                self.typer_calls.add(attr_name)
+            elif module_name == "gum":
+                self.gum_calls.add(attr_name)
+
+        # Also detect typer.Exit() in calls (not just raises)
+        elif isinstance(node.func, ast.Attribute):
+            if isinstance(node.func.value, ast.Name) and node.func.value.id == "typer":
+                if node.func.attr == "Exit":
+                    self.typer_calls.add("Exit")
+
+        self.generic_visit(node)
+
+    def visit_Raise(self, node: ast.Raise) -> None:
+        # Catch `raise typer.Exit(...)`
+        if node.exc:
+            exc = node.exc
+            if isinstance(exc, ast.Call) and isinstance(exc.func, ast.Attribute):
+                if isinstance(exc.func.value, ast.Name) and exc.func.value.id == "typer":
+                    if exc.func.attr == "Exit":
+                        self.typer_calls.add("Exit")
+        self.generic_visit(node)
+
+
+def _find_cli_commands_dir(start: Path) -> Path | None:
+    current = start.resolve()
+    for _ in range(10):
+        candidate = current / "src" / "devrules" / "cli_commands"
+        if candidate.exists() and candidate.is_dir():
+            return candidate
+        if current.parent == current:
+            break
+        current = current.parent
+    return None
+
+
+def _get_python_files(folder: Path) -> Optional[list]:
+    return sorted(
+        p
+        for p in folder.rglob("*.py")
+        if p.is_file() and p.name != "__init__.py" and "prompters" not in p.parts
+    )
+
+
+def _find_disallowed_in_function_bodies(module_ast: ast.Module) -> set[str]:
+    detector = _BodyUsageDetector()
+
+    for node in ast.walk(module_ast):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for stmt in node.body:
+                detector.visit(stmt)
+
+    disallowed: set[str] = set()
+
+    # Typer: flag common UI/output + Exit usage
+    disallowed_typer = {
+        "echo",
+        "secho",
+        "prompt",
+        "confirm",
+        "progressbar",
+        "style",
+        "colors",
+        "Exit",
+    }
+    if detector.typer_calls & disallowed_typer:
+        disallowed.add("typer")
+
+    # Gum: any runtime call is considered disallowed
+    if detector.gum_calls:
+        disallowed.add("gum")
+
+    return disallowed
 
 
 @rule(
     name="prompter_cli_validator",
     description="Validates cli commands use default prompter instead of typer or gum",
+    hooks=[DevRulesEvent.PRE_COMMIT],
 )
 def valid_usage_of_auto_detected_prompter() -> tuple[bool, str]:
-    import ast
-    from pathlib import Path
-
-    def _find_cli_commands_dir(start: Path) -> Path | None:
-        current = start.resolve()
-        for _ in range(10):
-            candidate = current / "src" / "devrules" / "cli_commands"
-            if candidate.exists() and candidate.is_dir():
-                return candidate
-            if current.parent == current:
-                break
-            current = current.parent
-        return None
-
     cli_commands_dir = _find_cli_commands_dir(Path(__file__).parent)
     if cli_commands_dir is None:
         return False, "Could not locate src/devrules/cli_commands directory"
 
-    python_files = sorted(
-        p
-        for p in cli_commands_dir.rglob("*.py")
-        if p.is_file() and p.name != "__init__.py" and "prompters" not in p.parts
-    )
+    python_files = _get_python_files(cli_commands_dir)
     if not python_files:
         return False, f"No python modules found under {cli_commands_dir}"
 
     offenders: list[tuple[str, list[str]]] = []
     compliant = 0
-
-    class _BodyUsageDetector(ast.NodeVisitor):
-        def __init__(self) -> None:
-            self.typer_calls: set[str] = set()
-            self.gum_calls: set[str] = set()
-
-        def visit_Call(self, node: ast.Call) -> None:
-            # Detect typer.method() calls
-            if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
-                module_name = node.func.value.id
-                attr_name = node.func.attr
-
-                if module_name == "typer":
-                    self.typer_calls.add(attr_name)
-                elif module_name == "gum":
-                    self.gum_calls.add(attr_name)
-
-            # Also detect typer.Exit() in calls (not just raises)
-            elif isinstance(node.func, ast.Attribute):
-                if isinstance(node.func.value, ast.Name) and node.func.value.id == "typer":
-                    if node.func.attr == "Exit":
-                        self.typer_calls.add("Exit")
-
-            self.generic_visit(node)
-
-        def visit_Raise(self, node: ast.Raise) -> None:
-            # Catch `raise typer.Exit(...)`
-            if node.exc:
-                exc = node.exc
-                if isinstance(exc, ast.Call) and isinstance(exc.func, ast.Attribute):
-                    if isinstance(exc.func.value, ast.Name) and exc.func.value.id == "typer":
-                        if exc.func.attr == "Exit":
-                            self.typer_calls.add("Exit")
-            self.generic_visit(node)
-
-    def _find_disallowed_in_function_bodies(module_ast: ast.Module) -> set[str]:
-        detector = _BodyUsageDetector()
-
-        for node in ast.walk(module_ast):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                for stmt in node.body:
-                    detector.visit(stmt)
-
-        disallowed: set[str] = set()
-
-        # Typer: flag common UI/output + Exit usage
-        disallowed_typer = {
-            "echo",
-            "secho",
-            "prompt",
-            "confirm",
-            "progressbar",
-            "style",
-            "colors",
-            "Exit",
-        }
-        if detector.typer_calls & disallowed_typer:
-            disallowed.add("typer")
-
-        # Gum: any runtime call is considered disallowed
-        if detector.gum_calls:
-            disallowed.add("gum")
-
-        return disallowed
 
     for path in python_files:
         try:
