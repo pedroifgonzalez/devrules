@@ -98,6 +98,7 @@ def _find_disallowed_in_function_bodies(module_ast: ast.Module) -> set[str]:
     hooks=[DevRulesEvent.PRE_COMMIT],
 )
 def valid_usage_of_auto_detected_prompter() -> tuple[bool, str]:
+    """Validate cli commands use generic prompter"""
     cli_commands_dir = _find_cli_commands_dir(Path(__file__).parent)
     if cli_commands_dir is None:
         return False, "Could not locate src/devrules/cli_commands directory"
