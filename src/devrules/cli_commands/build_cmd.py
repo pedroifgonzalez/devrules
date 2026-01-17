@@ -9,8 +9,11 @@ import toml
 import typer
 from yaspin import yaspin
 
+from devrules.cli_commands.prompters.factory import get_default_prompter
 from devrules.config import load_config
 from devrules.enterprise.builder import EnterpriseBuilder
+
+prompter = get_default_prompter()
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
@@ -65,6 +68,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 --name devrules-mycompany \\
                 --sensitive github.api_url,github.owner
         """
+        prompter.header("Build enterprise")
         try:
             # Validate config file exists
             if not os.path.exists(config_file):
@@ -192,6 +196,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         Example:
             devrules add-github-projects --owner mycompany --filter backend
         """
+        prompter.header("Add GitHub projects to DevRules config")
         try:
             # Load current config
             config = load_config(config_file)
@@ -530,6 +535,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         This command allows you to define which statuses a role can transition to
         and which environments it can deploy to.
         """
+        prompter.header("Add role to config")
         try:
             # Determine config file path
             if config_file:
@@ -676,6 +682,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         Fetches users from current GitHub repository and roles from configuration.
         """
+        prompter.header("Assigne role to user")
         try:
             from devrules.config import find_config_file
 
