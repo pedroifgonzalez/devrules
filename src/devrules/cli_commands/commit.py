@@ -278,7 +278,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
     @app.command()
     @ensure_git_repo()
-    @emit_events(DevRulesEvent.PRE_COMMIT, DevRulesEvent.POST_COMMIT)
+    @emit_events(DevRulesEvent.POST_COMMIT)
     def commit(
         skip_checks: bool = typer.Option(
             False, "--skip-checks", help="Skip file validation and documentation checks"

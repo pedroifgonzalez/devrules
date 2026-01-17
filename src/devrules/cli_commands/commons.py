@@ -80,6 +80,7 @@ def _show_relevant_documentation(
 
     # Get changed files
     global changed_files
+    breakpoint()
     if not changed_files:
         return None
 
