@@ -72,22 +72,20 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         try:
             # Validate config file exists
             if not os.path.exists(config_file):
-                typer.secho(
-                    f"✘ Configuration file not found: {config_file}",
-                    fg=typer.colors.RED,
+                prompter.error(
+                    f"Configuration file not found: {config_file}",
                 )
-                raise typer.Exit(code=1)
+                raise prompter.exit(code=1)
 
             # Get project root
             project_root = Path.cwd()
             if not (project_root / "pyproject.toml").exists():
-                typer.secho(
-                    "✘ Must be run from project root (pyproject.toml not found)",
-                    fg=typer.colors.RED,
+                prompter.error(
+                    "Must be run from project root (pyproject.toml not found)",
                 )
-                raise typer.Exit(code=1)
+                raise prompter.exit(code=1)
 
-            typer.secho("\n🏗️  Building enterprise package...", fg=typer.colors.CYAN, bold=True)
+            prompter.info("Building enterprise package...")
 
             # Initialize builder
             builder = EnterpriseBuilder(project_root)
@@ -103,13 +101,13 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
             try:
                 # Step 1: Embed configuration
-                typer.secho("📦 Embedding configuration...", fg=typer.colors.BLUE)
+                prompter.info("Embedding configuration...")
                 config_path, encryption_key = builder.embed_config(
                     config_file,
                     encrypt=encrypt,
                     sensitive_fields=fields_list,
                 )
-                typer.secho(f"   ✓ Config embedded: {config_path}", fg=typer.colors.GREEN)
+                prompter.success(f"Config embedded: {config_path}")
 
                 # Save encryption key if used
                 key_file = None
@@ -118,20 +116,20 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                     key_file.parent.mkdir(parents=True, exist_ok=True)
                     with open(key_file, "wb") as f:
                         f.write(encryption_key)
-                    typer.secho(f"   ✓ Encryption key saved: {key_file}", fg=typer.colors.GREEN)
+                    prompter.success(f"Encryption key saved: {key_file}")
 
                 # Step 2: Modify package metadata
-                typer.secho("📝 Modifying package metadata...", fg=typer.colors.BLUE)
+                prompter.info("Modifying package metadata...")
                 builder.modify_package_metadata(package_name, version_suffix)
-                typer.secho("   ✓ Metadata updated", fg=typer.colors.GREEN)
+                prompter.success("Metadata updated")
 
                 # Step 3: Build package
-                typer.secho("🔨 Building package...", fg=typer.colors.BLUE)
+                prompter.info("Building package...")
                 output_path = builder.build_package(output_dir)
-                typer.secho(f"   ✓ Package built: {output_path}", fg=typer.colors.GREEN)
+                prompter.success(f"Package built: {output_path}")
 
                 # Step 4: Create distribution README
-                typer.secho("📄 Creating distribution README...", fg=typer.colors.BLUE)
+                prompter.info("Creating distribution README...")
                 readme_content = builder.create_distribution_readme(
                     package_name or "devrules-enterprise",
                     has_encryption=encryption_key is not None,
@@ -139,28 +137,24 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 readme_path = output_path / "DISTRIBUTION_README.md"
                 with open(readme_path, "w") as f:  # type: ignore
                     f.write(readme_content)
-                typer.secho(f"   ✓ README created: {readme_path}", fg=typer.colors.GREEN)
+                prompter.success(f"README created: {readme_path}")
 
                 # Success message
-                typer.secho(
-                    "\n✔ Enterprise build completed successfully!",
-                    fg=typer.colors.GREEN,
-                    bold=True,
+                prompter.success(
+                    "Enterprise build completed successfully!",
                 )
-                typer.secho("\n📦 Build artifacts:", fg=typer.colors.CYAN)
-                typer.secho(f"   • Package: {output_path}/*.whl")
+                prompter.info(
+                    "Build artifacts:",
+                )
+                prompter.indented_message(f"• Package: {output_path}/*.whl")
                 if key_file:
-                    typer.secho(f"   • Encryption key: {key_file}")
-                    typer.secho(
-                        f"   • README: {readme_path}\n",
+                    prompter.indented_message(f"• Encryption key: {key_file}")
+                    prompter.indented_message(f"• README: {readme_path}")
+                    prompter.warning(
+                        "IMPORTANT: Keep encryption.key secure!",
                     )
-                    typer.secho(
-                        "⚠️  IMPORTANT: Keep encryption.key secure!",
-                        fg=typer.colors.YELLOW,
-                        bold=True,
-                    )
-                    typer.secho(
-                        "   Set DEVRULES_ENTERPRISE_KEY environment variable for production use.\n"
+                    prompter.info(
+                        "Set DEVRULES_ENTERPRISE_KEY environment variable for production use"
                     )
 
             finally:
@@ -173,8 +167,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                     builder.cleanup_embedded_config()
 
         except Exception as e:
-            typer.secho(f"\n✘ Build failed: {e}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+            prompter.error(f"Build failed: {e}")
+            raise prompter.exit(code=1)
 
     @app.command()
     def add_github_projects(
@@ -204,21 +198,19 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             # Determine owner
             github_owner = owner or config.github.owner
             if not github_owner:
-                typer.secho(
-                    "✘ GitHub owner must be provided via --owner or configured in the config file",
-                    fg=typer.colors.RED,
+                prompter.error(
+                    "GitHub owner must be provided via --owner or configured in the config file"
                 )
-                raise typer.Exit(code=1)
+                raise prompter.exit(code=1)
 
             # Get GitHub token
             token = os.getenv("GH_TOKEN")
             if not token:
-                typer.secho(
-                    "✘ GH_TOKEN environment variable not set",
-                    fg=typer.colors.RED,
+                prompter.error(
+                    "GH_TOKEN environment variable not set",
                 )
-                typer.echo("  Set it with: export GH_TOKEN='your-github-token'")
-                raise typer.Exit(code=1)
+                prompter.info("Set it with: export GH_TOKEN='your-github-token'")
+                raise prompter.exit(code=1)
 
             # Determine config file path
             if config_file:
@@ -230,89 +222,89 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 if not config_path:
                     config_path = Path(".devrules.toml")
                     if not config_path.exists():
-                        typer.secho(
-                            "✘ Configuration file not found. Run 'devrules init-config' first.",
-                            fg=typer.colors.RED,
+                        prompter.error(
+                            "Configuration file not found. Run 'devrules init-config' first.",
                         )
-                        raise typer.Exit(code=1)
+                        raise prompter.exit(code=1)
 
-            typer.secho(
-                f"\n🔍 Fetching GitHub Projects for {github_owner}...",
-                fg=typer.colors.CYAN,
-                bold=True,
-            )
+            with yaspin(
+                text=f"Fetching GitHub Projects for {github_owner}...",
+            ) as spinner:
+                # Use gh CLI to fetch projects
+                import json
+                import subprocess
 
-            # Use gh CLI to fetch projects
-            import json
-            import subprocess
-
-            try:
-                result = subprocess.run(
-                    [
-                        "gh",
-                        "project",
-                        "list",
-                        "--owner",
-                        github_owner,
-                        "--format",
-                        "json",
-                        "--limit",
-                        "100",
-                    ],
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                )
-
-                if result.returncode != 0:
-                    typer.secho(
-                        "✘ Failed to fetch projects. Make sure 'gh' CLI is installed and authenticated.",
-                        fg=typer.colors.RED,
+                try:
+                    result = subprocess.run(
+                        [
+                            "gh",
+                            "project",
+                            "list",
+                            "--owner",
+                            github_owner,
+                            "--format",
+                            "json",
+                            "--limit",
+                            "100",
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
                     )
-                    if result.stderr:
-                        typer.echo(result.stderr)
-                    raise typer.Exit(code=1)
 
-                if not result.stdout.strip():
-                    typer.secho(f"✘ No projects found for {github_owner}", fg=typer.colors.YELLOW)
-                    raise typer.Exit(code=0)
-
-                projects_data = json.loads(result.stdout)
-                if isinstance(projects_data, dict) and "projects" in projects_data:
-                    projects_list = projects_data["projects"]
-                else:
-                    projects_list = projects_data
-
-                if not projects_list:
-                    typer.secho(f"✘ No projects found for {github_owner}", fg=typer.colors.YELLOW)
-                    raise typer.Exit(code=0)
-
-                # Filter projects if requested
-                if filter_query:
-                    filtered_projects = [
-                        p
-                        for p in projects_list
-                        if filter_query.lower() in (p.get("title") or p.get("name", "")).lower()
-                    ]
-                    if not filtered_projects:
-                        typer.secho(
-                            f"✘ No projects match filter '{filter_query}'",
-                            fg=typer.colors.YELLOW,
+                    if result.returncode != 0:
+                        spinner.stop()
+                        prompter.error(
+                            "Failed to fetch projects. Make sure 'gh' CLI is installed and authenticated."
                         )
-                        raise typer.Exit(code=0)
-                    projects_list = filtered_projects
+                        raise prompter.exit(code=1)
 
-                typer.secho(f"✓ Found {len(projects_list)} projects", fg=typer.colors.GREEN)
+                    if not result.stdout.strip():
+                        spinner.stop()
+                        prompter.error(f"No projects found for {github_owner}")
+                        raise prompter.exit(code=0)
 
-            except json.JSONDecodeError as e:
-                typer.secho(f"✘ Failed to parse projects data: {e}", fg=typer.colors.RED)
-                raise typer.Exit(code=1)
-            except subprocess.TimeoutExpired:
-                typer.secho("✘ Request timed out while fetching projects", fg=typer.colors.RED)
-                raise typer.Exit(code=1)
-            except Exception as e:
-                typer.secho(f"✘ Error fetching projects: {e}", fg=typer.colors.RED)
-                raise typer.Exit(code=1)
+                    projects_data = json.loads(result.stdout)
+                    if isinstance(projects_data, dict) and "projects" in projects_data:
+                        projects_list = projects_data["projects"]
+                    else:
+                        projects_list = projects_data
+
+                    if not projects_list:
+                        spinner.stop()
+                        prompter.error(f"No projects found for {github_owner}")
+                        raise prompter.exit(code=0)
+
+                    # Filter projects if requested
+                    if filter_query:
+                        filtered_projects = [
+                            p
+                            for p in projects_list
+                            if filter_query.lower() in (p.get("title") or p.get("name", "")).lower()
+                        ]
+                        if not filtered_projects:
+                            spinner.stop()
+                            prompter.warning(
+                                f"No projects match filter '{filter_query}'",
+                            )
+                            raise prompter.exit(code=0)
+                        projects_list = filtered_projects
+
+                    spinner.stop()
+                    prompter.success(f"Found {len(projects_list)} projects")
+
+                except json.JSONDecodeError as e:
+                    spinner.stop()
+                    prompter.error(f"Failed to parse projects data: {e}")
+                    raise prompter.exit(code=1)
+                except subprocess.TimeoutExpired:
+                    spinner.stop()
+                    prompter.error("Request timed out while fetching projects")
+                    raise prompter.exit(code=1)
+                except Exception as e:
+                    spinner.stop()
+                    prompter.error(f"Error fetching projects: {e}")
+                    raise prompter.exit(code=1)
 
             # Load current config file to preserve formatting
             with open(config_path, "r") as f:
@@ -321,10 +313,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             # Get existing projects
             existing_projects = config_data.get("github", {}).get("projects", {})
 
-            typer.secho("\n📊 Available Projects:", fg=typer.colors.CYAN)
-            typer.echo("   (Already configured projects will be marked with ✓)\n")
+            prompter.info("Available Projects:")
 
-            # Show projects
+            # Load projects
+            options = []
+            selected_options = []
             for idx, proj in enumerate(projects_list, 1):
                 proj_number = proj.get("number")
                 proj_title = proj.get("title") or proj.get("name", "")
@@ -336,59 +329,35 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                         is_configured = True
                         break
 
-                status = "✓" if is_configured else " "
-                typer.echo(f"  [{status}] {idx:2d}. {proj_title} (#{proj_number})")
+                options.append(proj_title)
+                if is_configured:
+                    selected_options.append(proj_title)
 
-            typer.echo("\n" + "─" * 60)
-            typer.secho("Selection options:", fg=typer.colors.CYAN)
-            typer.echo("  • Single: 1")
-            typer.echo("  • Multiple: 1,3,5")
-            typer.echo("  • Range: 1-5")
-            typer.echo("  • All: all")
-            typer.echo("  • Skip: press Enter")
-            typer.echo("─" * 60)
+            selected_projects = prompter.choose(
+                options=options,
+                header="Select projects to add to configuration:",
+                limit=0,
+                defaults=selected_options,
+            )
+            selected_projects_values = []
+            for proj in projects_list:
+                proj_title = proj.get("title") or proj.get("name", "")
+                if proj_title not in selected_projects:
+                    continue
+                proj_number = proj.get("number")
+                project_value = f"{proj_title} (#{proj_number})"
+                selected_projects_values.append((proj_title, project_value))
 
-            selection = typer.prompt("\nYour selection", default="", show_default=False)
-
-            if not selection.strip():
-                typer.secho("No projects selected.", fg=typer.colors.YELLOW)
-                raise typer.Exit(code=0)
-
-            # Parse selection
-            selected_projects = []
-            if selection.lower() == "all":
-                selected_projects = projects_list
-            else:
-                indices: set[int] = set()
-                parts = selection.split(",")
-                for part in parts:
-                    part = part.strip()
-                    if "-" in part:
-                        try:
-                            start, end = part.split("-")
-                            indices.update(range(int(start), int(end) + 1))
-                        except ValueError:
-                            typer.secho(f"✘ Invalid range: {part}", fg=typer.colors.RED)
-                            raise typer.Exit(code=1)
-                    else:
-                        try:
-                            indices.add(int(part))
-                        except ValueError:
-                            typer.secho(f"✘ Invalid number: {part}", fg=typer.colors.RED)
-                            raise typer.Exit(code=1)
-
-                for idx in sorted(indices):
-                    if 1 <= idx <= len(projects_list):
-                        selected_projects.append(projects_list[idx - 1])
+            if len(existing_projects) == len(selected_projects) == 1:
+                prompter.info("Only one project exists. Auto selection was applied.")
 
             if not selected_projects:
-                typer.echo("No valid projects selected.")
-                raise typer.Exit(code=0)
+                prompter.error("No projects selected.")
+                raise prompter.exit(code=0)
 
             # Add selected projects to config
-            typer.secho(
-                f"\n📝 Adding {len(selected_projects)} projects to configuration...",
-                fg=typer.colors.CYAN,
+            prompter.info(
+                f"Adding {len(selected_projects)} projects to configuration...",
             )
 
             if "github" not in config_data:
@@ -399,30 +368,22 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             added_count = 0
             skipped_count = 0
 
-            for proj in selected_projects:
-                proj_number = proj.get("number")
-                proj_title = proj.get("title") or proj.get("name", "")
-                project_value = f"{proj_title} (#{proj_number})"
+            for proj, project_value in selected_projects_values:
+                # Generate a unique key from project title
+                key = proj.lower().replace(" ", "_").replace("-", "_")
+                # Remove special characters
+                key = "".join(c for c in key if c.isalnum() or c == "_")
 
                 # Check if already configured
                 already_exists = False
-                for existing_value in existing_projects.values():
-                    if f"#{proj_number}" in str(existing_value):
-                        already_exists = True
-                        break
+                if key in existing_projects:
+                    already_exists = True
+                    break
 
                 if already_exists:
-                    typer.secho(
-                        f"   ⊝ Skipped (already configured): {project_value}",
-                        fg=typer.colors.YELLOW,
-                    )
+                    prompter.warning(f"Skipped (already configured): {proj}")
                     skipped_count += 1
                 else:
-                    # Generate a unique key from project title
-                    key = proj_title.lower().replace(" ", "_").replace("-", "_")
-                    # Remove special characters
-                    key = "".join(c for c in key if c.isalnum() or c == "_")
-
                     # Ensure uniqueness
                     counter = 1
                     base_key = key
@@ -431,22 +392,21 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                         counter += 1
 
                     config_data["github"]["projects"][key] = project_value
-                    typer.secho(f"   ✓ Added: {project_value}", fg=typer.colors.GREEN)
+                    prompter.success(f"Added: {proj}")
                     added_count += 1
 
             if added_count == 0:
-                typer.secho(
-                    "\n✓ No new projects to add (all were already configured)",
-                    fg=typer.colors.GREEN,
+                prompter.info(
+                    "No new projects to add (all were already configured)",
                 )
-                raise typer.Exit(code=0)
+                raise prompter.exit(code=0)
 
             # Write updated config
             with open(config_path, "w") as f:
                 toml.dump(config_data, f)
 
-            enable_cache = typer.confirm(
-                "\nEnable GitHub Project metadata cache (faster project commands)?",
+            enable_cache = prompter.confirm(
+                "Enable GitHub Project metadata cache (faster project commands)?",
                 default=bool(config_data.get("github", {}).get("project_cache_enabled", False)),
             )
 
@@ -456,10 +416,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 config_data["github"]["project_cache_enabled"] = True
 
                 default_cache_path = config_data.get("github", {}).get("project_cache_path") or ""
-                cache_path = typer.prompt(
-                    "Project cache path (leave empty for default)",
+                cache_path = prompter.input_text(
+                    placeholder="Project cache path (leave empty for default)",
                     default=str(default_cache_path),
-                    show_default=False,
                 ).strip()
                 config_data["github"]["project_cache_path"] = cache_path or None
 
@@ -467,7 +426,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 with open(config_path, "w") as f:
                     toml.dump(config_data, f)
 
-                preload_cache = typer.confirm(
+                preload_cache = prompter.confirm(
                     "Preload cache now for selected projects?",
                     default=True,
                 )
@@ -475,8 +434,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                     from devrules.core.project_service import get_project_id, get_status_field_id
 
                     with yaspin(text="Preloading project cache...") as spinner:
-                        for proj in selected_projects:
-                            proj_number = proj.get("number")
+                        for exist in existing_projects:
+                            proj_title = exist.get("title") or exist.get("name", "")
+                            if proj_title not in selected_options:
+                                continue
+                            proj_number = exist.get("number")
                             if not proj_number:
                                 continue
                             get_project_id(github_owner, str(proj_number))
@@ -490,18 +452,13 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             with open(config_path, "w") as f:
                 toml.dump(config_data, f)
 
-            typer.secho(
-                f"\n✔ Successfully added {added_count} projects to {config_path}",
-                fg=typer.colors.GREEN,
-                bold=True,
+            prompter.success(
+                f"Successfully added {added_count} projects to {config_path}",
             )
 
             # Show summary of added projects
-            typer.secho("\n📋 Added projects:", fg=typer.colors.CYAN)
+            prompter.info("Added projects:")
             for proj in selected_projects:
-                proj_number = proj.get("number")
-                proj_title = proj.get("title") or proj.get("name", "")
-
                 # Check if it was added or skipped
                 was_skipped = False
                 for existing_value in existing_projects.values():
@@ -510,18 +467,20 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                         break
 
                 if not was_skipped:
-                    typer.echo(f"   • {proj_title} (#{proj_number})")
+                    prompter.indented_message(f"• {proj}")
 
-            typer.echo("\n💡 Next steps:")
-            typer.echo("  • View config: cat .devrules.toml")
-            typer.echo("  • List issues: devrules list-issues --project <project-name>")
-            typer.echo("  • Dashboard: devrules dashboard")
+            prompter.info("Next steps:")
+            prompter.indented_message("• View config: cat .devrules.toml")
+            prompter.indented_message(
+                "• List issues: devrules list-issues --project <project-name>"
+            )
+            prompter.indented_message("• Dashboard: devrules dashboard")
 
         except typer.Exit:
             raise
         except Exception as e:
-            typer.secho(f"\n✘ Error: {e}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+            prompter.error(f" Error: {e}")
+            raise prompter.exit(code=1)
 
     @app.command()
     def add_role(
@@ -551,7 +510,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                             "✘ Configuration file not found. Run 'devrules init-config' first.",
                             fg=typer.colors.RED,
                         )
-                        raise typer.Exit(code=1)
+                        raise prompter.exit(code=1)
 
             # Load current config to preserve formatting as much as possible
             with open(config_path, "r") as f:
@@ -666,7 +625,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         except Exception as e:
             typer.secho(f"\n✘ Error configuring role: {e}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+            raise prompter.exit(code=1)
 
     @app.command()
     def assign_role(
@@ -705,7 +664,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                     "✘ No roles defined in configuration. Run 'add-role' first.",
                     fg=typer.colors.RED,
                 )
-                raise typer.Exit(code=1)
+                raise prompter.exit(code=1)
 
             # Fetch users from GitHub
             selected_user = user
@@ -738,7 +697,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                             typer.secho(
                                 "✘ Could not determine GitHub owner/repo", fg=typer.colors.RED
                             )
-                            raise typer.Exit(code=1)
+                            raise prompter.exit(code=1)
 
                         # Fetch collaborators with full names using GraphQL
                         query = """
@@ -772,14 +731,14 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                         typer.secho(
                             f"✘ Error fetching collaborators from GitHub: {e}", fg=typer.colors.RED
                         )
-                        raise typer.Exit(code=1)
+                        raise prompter.exit(code=1)
                     spinner.ok("✔")
 
                 if result.returncode != 0:
                     typer.secho("✘ Failed to fetch collaborators from GitHub", fg=typer.colors.RED)
                     if result.stderr:
                         typer.echo(result.stderr)
-                    raise typer.Exit(code=1)
+                    raise prompter.exit(code=1)
 
                 data = json.loads(result.stdout)
                 nodes = (
@@ -819,7 +778,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                         choice_idx = typer.prompt("Select user number", type=int)
                         if choice_idx < 1 or choice_idx > len(options):
                             typer.secho("✘ Invalid selection", fg=typer.colors.RED)
-                            raise typer.Exit(code=1)
+                            raise prompter.exit(code=1)
                         display_choice = options[choice_idx - 1]
 
                     selected_user = user_map[display_choice]["name"]
@@ -839,7 +798,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                     choice_idx = typer.prompt("Select role number", type=int)
                     if choice_idx < 1 or choice_idx > len(roles):
                         typer.secho("✘ Invalid selection", fg=typer.colors.RED)
-                        raise typer.Exit(code=1)
+                        raise prompter.exit(code=1)
                     selected_role = roles[choice_idx - 1]
 
             # Update assignments
@@ -861,7 +820,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         except Exception as e:
             typer.secho(f"\n✘ Error assigning role: {e}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+            raise prompter.exit(code=1)
 
     return {
         "build_enterprise": build_enterprise,

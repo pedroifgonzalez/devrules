@@ -38,6 +38,7 @@ class GumPrompter(Prompter):
         options: list[str],
         header: str = "",
         limit: int = 1,
+        defaults: Optional[list[str]] = None,
     ) -> Optional[str | list[str]]:
         """Interactive selection from a list of options using gum.
 
@@ -50,7 +51,7 @@ class GumPrompter(Prompter):
             Selected option(s) as string (if limit=1) or list of strings (if limit>1),
             or None if cancelled
         """
-        return gum.choose(options, header, limit)
+        return gum.choose(options, header, limit, defaults=defaults)
 
     def input_text(
         self,
