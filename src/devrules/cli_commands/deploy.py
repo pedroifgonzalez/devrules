@@ -76,7 +76,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 "Environment '{environment}' not configured",
             )
             prompter.info(f"Available environments: {available}")
-            raise typer.Exit(code=1)
+            raise prompter.exit(code=1)
 
         env_config = config.deployment.environments[environment]
 

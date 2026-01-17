@@ -82,14 +82,14 @@ def _ask_for_integration_comment() -> Optional[str]:
             "2. Press Enter to open your editor for multi-line markdown",
         ],
     )
-    simple_comment = typer.prompt(
+    simple_comment = prompter.info(
         "Comment (or press Enter for editor)", default="", show_default=False
     ).strip()
 
     if simple_comment:
         integration_comment = simple_comment
     else:
-        integration_comment = typer.edit(
+        integration_comment = prompter.write(
             "\n#! Add integration details below (markdown supported)\n#! Lines starting with #! will be ignored\n\n"
         )
         if integration_comment:
@@ -101,14 +101,13 @@ def _ask_for_integration_comment() -> Optional[str]:
             integration_comment = "\n".join(lines).strip()
 
     if not integration_comment:
-        typer.secho(
-            "⚠ Warning: No comment provided for Waiting Integration status",
-            fg=typer.colors.YELLOW,
+        prompter.warning(
+            "Warning: No comment provided for Waiting Integration status",
         )
-        confirm = typer.confirm("Continue without a comment?", default=False)
+        confirm = prompter.confirm("Continue without a comment?", default=False)
         if not confirm:
-            typer.echo("Cancelled.")
-            raise typer.Exit(code=0)
+            prompter.error("Cancelled.")
+            raise prompter.exit(code=0)
     return integration_comment
 
 
@@ -187,11 +186,10 @@ def _validate_status(status: str, valid_statuses: list[str]) -> None:
     """Validate the status."""
     if status not in valid_statuses:
         allowed = ", ".join(valid_statuses)
-        typer.secho(
-            f"✘ Invalid status '{status}'. Allowed values: {allowed}",
-            fg=typer.colors.RED,
+        prompter.error(
+            f"Invalid status '{status}'. Allowed values: {allowed}",
         )
-        raise typer.Exit(code=1)
+        raise prompter.exit(code=1)
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
@@ -426,11 +424,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
                 if status not in valid_statuses:
                     allowed = ", ".join(valid_statuses)
-                    typer.secho(
-                        f"✘ Invalid status '{status}'. Allowed values: {allowed}",
-                        fg=typer.colors.RED,
+                    prompter.error(
+                        f"Invalid status '{status}'. Allowed values: {allowed}",
                     )
-                    raise typer.Exit(code=1)
+                    raise prompter.exit(code=1)
 
             project_str = str(project)
 
@@ -440,18 +437,16 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 projects_map = getattr(config.github, "projects", {}) or {}
 
                 if not owner:
-                    typer.secho(
-                        "✘ GitHub owner must be configured in the config file under the [github] section to use --project all.",
-                        fg=typer.colors.RED,
+                    prompter.error(
+                        "GitHub owner must be configured in the config file under the [github] section to use --project all.",
                     )
-                    raise typer.Exit(code=1)
+                    raise prompter.exit(code=1)
 
                 if not projects_map:
-                    typer.secho(
-                        "✘ No projects configured under [github.projects] to use with --project all.",
-                        fg=typer.colors.RED,
+                    prompter.error(
+                        "No projects configured under [github.projects] to use with --project all.",
                     )
-                    raise typer.Exit(code=1)
+                    raise prompter.exit(code=1)
 
                 for key, label in sorted(projects_map.items()):
                     owner_for_key, project_number_for_key = resolve_project_number(key)
@@ -477,13 +472,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                             text=True,
                         )
                     except subprocess.CalledProcessError as e:
-                        typer.secho(
-                            f"✘ Failed to run gh command for project '{key}': {e}",
-                            fg=typer.colors.RED,
+                        prompter.error(
+                            f"Failed to run gh command for project '{key}': {e}",
                         )
-                        if e.stderr:
-                            typer.echo(e.stderr)
-                        raise typer.Exit(code=1)
+                        raise prompter.exit(code=1)
 
                     print_project_items(result.stdout, assignee, label, status)
 
@@ -505,11 +497,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             ]
         else:
             if status is not None:
-                typer.secho(
-                    "✘ --status can only be used together with --project.",
-                    fg=typer.colors.RED,
+                prompter.choose(
+                    "--status can only be used together with --project.",
                 )
-                raise typer.Exit(code=1)
+                raise prompter.exit(code=1)
 
             cmd = ["gh", "issue", "list", "--state", state, "--limit", str(limit)]
 
@@ -524,18 +515,15 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 text=True,
             )
         except subprocess.CalledProcessError as e:
-            typer.secho(
-                f"✘ Failed to run gh command: {e}",
-                fg=typer.colors.RED,
+            prompter.error(
+                f"Failed to run gh command: {e}",
             )
-            if e.stderr:
-                typer.echo(e.stderr)
-            raise typer.Exit(code=1)
+            raise prompter.exit(code=1)
 
         if project is not None:
             print_project_items(result.stdout, assignee, project, status)
         else:
-            typer.echo(result.stdout)
+            prompter.info(result.stdout)
 
     @app.command()
     def describe_issue(
@@ -562,11 +550,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             if github_owner and github_repo:
                 repo_arg = f"{github_owner}/{github_repo}"
             else:
-                typer.secho(
-                    "✘ Repository must be provided via --repo or configured in the config file under [github] section.",
-                    fg=typer.colors.RED,
+                prompter.error(
+                    "Repository must be provided via --repo or configured in the config file under [github] section."
                 )
-                raise typer.Exit(code=1)
+                raise prompter.exit(code=1)
 
         cmd = [
             "gh",
@@ -585,15 +572,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 text=True,
             )
         except subprocess.CalledProcessError as e:
-            typer.secho(
-                f"✘ Failed to fetch issue #{issue}: {e}",
-                fg=typer.colors.RED,
+            prompter.error(
+                f"Failed to fetch issue #{issue}: {e}",
             )
-            if e.stderr:
-                typer.echo(e.stderr)
-            raise typer.Exit(code=1)
+            raise prompter.exit(code=1)
 
-        typer.echo(result.stdout)
+        prompter.info(result.stdout)
 
     return {
         "update_issue_status": update_issue_status,
