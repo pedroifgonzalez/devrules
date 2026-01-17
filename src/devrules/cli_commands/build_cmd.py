@@ -506,9 +506,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 if not config_path:
                     config_path = Path(".devrules.toml")
                     if not config_path.exists():
-                        typer.secho(
-                            "✘ Configuration file not found. Run 'devrules init-config' first.",
-                            fg=typer.colors.RED,
+                        prompter.error(
+                            "Configuration file not found. Run 'devrules init-config' first.",
                         )
                         raise prompter.exit(code=1)
 
@@ -524,7 +523,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             # Get existing role data if it exists
             existing_role = config_data["permissions"]["roles"].get(role_name, {})
 
-            typer.secho(f"\n🛠️  Configuring permissions for role: {role_name}", fg=typer.colors.CYAN)
+            prompter.info(f"Configuring permissions for role: {role_name}")
 
             # Get available statuses (from config or defaults)
             from devrules.cli_commands.project import _get_valid_statuses
@@ -532,81 +531,32 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             valid_statuses = _get_valid_statuses()
 
             # Select allowed statuses
-            from devrules.utils import gum
-            from devrules.utils.gum import GUM_AVAILABLE
-
-            selected_statuses: list[str] | str = []
-            if GUM_AVAILABLE:
-                result = gum.choose(
-                    options=valid_statuses,
-                    header=f"Select allowed statuses for '{role_name}'",
-                    limit=0,
-                )
-                if result is None:
-                    selected_statuses = []
-                elif isinstance(result, str):
-                    selected_statuses = [result]
-                else:
-                    selected_statuses = result
-            else:
-                typer.echo("\nAvailable statuses:")
-                for idx, status in enumerate(valid_statuses, 1):
-                    typer.echo(f"  {idx}. {status}")
-                selection = typer.prompt(
-                    "\nEnter status numbers (e.g. 1,2,5) or 'all'",
-                    default=",".join(
-                        [
-                            str(valid_statuses.index(s) + 1)
-                            for s in existing_role.get("allowed_statuses", [])
-                        ]
-                    ),
-                )
-                if selection.lower() == "all":
-                    selected_statuses = valid_statuses
-                elif selection:
-                    indices = [int(i.strip()) for i in selection.split(",")]
-                    selected_statuses = [
-                        valid_statuses[i - 1] for i in indices if 1 <= i <= len(valid_statuses)
-                    ]
+            selected_statuses = prompter.choose(
+                options=valid_statuses,
+                header=f"Select allowed statuses for '{role_name}'",
+                limit=0,
+                defaults=existing_role.get("allowed_statuses", []),
+            )
+            if selected_statuses is None:
+                selected_statuses = []
+            elif isinstance(selected_statuses, str):
+                selected_statuses = [selected_statuses]
 
             # Get available environments
             environments = list(config_data.get("deployment", {}).get("environments", {}).keys())
             if not environments:
                 environments = ["dev", "staging", "prod"]
 
-            selected_envs: list[str] | str = []
-            if GUM_AVAILABLE:
-                result = gum.choose(
-                    options=environments,
-                    header=f"Select deployable environments for '{role_name}'",
-                    limit=0,
-                )
-                if result is None:
-                    selected_envs = []
-                elif isinstance(result, str):
-                    selected_envs = [result]
-                else:
-                    selected_envs = result
-            else:
-                typer.echo("\nAvailable environments:")
-                for idx, env in enumerate(environments, 1):
-                    typer.echo(f"  {idx}. {env}")
-                selection = typer.prompt(
-                    "\nEnter environment numbers (e.g. 1,2) or 'all'",
-                    default=",".join(
-                        [
-                            str(environments.index(e) + 1)
-                            for e in existing_role.get("deployable_environments", [])
-                        ]
-                    ),
-                )
-                if selection.lower() == "all":
-                    selected_envs = environments
-                elif selection:
-                    indices = [int(i.strip()) for i in selection.split(",")]
-                    selected_envs = [
-                        environments[i - 1] for i in indices if 1 <= i <= len(environments)
-                    ]
+            selected_envs = prompter.choose(
+                options=environments,
+                header=f"Select deployable environments for '{role_name}'",
+                limit=0,
+                defaults=existing_role.get("deployable_environments", []),
+            )
+            if selected_envs is None:
+                selected_envs = []
+            elif isinstance(selected_envs, str):
+                selected_envs = [selected_envs]
 
             # Update the role
             config_data["permissions"]["roles"][role_name] = {
@@ -618,13 +568,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             with open(config_path, "w") as f:
                 toml.dump(config_data, f)
 
-            typer.secho(
-                f"\n✔ Role '{role_name}' updated successfully in {config_path}",
-                fg=typer.colors.GREEN,
+            prompter.success(
+                f"Role '{role_name}' updated successfully in {config_path}",
             )
 
         except Exception as e:
-            typer.secho(f"\n✘ Error configuring role: {e}", fg=typer.colors.RED)
+            prompter.error(f"Error configuring role: {e}")
             raise prompter.exit(code=1)
 
     @app.command()
@@ -660,19 +609,15 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             # Get available roles
             roles = list(config_data.get("permissions", {}).get("roles", {}).keys())
             if not roles:
-                typer.secho(
-                    "✘ No roles defined in configuration. Run 'add-role' first.",
-                    fg=typer.colors.RED,
+                prompter.error(
+                    "No roles defined in configuration. Run 'add-role' first.",
                 )
                 raise prompter.exit(code=1)
 
             # Fetch users from GitHub
             selected_user = user
             if not selected_user:
-                typer.echo("")
-                with yaspin(
-                    text="🔍 Fetching collaborators from GitHub...", color="cyan"
-                ) as spinner:
+                with yaspin(text="Fetching collaborators from GitHub...") as spinner:
                     import json
                     import subprocess
 
@@ -694,9 +639,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                                 repo = repo_info["name"]
 
                         if not owner or not repo:
-                            typer.secho(
-                                "✘ Could not determine GitHub owner/repo", fg=typer.colors.RED
-                            )
+                            prompter.error("Could not determine GitHub owner/repo")
                             raise prompter.exit(code=1)
 
                         # Fetch collaborators with full names using GraphQL
@@ -728,16 +671,14 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                             text=True,
                         )
                     except Exception as e:
-                        typer.secho(
-                            f"✘ Error fetching collaborators from GitHub: {e}", fg=typer.colors.RED
-                        )
+                        prompter.error(f"Error fetching collaborators from GitHub: {e}")
                         raise prompter.exit(code=1)
                     spinner.ok("✔")
 
                 if result.returncode != 0:
-                    typer.secho("✘ Failed to fetch collaborators from GitHub", fg=typer.colors.RED)
+                    prompter.error("Failed to fetch collaborators from GitHub")
                     if result.stderr:
-                        typer.echo(result.stderr)
+                        prompter.info(result.stderr)
                     raise prompter.exit(code=1)
 
                 data = json.loads(result.stdout)
@@ -749,10 +690,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 )
 
                 if not nodes:
-                    typer.secho(
-                        "✘ No collaborators found for this repository", fg=typer.colors.YELLOW
-                    )
-                    selected_user = typer.prompt(
+                    prompter.warning("No collaborators found for this repository")
+                    selected_user = prompter.input_text(
                         "Enter GitHub full name manually (should match git config user.name)"
                     )
                 else:
@@ -766,40 +705,21 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                         user_map[display] = {"name": name, "login": login}
 
                     options = list(user_map.keys())
-                    from devrules.utils import gum
-                    from devrules.utils.gum import GUM_AVAILABLE
 
-                    if GUM_AVAILABLE:
-                        display_choice = gum.choose(options, header="Select user to assign role")
-                    else:
-                        typer.echo("\nAvailable users:")
-                        for idx, opt in enumerate(options, 1):
-                            typer.echo(f"  {idx}. {opt}")
-                        choice_idx = typer.prompt("Select user number", type=int)
-                        if choice_idx < 1 or choice_idx > len(options):
-                            typer.secho("✘ Invalid selection", fg=typer.colors.RED)
-                            raise prompter.exit(code=1)
-                        display_choice = options[choice_idx - 1]
+                    display_choice = prompter.choose(options, header="Select user to assign role")
+                    if not display_choice:
+                        prompter.error("No user selected")
+                        raise prompter.exit(code=1)
 
                     selected_user = user_map[display_choice]["name"]
 
             # Selection role
             selected_role = role
             if not selected_role:
-                from devrules.utils import gum
-                from devrules.utils.gum import GUM_AVAILABLE
-
-                if GUM_AVAILABLE:
-                    selected_role = gum.choose(roles, header=f"Assign role to '{selected_user}'")
-                else:
-                    typer.echo("\nAvailable roles:")
-                    for idx, r in enumerate(roles, 1):
-                        typer.echo(f"  {idx}. {r}")
-                    choice_idx = typer.prompt("Select role number", type=int)
-                    if choice_idx < 1 or choice_idx > len(roles):
-                        typer.secho("✘ Invalid selection", fg=typer.colors.RED)
-                        raise prompter.exit(code=1)
-                    selected_role = roles[choice_idx - 1]
+                selected_role = prompter.choose(roles, header=f"Assign role to '{selected_user}'")
+                if not selected_role:
+                    prompter.error("No role selected")
+                    raise prompter.exit(code=1)
 
             # Update assignments
             if "permissions" not in config_data:
@@ -813,13 +733,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             with open(config_path, "w") as f:
                 toml.dump(config_data, f)
 
-            typer.secho(
-                f"\n✔ User '{selected_user}' assigned to role '{selected_role}'",
-                fg=typer.colors.GREEN,
+            prompter.success(
+                f"User '{selected_user}' assigned to role '{selected_role}'",
             )
 
         except Exception as e:
-            typer.secho(f"\n✘ Error assigning role: {e}", fg=typer.colors.RED)
+            prompter.error(f"Error assigning role: {e}")
             raise prompter.exit(code=1)
 
     return {

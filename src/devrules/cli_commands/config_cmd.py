@@ -122,13 +122,13 @@ exit 0
 def _write_hook_file(hook_path: str, content: str, hook_name: str) -> None:
     """Write hook file with proper permissions."""
     if os.path.exists(hook_path):
-        overwrite = typer.confirm(f"{hook_name} hook already exists. Overwrite?")
+        overwrite = prompter.confirm(f"{hook_name} hook already exists. Overwrite?")
         if not overwrite:
-            typer.echo(f"Skipping {hook_name} hook.")
+            prompter.info(f"Skipping {hook_name} hook.")
             return
-        typer.secho(f"✔ Updated: {hook_path}", fg=typer.colors.GREEN)
+        prompter.success(f"Updated: {hook_path}")
     else:
-        typer.secho(f"✔ Created: {hook_path}", fg=typer.colors.GREEN)
+        prompter.success(f"Created: {hook_path}")
 
     with open(hook_path, "w") as f:
         f.write(content)
@@ -323,15 +323,15 @@ show_on_pr = true
         )
 
         if os.path.exists(path):
-            overwrite = typer.confirm(f"{path} already exists. Overwrite?")
+            overwrite = prompter.confirm(f"{path} already exists. Overwrite?")
             if not overwrite:
-                typer.echo("Cancelled.")
-                raise typer.Exit(code=0)
+                prompter.warning("Cancelled.")
+                raise prompter.exit(code=0)
 
         with open(path, "w") as f:
             f.write(example_config)
 
-        typer.secho(f"✔ Configuration file created: {path}", fg=typer.colors.GREEN)
+        prompter.success(f"Configuration file created: {path}")
 
     @app.command()
     def install_hooks():
@@ -340,8 +340,8 @@ show_on_pr = true
         hooks_dir = ".git/hooks"
 
         if not os.path.exists(".git"):
-            typer.secho("✘ Not a git repository. Run 'git init' first.", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+            prompter.error("Not a git repository. Run 'git init' first.")
+            raise prompter.exit(code=1)
 
         os.makedirs(hooks_dir, exist_ok=True)
 
@@ -362,12 +362,12 @@ show_on_pr = true
         # 4. Install post-checkout hook
         _install_post_checkout_hook(hooks_dir, devrules_path)
 
-        typer.secho("\n✔ All git hooks installed!", fg=typer.colors.GREEN)
-        typer.echo("  • Commit messages will be validated by devrules")
-        typer.echo("  • Files will be checked before commits")
-        typer.echo("  • Branches will be validated before pushes")
-        typer.echo("  • Branch context will be shown on checkout")
-        typer.echo("  Use 'git commit --no-verify' to bypass (if allowed by config).")
+        prompter.success("All git hooks installed!")
+        prompter.indented_message("• Commit messages will be validated by devrules")
+        prompter.indented_message("• Files will be checked before commits")
+        prompter.indented_message("• Branches will be validated before pushes")
+        prompter.indented_message("• Branch context will be shown on checkout")
+        prompter.indented_message("Use 'git commit --no-verify' to bypass (if allowed by config).")
 
     @app.command()
     def uninstall_hooks():
@@ -383,11 +383,11 @@ show_on_pr = true
         for hook_path in hooks:
             if os.path.exists(hook_path):
                 os.remove(hook_path)
-                typer.secho(f"✔ Removed: {hook_path}", fg=typer.colors.GREEN)
+                prompter.success(f"Removed: {hook_path}")
             else:
-                typer.echo(f"  {hook_path} not found, skipping.")
+                prompter.info(f"{hook_path} not found, skipping.")
 
-        typer.secho("\n✔ All git hooks uninstalled.", fg=typer.colors.GREEN)
+        prompter.success("All git hooks uninstalled.")
 
     return {
         "init_config": init_config,
