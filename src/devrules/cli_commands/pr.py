@@ -228,10 +228,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config: Config = Depends(load_config),
     ):
         """Interactive PR creation."""
-        prompter.header("🔀 Create Pull Request")
+        prompter.header("Create Pull Request")
 
         current_branch = get_current_branch()
-        prompter.info(f"📌 Current branch: {current_branch}")
+        prompter.info(f"Current branch: {current_branch}")
 
         allowed_targets = config.pr.allowed_targets or ["develop", "main", "master"]
         suggested = suggest_pr_target(current_branch, config.pr) or "develop"
@@ -265,7 +265,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config: Config = Depends(load_config),
     ):
         """Validate PR size and title format."""
-        prompter.header("🔍 Validate Pull Request")
+        prompter.header("Validate Pull Request")
         github_owner = owner or config.github.owner
         github_repo = repo or config.github.repo
         pr_number_selected = pr_number or prompter.input_text(
