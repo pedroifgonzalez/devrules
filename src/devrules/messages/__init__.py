@@ -40,6 +40,7 @@ class BranchMessages:
     )
 
     # Prompts
+    SELECT_BRANCHES_TO_DELETE = "Select branches to delete"
     DELETE_BRANCH_PROMPT = "You are about to delete branch '{}' locally and from remote '{}'."
     CANCELLED = "Cancelled."
 

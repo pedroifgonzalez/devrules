@@ -25,10 +25,8 @@ from devrules.core.git_service import (
 from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
 from devrules.messages import branch as msg
 from devrules.messages import git as git_msg
-from devrules.utils import gum
 from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.dependencies import get_config
-from devrules.utils.gum import GUM_AVAILABLE
 from devrules.utils.issue_mapping import get_issue_mapping_manager
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.branch import (
@@ -339,7 +337,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         if not branches:
             branches = prompter.choose(
                 options=owned_branches,
-                header="Select branches to delete",
+                header=msg.SELECT_BRANCHES_TO_DELETE,
                 limit=0,
             )
             if not branches:
@@ -370,7 +368,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 raise prompter.exit(1)
 
         if branches:
-            prompter.info(msg.DELETE_BRANCHES_STATEMENT)
+            prompter.warning(msg.DELETE_BRANCHES_STATEMENT)
             messages = [f"{counter}. {b}" for counter, b in enumerate(branches, 1)]
             for message in messages:
                 prompter.indented_message(f"{message}")
@@ -386,8 +384,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         else:
             prompter.error(msg.NO_SELECTED_BRANCHES_TO_DELETE)
 
-        raise prompter.exit(0)
-
     @app.command()
     @ensure_git_repo()
     def delete_merged(
@@ -395,22 +391,20 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     ):
         """Delete branches that have been merged into develop (interactive)."""
         prompter.header("Delete merged branches")
-        if GUM_AVAILABLE:
-            gum.print_stick_header(header="Delete merged branches")
 
         # 1. Get branches merged into develop
         merged_branches = set(get_merged_branches(base_branch="develop"))
 
         if not merged_branches:
-            typer.secho(msg.NO_MERGED_BRANCHES, fg=typer.colors.YELLOW)
-            raise typer.Exit(code=0)
+            prompter.warning(msg.NO_MERGED_BRANCHES)
+            raise prompter.exit(0)
 
         # 2. Get owned branches
         try:
             owned_branches = set(list_user_owned_branches())
         except RuntimeError as e:
-            typer.secho(f"✘ {e}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+            prompter.error(str(e))
+            raise prompter.exit(1)
 
         # 3. Intersect: Only delete merged branches that are owned by the user
         candidates = sorted(list(merged_branches.intersection(owned_branches)))
@@ -427,64 +421,31 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             final_candidates.append(b)
 
         if not final_candidates:
-            typer.secho(msg.NO_OWNED_MERGED_BRANCHES, fg=typer.colors.YELLOW)
-            raise typer.Exit(code=0)
+            prompter.warning(msg.NO_OWNED_MERGED_BRANCHES)
+            raise prompter.exit(0)
 
-        if GUM_AVAILABLE:
-            delete_branches_selection = gum.choose(
-                header="Select branches to delete",
-                options=final_candidates,
-                limit=0,
-            )
-            assert isinstance(delete_branches_selection, list)
-            if not delete_branches_selection:
-                typer.secho("No branches selected for deletion.", fg=typer.colors.YELLOW)
-                raise typer.Exit(code=1)
-            delete_branches = [f"✘ {b}" for b in delete_branches_selection]
-            gum.print_list(
-                header="⚠ You are about to delete the following branches:",
-                items=delete_branches,
-            )
-            response = gum.confirm("Delete these branches?")
-            final_candidates = delete_branches_selection
-        else:
-            add_typer_block_message(
-                header="🗑 Delete Merged Branches",
-                subheader="Branches already merged and owned by you:",
-                messages=[f"{idx}. {b}" for idx, b in enumerate(final_candidates, 1)],
-            )
-            typer.echo()
-            choices = typer.prompt("Enter number, multiple separated by a space", type=str)
-            choices = choices.split(" ")
-            delete_branches = []
-            try:
-                choices = [int(choice) for choice in choices]
-            except ValueError:
-                typer.secho(msg.INVALID_CHOICE, fg=typer.colors.RED)
-                raise typer.Exit(code=1)
-            for choice in choices:
-                if choice < 1 or choice > len(final_candidates):
-                    typer.secho(msg.INVALID_CHOICE, fg=typer.colors.RED)
-                    raise typer.Exit(code=1)
-                to_delete = final_candidates[choice - 1]
-                delete_branches.append(to_delete)
-            final_candidates = delete_branches
-            typer.echo()
-            typer.secho("⚠ You are about to delete the following branches:")
-            for branch in delete_branches:
-                typer.secho(f"✘ {branch}")
-            typer.echo()
-            response = typer.confirm("Delete these branches?")
+        delete_branches_selection = prompter.choose(
+            header=msg.SELECT_BRANCHES_TO_DELETE,
+            options=final_candidates,
+            limit=0,
+        )
+        assert isinstance(delete_branches_selection, list)
+        if not delete_branches_selection:
+            prompter.warning("No branches selected for deletion.")
+            raise prompter.exit(1)
+
+        prompter.warning(msg.DELETE_BRANCHES_STATEMENT)
+        for index, branch in enumerate(delete_branches_selection, start=1):
+            prompter.indented_message(f"{index}. {branch}")
+
+        response = prompter.confirm("Delete these branches?")
 
         if not response:
-            typer.echo(msg.CANCELLED)
-            raise typer.Exit(code=0)
+            prompter.error("Deletion cancelled.")
+            raise prompter.exit(code=0)
 
-        typer.echo()
-        for b in final_candidates:
+        for b in delete_branches_selection:
             delete_branch_local_and_remote(b, remote, force=False, ignore_remote_error=True)
-
-        raise typer.Exit(code=0)
 
     @app.command(name="switch-branch")
     @ensure_git_repo()
