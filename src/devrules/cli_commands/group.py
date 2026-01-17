@@ -5,127 +5,13 @@ from typing import Any, Callable, Dict, Optional
 import toml
 import typer
 
+from devrules.cli_commands.prompters.factory import get_default_prompter
 from devrules.config import find_config_file, load_config
 from devrules.core.git_service import get_current_branch
-from devrules.utils import gum
 from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
 
-
-def _build_group_data_with_gum(
-    description: str,
-    base_branch: str,
-    branch_pattern: str,
-) -> Optional[Dict[str, Any]]:
-    """Build group data interactively using gum.
-
-    Args:
-        description: Default group description
-        base_branch: Default base branch name
-        branch_pattern: Default branch pattern
-
-    Returns:
-        Group data dictionary or None if cancelled
-    """
-    # Ask for description
-    desc = gum.input_text(
-        header="Group description",
-        placeholder="e.g., Feature group for payments",
-        default=description,
-    )
-    if desc is None:
-        return None
-
-    # Ask for base branch
-    base = gum.input_text(
-        header="Base branch",
-        placeholder="e.g., develop, main",
-        default=base_branch,
-    )
-    if not base:
-        return None
-
-    # Ask for branch pattern
-    pattern = gum.input_text(
-        header="Branch pattern (regex)",
-        placeholder="e.g., feature/.* (leave empty for no pattern)",
-        default=branch_pattern,
-    )
-    if pattern is None:
-        pattern = ""
-
-    group_data: Dict[str, Any] = {
-        "description": desc,
-        "base_branch": base,
-        "branch_pattern": pattern,
-    }
-
-    add_cursor = gum.confirm("Do you want to set an integration cursor?", default=False)
-    if add_cursor:
-        branch = gum.input_text(
-            header="Integration cursor branch",
-            placeholder="e.g., feature/my-branch",
-        )
-        if not branch:
-            return None
-
-        env = gum.input_text(
-            header="Integration cursor environment",
-            placeholder="Environment name",
-            default="dev",
-        )
-        if not env:
-            env = "dev"
-
-        group_data["integration_cursor"] = {
-            "branch": branch,
-            "environment": env,
-        }
-
-    return group_data
-
-
-def _build_group_data_with_typer(
-    description: str,
-    base_branch: str,
-    branch_pattern: str,
-) -> Optional[Dict[str, Any]]:
-    """Build group data interactively using typer prompts (fallback).
-
-    Args:
-        description: Default group description
-        base_branch: Default base branch name
-        branch_pattern: Default branch pattern
-
-    Returns:
-        Group data dictionary or None if cancelled
-    """
-    # Ask for description
-    desc = typer.prompt("Group description", default=description or "")
-
-    # Ask for base branch
-    base = typer.prompt("Base branch", default=base_branch)
-
-    # Ask for branch pattern
-    pattern = typer.prompt("Branch pattern (regex, empty for none)", default=branch_pattern or "")
-
-    group_data: Dict[str, Any] = {
-        "description": desc,
-        "base_branch": base,
-        "branch_pattern": pattern,
-    }
-
-    add_cursor = typer.confirm("Do you want to set an integration cursor?", default=False)
-    if add_cursor:
-        branch = typer.prompt("Integration cursor branch")
-        env = typer.prompt("Integration cursor environment", default="dev")
-
-        group_data["integration_cursor"] = {
-            "branch": branch,
-            "environment": env,
-        }
-
-    return group_data
+prompter = get_default_prompter()
 
 
 def build_group_data_interactive(
@@ -143,10 +29,62 @@ def build_group_data_interactive(
     Returns:
         Group data dictionary or None if cancelled
     """
-    if gum.is_available():
-        return _build_group_data_with_gum(description, base_branch, branch_pattern)
-    else:
-        return _build_group_data_with_typer(description, base_branch, branch_pattern)
+    # Ask for description
+    desc = prompter.input_text(
+        header="Group description",
+        placeholder="e.g., Feature group for payments",
+        default=description,
+    )
+    if desc is None:
+        return None
+
+    # Ask for base branch
+    base = prompter.input_text(
+        header="Base branch",
+        placeholder="e.g., develop, main",
+        default=base_branch,
+    )
+    if not base:
+        return None
+
+    # Ask for branch pattern
+    pattern = prompter.input_text(
+        header="Branch pattern (regex)",
+        placeholder="e.g., feature/.* (leave empty for no pattern)",
+        default=branch_pattern,
+    )
+    if pattern is None:
+        pattern = ""
+
+    group_data: Dict[str, Any] = {
+        "description": desc,
+        "base_branch": base,
+        "branch_pattern": pattern,
+    }
+
+    add_cursor = prompter.confirm("Do you want to set an integration cursor?", default=False)
+    if add_cursor:
+        branch = prompter.input_text(
+            header="Integration cursor branch",
+            placeholder="e.g., feature/my-branch",
+        )
+        if not branch:
+            return None
+
+        env = prompter.input_text(
+            header="Integration cursor environment",
+            placeholder="Environment name",
+            default="dev",
+        )
+        if not env:
+            env = "dev"
+
+        group_data["integration_cursor"] = {
+            "branch": branch,
+            "environment": env,
+        }
+
+    return group_data
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
@@ -165,7 +103,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config = load_config()
 
         if not config.functional_groups:
-            typer.secho("No functional groups defined in configuration.", fg=typer.colors.YELLOW)
+            prompter.warning("No functional groups defined in configuration.")
             return
 
         messages = []
@@ -203,32 +141,29 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         """Add a new functional group to the configuration file."""
         # Prompt for name if not provided
         if not name:
-            if gum.is_available():
-                name = (
-                    gum.input_text(
-                        header="Group name",
-                        placeholder="e.g., payments, auth, notifications",
-                    )
-                    or ""
+            name = (
+                prompter.input_text(
+                    header="Group name",
+                    placeholder="e.g., payments, auth, notifications",
                 )
-            else:
-                name = typer.prompt("Group name")
+                or ""
+            )
 
         if not name:
-            typer.secho("Group name is required.", fg="red")
-            raise typer.Exit(1)
+            prompter.error("Group name is required.")
+            raise prompter.exit(code=1)
 
         config_path = find_config_file()
         if not config_path:
-            typer.secho("Configuration file not found", fg="red")
-            raise typer.Exit(1)
+            prompter.error("Configuration file not found")
+            raise prompter.exit(code=1)
 
         # Load raw toml to preserve comments and structure as much as possible
         try:
             data = toml.load(config_path)
         except Exception as e:
-            typer.secho(f"Error loading config file: {e}", fg="red")
-            raise typer.Exit(1)
+            prompter.error(f"Error loading config file: {e}")
+            raise prompter.exit(code=1)
 
         # Ensure functional_groups section exists
         if "functional_groups" not in data:
@@ -236,8 +171,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         # Check if group already exists
         if name in data["functional_groups"]:
-            typer.secho(f"Functional group '{name}' already exists in configuration.", fg="red")
-            raise typer.Exit(1)
+            prompter.error(f"Functional group '{name}' already exists in configuration.")
+            raise prompter.exit(code=1)
 
         # Build group data
         if integration_cursor_branch:
@@ -257,8 +192,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 description, base_branch, branch_pattern
             )
             if group_data_result is None:
-                typer.secho("Operation cancelled.", fg=typer.colors.YELLOW)
-                raise typer.Exit(0)
+                prompter.error("Operation cancelled.")
+                raise prompter.exit(code=0)
             group_data = group_data_result
         else:
             # Non-interactive without cursor
@@ -273,13 +208,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         try:
             with open(config_path, "w") as f:
                 toml.dump(data, f)
-            typer.secho(
+            prompter.success(
                 f"Added functional group '{name}' with base branch '{group_data['base_branch']}'",
-                fg="green",
             )
         except Exception as e:
-            typer.secho(f"Error writing to config file: {e}", fg="red")
-            raise typer.Exit(1)
+            prompter.error(f"Error writing to config file: {e}")
+            raise prompter.exit(code=1)
 
     @app.command("set-cursor")
     def set_cursor(
@@ -290,63 +224,50 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         """Update the integration cursor for a functional group."""
         config_path = find_config_file()
         if not config_path:
-            typer.secho("Configuration file not found", fg="red")
-            raise typer.Exit(1)
+            prompter.error("Configuration file not found")
+            raise prompter.exit(code=1)
 
         # Load raw toml to preserve comments and structure as much as possible
         try:
             data = toml.load(config_path)
         except Exception as e:
-            typer.secho(f"Error loading config file: {e}", fg="red")
-            raise typer.Exit(1)
+            prompter.error(f"Error loading config file: {e}")
+            raise prompter.exit(code=1)
 
         # Handle interactive group selection
         if not group_name:
             if "functional_groups" not in data or not data["functional_groups"]:
-                typer.secho(
-                    "No functional groups defined in configuration.", fg=typer.colors.YELLOW
-                )
-                raise typer.Exit(0)
+                prompter.warning("No functional groups defined in configuration.")
+                raise prompter.exit(code=0)
 
             group_names = list(data["functional_groups"].keys())
-            if gum.is_available():
-                group_name = gum.choose(group_names, header="Select functional group:")
-                if isinstance(group_name, list):
-                    group_name = group_name[0] if group_name else None
-            else:
-                add_typer_block_message(
-                    header="🎯 Set Cursor",
-                    subheader="📋 Select a functional group:",
-                    messages=[f"{idx}. {g}" for idx, g in enumerate(group_names, 1)],
-                )
-                choice = typer.prompt("Enter number", type=int)
-                if 1 <= choice <= len(group_names):
-                    group_name = group_names[choice - 1]
+            # TODO: fix
+            group_name = prompter.choose(group_names, header="Select functional group:")  # type: ignore
 
-        if not group_name:
-            typer.secho("Group name is required.", fg="red")
-            raise typer.Exit(1)
+        if not group_name or not isinstance(group_name, str):
+            prompter.error("Group name is required.")
+            raise prompter.exit(code=1)
 
         if "functional_groups" not in data or group_name not in data["functional_groups"]:
-            typer.secho(f"Functional group '{group_name}' not found in configuration.", fg="red")
-            raise typer.Exit(1)
+            prompter.error(f"Functional group '{group_name}' not found in configuration.")
+            raise prompter.exit(code=1)
 
         # Handle interactive branch input
         if not branch:
-            if gum.is_available():
-                branch = gum.input_text(
+            branch = (
+                prompter.input_text(
                     header="Cursor branch",
                     placeholder="e.g., feature/latest-stable",
                     default=data["functional_groups"][group_name]
                     .get("integration_cursor", {})
                     .get("branch", ""),
                 )
-            else:
-                branch = typer.prompt("Cursor branch")
+                or ""
+            )
 
         if not branch:
-            typer.secho("Branch name is required.", fg="red")
-            raise typer.Exit(1)
+            prompter.error("Branch name is required.")
+            raise prompter.exit(code=1)
 
         # Determine default environment from configuration
         current_env = (
@@ -357,14 +278,14 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         # Handle interactive environment input if not provided
         if not environment:
-            if gum.is_available():
-                environment = gum.input_text(
+            environment = (
+                prompter.input_text(
                     header="Integration cursor environment",
                     placeholder="Environment name",
                     default=current_env,
                 )
-            else:
-                environment = typer.prompt("Integration cursor environment", default=current_env)
+                or ""
+            )
 
         if not environment:
             environment = current_env
@@ -378,13 +299,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         try:
             with open(config_path, "w") as f:
                 toml.dump(data, f)
-            typer.secho(
+            prompter.success(
                 f"Updated cursor for group '{group_name}' to '{branch}' ({environment}).",
-                fg="green",
             )
         except Exception as e:
-            typer.secho(f"Error writing to config file: {e}", fg="red")
-            raise typer.Exit(1)
+            prompter.error(f"Error writing to config file: {e}")
+            raise prompter.exit(code=1)
 
     @app.command("remove-functional-group")
     def remove_functional_group(
@@ -396,58 +316,38 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         if not name:
             config = load_config()
             if not config.functional_groups:
-                typer.secho(
-                    "No functional groups defined in configuration.", fg=typer.colors.YELLOW
-                )
-                raise typer.Exit(0)
+                prompter.warning("No functional groups defined in configuration.")
+                raise prompter.exit(code=0)
 
             group_names = list(config.functional_groups.keys())
-            if gum.is_available():
-                choice = gum.choose(group_names, header="Select group to remove:")
-                name = ""
-                if isinstance(choice, list):
-                    name = choice[0] if choice else ""
-                elif isinstance(choice, str):
-                    name = choice
-            else:
-                add_typer_block_message(
-                    header="🗑 Remove Functional Group",
-                    subheader="📋 Select a group to remove:",
-                    messages=[f"{idx}. {g}" for idx, g in enumerate(group_names, 1)],
-                )
-                choice = typer.prompt("Enter number", type=int)
-                if 1 <= choice <= len(group_names):
-                    name = group_names[choice - 1]
+            # TODO: fix
+            name = prompter.choose(group_names, header="Select group to remove:")  # type: ignore
 
         if not name:
-            typer.secho("Group name is required.", fg="red")
-            raise typer.Exit(1)
+            prompter.error("Group name is required.")
+            raise prompter.exit(code=1)
 
         config_path = find_config_file()
         if not config_path:
-            typer.secho("Configuration file not found", fg="red")
-            raise typer.Exit(1)
+            prompter.error("Configuration file not found")
+            raise prompter.exit(code=1)
 
         try:
             data = toml.load(config_path)
         except Exception as e:
-            typer.secho(f"Error loading config file: {e}", fg="red")
-            raise typer.Exit(1)
+            prompter.error(f"Error loading config file: {e}")
+            raise prompter.exit(code=1)
 
         if "functional_groups" not in data or name not in data["functional_groups"]:
-            typer.secho(f"Functional group '{name}' not found in configuration.", fg="red")
-            raise typer.Exit(1)
+            prompter.error(f"Functional group '{name}' not found in configuration.")
+            raise prompter.exit(code=1)
 
         # Confirm deletion
         if not force:
-            if gum.is_available():
-                confirmed = gum.confirm(f"Remove functional group '{name}'?", default=False)
-            else:
-                confirmed = typer.confirm(f"Remove functional group '{name}'?", default=False)
-
+            confirmed = prompter.confirm(f"Remove functional group '{name}'?", default=False)
             if not confirmed:
-                typer.secho("Operation cancelled.", fg=typer.colors.YELLOW)
-                raise typer.Exit(0)
+                prompter.warning("Operation cancelled.")
+                raise prompter.exit(code=0)
 
         # Remove the group
         del data["functional_groups"][name]
@@ -455,10 +355,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         try:
             with open(config_path, "w") as f:
                 toml.dump(data, f)
-            typer.secho(f"Removed functional group '{name}'.", fg="green")
+            prompter.success(f"Removed functional group '{name}'.")
         except Exception as e:
-            typer.secho(f"Error writing to config file: {e}", fg="red")
-            raise typer.Exit(1)
+            prompter.error(f"Error writing to config file: {e}")
+            raise prompter.exit(code=1)
 
     @app.command("clear-functional-groups")
     def clear_functional_groups(
@@ -467,35 +367,29 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         """Remove all functional groups and their integration cursors from the configuration."""
         config_path = find_config_file()
         if not config_path:
-            typer.secho("Configuration file not found", fg="red")
-            raise typer.Exit(1)
+            prompter.error("Configuration file not found")
+            raise prompter.exit(code=1)
 
         try:
             data = toml.load(config_path)
         except Exception as e:
-            typer.secho(f"Error loading config file: {e}", fg="red")
-            raise typer.Exit(1)
+            prompter.error(f"Error loading config file: {e}")
+            raise prompter.exit(code=1)
 
         if "functional_groups" not in data or not data["functional_groups"]:
-            typer.secho("No functional groups defined in configuration.", fg=typer.colors.YELLOW)
-            raise typer.Exit(0)
+            prompter.warning("No functional groups defined in configuration.")
+            raise prompter.exit(code=0)
 
         group_count = len(data["functional_groups"])
 
         # Confirm deletion
         if not force:
-            if gum.is_available():
-                confirmed = gum.confirm(
-                    f"Remove all {group_count} functional group(s)?", default=False
-                )
-            else:
-                confirmed = typer.confirm(
-                    f"Remove all {group_count} functional group(s)?", default=False
-                )
-
+            confirmed = prompter.confirm(
+                f"Remove all {group_count} functional group(s)?", default=False
+            )
             if not confirmed:
-                typer.secho("Operation cancelled.", fg=typer.colors.YELLOW)
-                raise typer.Exit(0)
+                prompter.warning("Operation cancelled.")
+                raise prompter.exit(code=0)
 
         # Clear all groups
         data["functional_groups"] = {}
@@ -503,10 +397,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         try:
             with open(config_path, "w") as f:
                 toml.dump(data, f)
-            typer.secho(f"Removed {group_count} functional group(s).", fg="green")
+            prompter.success(f"Removed {group_count} functional group(s).")
         except Exception as e:
-            typer.secho(f"Error writing to config file: {e}", fg="red")
-            raise typer.Exit(1)
+            prompter.error(f"Error writing to config file: {e}")
+            raise prompter.exit(code=1)
 
     @app.command("sync-cursor")
     @ensure_git_repo()
@@ -524,8 +418,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config = load_config()
 
         if not config.functional_groups:
-            typer.secho("No functional groups defined.", fg=typer.colors.RED)
-            raise typer.Exit(1)
+            prompter.error("No functional groups defined.")
+            raise prompter.exit(code=1)
 
         # 1. Determine Functional Group
         selected_group_name = group_name
@@ -533,8 +427,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         if selected_group_name:
             if selected_group_name not in config.functional_groups:
-                typer.secho(f"Group '{selected_group_name}' not found.", fg=typer.colors.RED)
-                raise typer.Exit(1)
+                prompter.error(f"Group '{selected_group_name}' not found.")
+                raise prompter.exit(code=1)
             selected_group = config.functional_groups[selected_group_name]
         else:
             # Try to infer from current branch
@@ -546,30 +440,17 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
             if len(matches) == 1:
                 selected_group_name = matches[0]
-                typer.secho(f"ℹ Inferred group: {selected_group_name}", fg=typer.colors.BLUE)
+                prompter.info(f"Inferred group: {selected_group_name}")
                 selected_group = config.functional_groups[selected_group_name]
             else:
                 # Ambiguous or no match, ask user
                 group_list = list(config.functional_groups.keys())
-                if gum.is_available():
-                    selected_group_name = gum.choose(
-                        group_list, header="Select functional group to sync:"
-                    )
-                    if isinstance(selected_group_name, list):
-                        selected_group_name = (
-                            selected_group_name[0] if selected_group_name else None
-                        )
-                else:
-                    typer.secho("Could not infer group. Please select one:", fg=typer.colors.YELLOW)
-                    for idx, g in enumerate(group_list, 1):
-                        typer.echo(f"{idx}. {g}")
-                    choice = typer.prompt("Enter number", type=int)
-                    if 1 <= choice <= len(group_list):
-                        selected_group_name = group_list[choice - 1]
-
-                if not selected_group_name:
-                    typer.secho("No group selected.", fg=typer.colors.RED)
-                    raise typer.Exit(1)
+                selected_group_name = prompter.choose(
+                    group_list, header="Select functional group to sync:"
+                )
+                if not selected_group_name or not isinstance(selected_group_name, str):
+                    prompter.error("No group selected.")
+                    raise prompter.exit(code=1)
                 selected_group = config.functional_groups[selected_group_name]
 
         # 2. Get configuration
@@ -577,43 +458,36 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         cursor_config = selected_group.integration_cursor
 
         if not cursor_config or not cursor_config.branch:
-            typer.secho(
+            prompter.error(
                 f"No integration cursor defined for group '{selected_group_name}'.",
-                fg=typer.colors.RED,
             )
-            raise typer.Exit(1)
+            raise prompter.exit(code=1)
 
         cursor_branch = cursor_config.branch
-        typer.secho(
-            f"\n🚀 Syncing workflow for '{selected_group_name}'", fg=typer.colors.GREEN, bold=True
-        )
-        typer.echo(f"  Base Branch: {base_branch}")
-        typer.echo(f"  Cursor Branch: {cursor_branch}")
-        typer.echo("")
+        prompter.info(f"Syncing workflow for '{selected_group_name}'")
+        prompter.info(f"Base Branch: {base_branch}")
+        prompter.info(f"Cursor Branch: {cursor_branch}")
 
         def run_step(description: str, command: list[str], check: bool = True):
-            if gum.is_available():
-                should_run = gum.confirm(f"Do you want to {description}?", default=True)
-            else:
-                should_run = typer.confirm(f"Do you want to {description}?", default=True)
+            should_run = prompter.confirm(f"Do you want to {description}?", default=True)
 
             if not should_run:
-                typer.secho("Skipping...", fg=typer.colors.YELLOW)
+                prompter.warning("Skipping...")
                 return False
 
             cmd_str = " ".join(command)
-            typer.secho(f"Running: {cmd_str}", fg=typer.colors.BLUE)
+            prompter.info(f"Running: {cmd_str}")
 
             if dry_run:
                 return True
 
             try:
                 subprocess.run(command, check=check)
-                typer.secho("✔ Done", fg=typer.colors.GREEN)
+                prompter.success("Done")
                 return True
             except subprocess.CalledProcessError as e:
-                typer.secho(f"✘ Command failed: {e}", fg=typer.colors.RED)
-                raise typer.Exit(1)
+                prompter.error(f"Command failed: {e}")
+                raise prompter.exit(code=1)
 
         run_step(f"checkout base branch '{base_branch}'", ["git", "checkout", base_branch])
         run_step(f"pull latest changes for '{base_branch}'", ["git", "pull", "origin", base_branch])
@@ -632,21 +506,15 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             ["git", "merge", "--no-ff", base_branch],
         )
 
-        typer.secho("\n✨ Sync workflow completed!", fg=typer.colors.GREEN, bold=True)
+        prompter.success("Sync workflow completed!")
 
         # Optional: Switch back to original branch? User didn't ask for it, but it's polite.
         # "Assume that i have a branch created on..."
         # I'll ask.
         if current_branch != base_branch and current_branch != cursor_branch:
-            if gum.is_available():
-                switch_back = gum.confirm(
-                    f"Switch back to original branch '{current_branch}'?", default=True
-                )
-            else:
-                switch_back = typer.confirm(
-                    f"Switch back to original branch '{current_branch}'?", default=True
-                )
-
+            switch_back = prompter.confirm(
+                f"Switch back to original branch '{current_branch}'?", default=True
+            )
             if switch_back:
                 subprocess.run(["git", "checkout", current_branch], check=False)
 
