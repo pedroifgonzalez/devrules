@@ -2,18 +2,19 @@
 
 import fnmatch
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Tuple
+from typing import List
 
 from devrules.config import DocumentationRule
 
-changed_files = []
 
+@dataclass
+class DocumentationContext:
+    """Snapshot of documentation context for changed files."""
 
-def load_changed_files():
-    global changed_files
-    changed_files = get_changed_files()
-    return changed_files
+    rule: DocumentationRule
+    files: List[str]
 
 
 def get_changed_files(base_branch: str = "HEAD") -> List[str]:
@@ -80,33 +81,45 @@ def matches_file_pattern(file_path: str, pattern: str) -> bool:
     return False
 
 
-def find_matching_rules(
-    files: List[str], rules: List[DocumentationRule]
-) -> List[Tuple[str, DocumentationRule]]:
-    """Find documentation rules that match the changed files.
+def build_documentation_context(
+    rules: List[DocumentationRule],
+    changed_files: List[str],
+) -> List[DocumentationContext]:
+    """Build documentation context snapshot before commit.
+
+    This function captures the context of changed files and matching rules
+    as a snapshot that doesn't depend on Git state afterwards.
 
     Args:
-        files: List of changed file paths
-        rules: List of documentation rules
+        rules: List of documentation rules to check
+        changed_files: List of changed file paths
 
     Returns:
-        List of tuples (matched_file, rule)
+        List of DocumentationContext objects with matched rules and files
     """
-    matches = []
-    seen_rules = set()
+    if not rules or not changed_files:
+        return []
 
-    for file_path in files:
+    # Group files by rule
+    rule_groups = {}
+
+    for file_path in changed_files:
         for rule in rules:
             # Avoid duplicate rules
-            rule_key = f"{rule.file_pattern}:{rule.docs_url}"
-            if rule_key in seen_rules:
-                continue
+            rule_key = f"{rule.file_pattern}:{rule.docs_url}:{rule.message}"
 
             if matches_file_pattern(file_path, rule.file_pattern):
-                matches.append((file_path, rule))
-                seen_rules.add(rule_key)
+                if rule_key not in rule_groups:
+                    rule_groups[rule_key] = {"rule": rule, "files": []}
+                rule_groups[rule_key]["files"].append(file_path)
 
-    return matches
+    # Convert to DocumentationContext objects
+    contexts = [
+        DocumentationContext(rule=group["rule"], files=group["files"])
+        for group in rule_groups.values()
+    ]
+
+    return contexts
 
 
 def validate_documentation_patterns(rules: List[DocumentationRule]) -> List[str]:

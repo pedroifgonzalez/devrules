@@ -5,9 +5,8 @@ from typing import Dict, Optional
 from yaspin import yaspin
 
 from devrules.cli_commands.prompters.factory import get_default_prompter
-from devrules.config import DocumentationRule
 from devrules.core.project_service import list_project_items
-from devrules.validators.documentation import changed_files, find_matching_rules
+from devrules.validators.documentation import DocumentationContext
 
 prompter = get_default_prompter()
 
@@ -65,44 +64,26 @@ def _get_issue_and_status_interactively(items: list[Dict]) -> dict:
     return dict(issue=issue, item_title=title, item_status=item_status)
 
 
-def _show_relevant_documentation(
-    rules: list[DocumentationRule], base_branch: str = "HEAD", show_files: bool = True
+def show_documentation_context(
+    contexts: list[DocumentationContext], show_files: bool = True
 ) -> None:
-    """Get relevant documentation for changed files.
+    """Render documentation context snapshot after commit.
+
+    This function presents the documentation context that was captured
+    before the commit. It doesn't depend on Git state.
 
     Args:
-        rules: List of documentation rules to check
-        base_branch: Base branch to compare against
+        contexts: List of DocumentationContext objects to display
         show_files: Whether to show which files triggered rules
     """
-    if not rules:
-        return None
-
-    # Get changed files
-    global changed_files
-    if not changed_files:
-        return None
-
-    # Find matching rules
-    matches = find_matching_rules(changed_files, rules)
-
-    if not matches:
+    if not contexts:
         return
 
-    # Group by rule
-    rule_groups = {}
-    for file_path, rule in matches:
-        rule_key = f"{rule.file_pattern}:{rule.docs_url}"
-        if rule_key not in rule_groups:
-            rule_groups[rule_key] = {"rule": rule, "files": []}
-        rule_groups[rule_key]["files"].append(file_path)
-
-    # Format message
     prompter.header("Context Aware Documentation")
 
-    for group_data in rule_groups.values():
-        rule = group_data["rule"]
-        files = group_data["files"]
+    for context in contexts:
+        rule = context.rule
+        files = context.files
 
         prompter.info(f"Pattern: {rule.file_pattern}")
 
