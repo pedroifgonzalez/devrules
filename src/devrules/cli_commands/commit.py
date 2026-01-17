@@ -187,7 +187,7 @@ def _validate_ownership(spinner: Yaspin, current_branch: str, config: Config):
 
 
 @inject_spinner(Spinners.dots, text="Getting context aware documentation...")
-def fetch_documentation_guidance(
+def show_documentation_guidance(
     spinner: Yaspin, skip_checks: bool, config: Config
 ) -> Optional[str]:
     """Get documentation guidance
@@ -201,15 +201,13 @@ def fetch_documentation_guidance(
         Optional[str]: documentation guidance
     """
     if not skip_checks and config.documentation.show_on_commit and config.documentation.rules:
-        from devrules.validators.documentation import get_relevant_documentation
+        from devrules.cli_commands.commons import _show_relevant_documentation
 
-        has_docs, doc_message = get_relevant_documentation(
+        _show_relevant_documentation(
             rules=config.documentation.rules,
             base_branch="HEAD",
             show_files=True,
         )
-        if has_docs:
-            return doc_message
     return None
 
 
@@ -255,8 +253,7 @@ def _perform_commit(message: str, config: Config, doc_message: Optional[str] = N
         prompter.error(msg.FAILED_TO_COMMIT_CHANGES.format(message))
         raise prompter.exit(code=1)
     prompter.success(msg.COMMITTED_CHANGES)
-    if doc_message:
-        prompter.info(doc_message.strip("\n"))
+    show_documentation_guidance()
 
 
 def run_validations(
@@ -310,10 +307,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         )
         _validate_commit(message, config)
         message = _auto_append_issue_number(message, config)
-        doc_message = fetch_documentation_guidance(skip_checks, config)
         _stage_files(config)
         _confirm_commit(message)
-        _perform_commit(message, config, doc_message)
+        _perform_commit(message, config)
 
     return {
         "commit": commit,

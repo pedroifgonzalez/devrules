@@ -17,7 +17,6 @@ from devrules.core.github_service import ensure_gh_installed, fetch_pr_info
 from devrules.messages import pr as msg
 from devrules.utils.decorators import emit_events, ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
-from devrules.validators.documentation import display_documentation_guidance
 from devrules.validators.pr import validate_pr
 from devrules.validators.pr_target import (
     suggest_pr_target,
@@ -143,7 +142,9 @@ def create_pr_internal(
     )
 
     if not skip_checks and config.documentation.show_on_pr and config.documentation.rules:
-        display_documentation_guidance(
+        from devrules.cli_commands.commons import _show_relevant_documentation
+
+        _show_relevant_documentation(
             rules=config.documentation.rules,
             base_branch=base,
             show_files=True,
