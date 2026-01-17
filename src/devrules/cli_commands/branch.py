@@ -371,9 +371,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         if branches:
             prompter.info(msg.DELETE_BRANCHES_STATEMENT)
-            messages = [f"{b}" for _, b in enumerate(branches, 1)]
+            messages = [f"{counter}. {b}" for counter, b in enumerate(branches, 1)]
             for message in messages:
-                prompter.info(f"{message}")
+                prompter.indented_message(f"{message}")
 
             confirmation = prompter.confirm(msg.CONFIRM_DELETE_BRANCHES)
 

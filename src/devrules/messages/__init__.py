@@ -106,6 +106,7 @@ class GitMessages:
     BRANCH_NAME_ALREADY_EXISTS = "Branch '{}' already exists!"
     FAILED_TO_CREATE_BRANCH = "Failed to create branch: {}"
     DESCRIPTION_CAN_NOT_BE_EMPTY = "Description cannot be empty"
+    DESCRIPTION_SANITATION_ERROR = "Description cannot be empty after sanitization"
 
 
 # Singleton instances for easy access

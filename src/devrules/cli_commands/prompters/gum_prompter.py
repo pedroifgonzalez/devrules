@@ -195,3 +195,11 @@ class GumPrompter(Prompter):
     def header(self, header: str) -> None:
         print(gum.style(header, foreground=81, bold=True))
         print(gum.style("=" * 50, foreground=81))
+
+    def indented_message(self, message: str) -> None:
+        """Print an indented message.
+
+        Args:
+            message: Indented message to display
+        """
+        print(gum.style(f"   {message}"))

@@ -196,6 +196,15 @@ class Prompter(ABC):
         pass
 
     @abstractmethod
+    def indented_message(self, message: str) -> None:
+        """Print an indented message.
+
+        Args:
+            message: Indented message to display
+        """
+        pass
+
+    @abstractmethod
     def exit(self, code: int) -> NoReturn:
         """Exit the program with the given exit code.
 
