@@ -13,6 +13,7 @@ changed_files = []
 def load_changed_files():
     global changed_files
     changed_files = get_changed_files()
+    return changed_files
 
 
 def get_changed_files(base_branch: str = "HEAD") -> List[str]:
