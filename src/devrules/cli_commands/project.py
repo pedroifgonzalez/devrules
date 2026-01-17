@@ -416,7 +416,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         ),
     ):
         """List GitHub issues using the gh CLI."""
-
+        prompter.header("List issues")
         ensure_gh_installed()
 
         if project is not None:
@@ -548,7 +548,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         ),
     ):
         """Show the description (body) of a GitHub issue."""
-
+        prompter.header("Describe issue")
         ensure_gh_installed()
 
         config = load_config(None)

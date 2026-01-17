@@ -130,6 +130,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command()
     def list_rules():
         """List all available custom validation rules."""
+        prompter.header("List available rules")
         custom_rules = _get_custom_rules()
 
         messages = []
@@ -164,6 +165,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         ),
     ):
         """Run a specific custom rule."""
+        prompter.header("Run a specific rule")
         if not name:
             name = _select_rule()
 
