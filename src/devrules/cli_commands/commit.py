@@ -222,7 +222,7 @@ def _confirm_commit(message: str):
     Raises:
         prompter.exit: if confirmation is false
     """
-    prompter.info(f"📝 Commit message: {message}")
+    prompter.info(f"Commit message: {message}")
     if not prompter.confirm("Proceed with commit?", default=True):
         prompter.warning(msg.COMMIT_CANCELLED)
         raise prompter.exit(code=0)
