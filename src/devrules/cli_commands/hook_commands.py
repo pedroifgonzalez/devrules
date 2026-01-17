@@ -56,27 +56,26 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                     + [f"• {suggestion}" for suggestion in get_forbidden_file_suggestions()],
                     indent_block=False,
                 )
-                raise typer.Exit(code=1)
+                raise prompter.exit(code=1)
 
         current_branch = get_current_branch()
 
         if config.commit.protected_branch_prefixes:
             for prefix in config.commit.protected_branch_prefixes:
                 if current_branch.count(prefix):
-                    typer.secho(
+                    prompter.error(
                         msg.CANNOT_COMMIT_TO_PROTECTED_BRANCH.format(current_branch, prefix),
-                        fg=typer.colors.RED,
                     )
-                    raise typer.Exit(code=1)
+                    raise prompter.exit(code=1)
 
         if config.commit.restrict_branch_to_owner:
             # Check branch ownership to prevent committing on another developer's branch
             is_owner, ownership_message = validate_branch_ownership(current_branch)
             if not is_owner:
-                typer.secho(f"✘ {ownership_message}", fg=typer.colors.RED)
-                raise typer.Exit(code=1)
+                prompter.error(f"{ownership_message}")
+                raise prompter.exit(code=1)
 
-        typer.secho("✔ DevRules Pre-commit checks passed", fg=typer.colors.GREEN)
+        prompter.success("DevRules Pre-commit checks passed")
 
     @app.command()
     @ensure_git_repo()
@@ -95,29 +94,26 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         # Validate branch name
         is_valid, message = validate_branch(branch, config.branch)
         if not is_valid:
-            typer.secho(f"✘ {message}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+            prompter.error(message)
+            raise prompter.exit(code=1)
 
         # Check branch ownership if enabled
         if config.commit.restrict_branch_to_owner:
             is_owner, ownership_message = validate_branch_ownership(branch)
             if not is_owner:
-                typer.secho(f"✘ {ownership_message}", fg=typer.colors.RED)
-                raise typer.Exit(code=1)
+                prompter.error(ownership_message)
+                raise prompter.exit(code=1)
 
         # Check if pushing to protected branch
         if config.commit.protected_branch_prefixes:
             for prefix in config.commit.protected_branch_prefixes:
                 if branch and branch.startswith(prefix):
-                    typer.secho(
-                        f"✘ Cannot push to protected branch '{branch}' (prefix: {prefix})",
-                        fg=typer.colors.RED,
+                    prompter.error(
+                        f"Cannot push to protected branch '{branch}' (prefix: {prefix})",
                     )
-                    raise typer.Exit(code=1)
+                    raise prompter.exit(code=1)
 
-        typer.secho(
-            f"✔ DevRules Pre-push checks passed for branch '{branch}'", fg=typer.colors.GREEN
-        )
+        prompter.success(f"DevRules Pre-push checks passed for branch '{branch}'")
 
     @app.command()
     @ensure_git_repo()
@@ -156,7 +152,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
                 # 2️⃣ Show documentation context
                 if doc_contexts:
-                    typer.echo()
                     show_documentation_context(doc_contexts, show_files=False)
 
     return {
