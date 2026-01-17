@@ -74,7 +74,7 @@ def build_commit_message_interactive(config: Config, tags: list[str], prompter: 
     return message
 
 
-@inject_spinner(Spinners.dots, text="Validating commit message...", color="yellow")
+@inject_spinner(Spinners.dots, text="Validating commit message...")
 def _validate_commit(spinner: Yaspin, message: str, config: Config):
     """Validates commit message
 
@@ -94,7 +94,7 @@ def _validate_commit(spinner: Yaspin, message: str, config: Config):
         raise prompter.exit(code=1)
 
 
-@inject_spinner(Spinners.dots, text="Checking issue number...", color="magenta")
+@inject_spinner(Spinners.dots, text="Checking issue number...")
 def _auto_append_issue_number(spinner: Yaspin, message: str, config: Config):
     """Auto append issue number to commit message if necessary
 
@@ -112,7 +112,7 @@ def _auto_append_issue_number(spinner: Yaspin, message: str, config: Config):
     return message
 
 
-@inject_spinner(Spinners.dots, text="Checking forbidden files...", color="yellow")
+@inject_spinner(Spinners.dots, text="Checking forbidden files...")
 def _validate_forbidden_files(spinner: Yaspin, skip_checks: bool, config: Config):
     """Validates forbidden files
 
@@ -143,7 +143,7 @@ def _validate_forbidden_files(spinner: Yaspin, skip_checks: bool, config: Config
             raise prompter.exit(code=1)
 
 
-@inject_spinner(Spinners.dots, text="Validating protected branches...", color="yellow")
+@inject_spinner(Spinners.dots, text="Validating protected branches...")
 def _validate_branch_protection(spinner: Yaspin, current_branch: str, config: Config):
     """Validates protected branches
 
@@ -166,7 +166,7 @@ def _validate_branch_protection(spinner: Yaspin, current_branch: str, config: Co
         spinner.ok("✔")
 
 
-@inject_spinner(Spinners.dots, text="Checking branch ownership...", color="yellow")
+@inject_spinner(Spinners.dots, text="Checking branch ownership...")
 def _validate_ownership(spinner: Yaspin, current_branch: str, config: Config):
     """Validate current branch ownserhip if necessary
 
@@ -186,7 +186,7 @@ def _validate_ownership(spinner: Yaspin, current_branch: str, config: Config):
         spinner.ok("✔")
 
 
-@inject_spinner(Spinners.dots, text="Getting context aware documentation...", color="blue")
+@inject_spinner(Spinners.dots, text="Getting context aware documentation...")
 def fetch_documentation_guidance(
     spinner: Yaspin, skip_checks: bool, config: Config
 ) -> Optional[str]:
