@@ -188,20 +188,17 @@ def _validate_ownership(spinner: Yaspin, current_branch: str, config: Config):
 
 
 @inject_spinner(Spinners.dots, text="Getting context aware documentation...")
-def show_documentation_guidance(
-    spinner: Yaspin, skip_checks: bool, config: Config
-) -> Optional[str]:
+def show_documentation_guidance(spinner: Yaspin, config: Config) -> Optional[str]:
     """Get documentation guidance
 
     Args:
         spinner (Yaspin): injected spinner
-        skip_checks (bool): skip checks
         config (Config): config
 
     Returns:
         Optional[str]: documentation guidance
     """
-    if not skip_checks and config.documentation.show_on_commit and config.documentation.rules:
+    if config.documentation.show_on_commit and config.documentation.rules:
         from devrules.cli_commands.commons import _show_relevant_documentation
 
         _show_relevant_documentation(
@@ -249,12 +246,13 @@ def _perform_commit(message: str, config: Config, doc_message: Optional[str] = N
     Raises:
         prompter.exit: if any error occurs
     """
+    load_changed_files()
     success, message = _commit(message, config)
     if not success:
         prompter.error(msg.FAILED_TO_COMMIT_CHANGES.format(message))
         raise prompter.exit(code=1)
     prompter.success(msg.COMMITTED_CHANGES)
-    show_documentation_guidance(skip_checks=False, config=config)
+    show_documentation_guidance(config=config)
 
 
 def run_validations(
@@ -307,7 +305,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             prompter=prompter,
         )
         _validate_commit(message, config)
-        load_changed_files()
         message = _auto_append_issue_number(message, config)
         _stage_files(config)
         _confirm_commit(message)
