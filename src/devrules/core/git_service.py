@@ -451,6 +451,7 @@ def get_current_repo_name() -> str:
 
 
 def stage_files():
+    """Stage all files for commit."""
     try:
         subprocess.run(
             [
@@ -465,6 +466,7 @@ def stage_files():
 
 
 def commit(message: str, config: Config):
+    """Commit staged changes."""
     options = []
     if config.commit.gpg_sign:
         options.append("-S")
