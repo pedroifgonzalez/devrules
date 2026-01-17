@@ -296,7 +296,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config: Config = Depends(load_config),
     ):
         """Interactive commit - build commit message with guided prompts."""
-        prompter.header("📝 Create Commit")
+        prompter.header("Commit changes")
         current_branch = get_current_branch()
         run_validations(
             skip_checks=skip_checks,
