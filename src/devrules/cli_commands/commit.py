@@ -246,7 +246,6 @@ def _perform_commit(message: str, config: Config, doc_message: Optional[str] = N
     Raises:
         prompter.exit: if any error occurs
     """
-    load_changed_files()
     success, message = _commit(message, config)
     if not success:
         prompter.error(msg.FAILED_TO_COMMIT_CHANGES.format(message))
@@ -278,7 +277,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
     @app.command()
     @ensure_git_repo()
-    @emit_events(DevRulesEvent.POST_COMMIT)
+    @emit_events(DevRulesEvent.PRE_COMMIT, DevRulesEvent.POST_COMMIT)
     def commit(
         skip_checks: bool = typer.Option(
             False, "--skip-checks", help="Skip file validation and documentation checks"
@@ -307,6 +306,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         _validate_commit(message, config)
         message = _auto_append_issue_number(message, config)
         _stage_files(config)
+        load_changed_files()
         _confirm_commit(message)
         _perform_commit(message, config)
 
