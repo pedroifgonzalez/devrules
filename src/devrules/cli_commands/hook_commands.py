@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, Optional
 import typer
 from typer_di import Depends
 
+from devrules.cli_commands.prompters.factory import get_default_prompter
 from devrules.config import Config
 from devrules.core.git_service import get_current_branch
 from devrules.messages import commit as msg
@@ -18,6 +19,8 @@ from devrules.validators.forbidden_files import (
     validate_no_forbidden_files,
 )
 from devrules.validators.ownership import validate_branch_ownership
+
+prompter = get_default_prompter()
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
@@ -36,7 +39,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config: Config = Depends(get_config),
     ):
         """Run pre-commit validations (called by git pre-commit hook)."""
-
+        prompter.header("Run pre-commit validations")
         # Check for forbidden files
         if config.commit.forbidden_patterns or config.commit.forbidden_paths:
             is_valid, validation_message = validate_no_forbidden_files(
@@ -84,6 +87,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config: Config = Depends(get_config),
     ):
         """Run pre-push validations (called by git pre-push hook)."""
+        prompter.header("Run pre-push validations")
         # Get current branch if not specified
         if not branch:
             branch = get_current_branch()
@@ -125,23 +129,17 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     ):
         """Show branch context information (called by git post-checkout hook)."""
         # Get current branch if not specified
+        prompter.header("Get context from branch and changed files")
         if not branch:
             branch = get_current_branch()
 
         if branch:
-            # Show branch information
-            add_typer_block_message(
-                header=f"📌 Branch: {branch}",
-                subheader="",
-                messages=[
-                    f"• Type: {'Protected' if any(branch.startswith(p) for p in config.commit.protected_branch_prefixes) else 'Standard'}",
-                    (
-                        "• Owner: You"
-                        if config.commit.restrict_branch_to_owner
-                        else "• Owner: Not restricted"
-                    ),
-                ],
-                indent_block=False,
+            prompter.info(f"Branch: {branch}")
+            prompter.info(
+                f"Type: {'Protected' if any(branch.startswith(p) for p in config.commit.protected_branch_prefixes) else 'Standard'}"
+            )
+            prompter.info(
+                f"Owner: {'You' if config.commit.restrict_branch_to_owner else 'Not restricted'}"
             )
 
         # Show any relevant documentation using snapshot pattern
