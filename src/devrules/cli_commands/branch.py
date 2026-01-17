@@ -89,9 +89,6 @@ def _handle_forbidden_cross_repo_card(gh_project_item: Any, config: Any, repo_me
         gh_project_item: The GitHub project item.
         config: The configuration object.
         repo_message: The raw repository message.
-
-    Raises:
-        typer.Exit: Always exits with code 1.
     """
     # Prefer a concise, user-friendly message using centralized text.
     try:
@@ -113,15 +110,11 @@ def _handle_forbidden_cross_repo_card(gh_project_item: Any, config: Any, repo_me
         if not actual:
             actual = "<unknown>"
 
-        typer.secho(
+        prompter.error(
             msg.CROSS_REPO_CARD_FORBIDDEN.format(actual, expected),
-            fg=typer.colors.RED,
         )
     except Exception:
-        # Fallback to the raw validator message if anything goes wrong.
-        typer.secho(f"\n✘ {repo_message}", fg=typer.colors.RED)
-
-    raise typer.Exit(code=1)
+        prompter.error(repo_message)
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
@@ -143,13 +136,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         """Validate branch naming convention."""
         prompter.header("Validate branch")
         is_valid, message = validate_branch(branch, config.branch)
-
         if is_valid:
-            typer.secho(f"✔ {message}", fg=typer.colors.GREEN)
-            raise typer.Exit(code=0)
+            prompter.success(message)
         else:
-            typer.secho(f"✘ {message}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+            prompter.error(message)
+            raise prompter.exit(code=1)
 
     @app.command()
     @ensure_git_repo()
@@ -294,12 +285,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         try:
             branches = list_user_owned_branches()
         except RuntimeError as e:
-            typer.secho(f"✘ {e}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+            prompter.error(str(e))
+            raise prompter.exit(code=1)
 
         if not branches:
-            typer.secho(msg.NO_BRANCHES_OWNED_BY_YOU, fg=typer.colors.YELLOW)
-            raise typer.Exit(code=0)
+            prompter.warning(msg.NO_BRANCHES_OWNED_BY_YOU)
+            raise prompter.exit(code=0)
 
         add_typer_block_message(
             header="Branches owned by you",
@@ -307,8 +298,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             messages=[f"- {b}" for b in branches],
             indent_block=False,
         )
-
-        raise typer.Exit(code=0)
 
     @app.command()
     @ensure_git_repo()
