@@ -253,7 +253,7 @@ def _perform_commit(message: str, config: Config, doc_message: Optional[str] = N
         prompter.error(msg.FAILED_TO_COMMIT_CHANGES.format(message))
         raise prompter.exit(code=1)
     prompter.success(msg.COMMITTED_CHANGES)
-    show_documentation_guidance()
+    show_documentation_guidance(skip_checks=False, config=config)
 
 
 def run_validations(
