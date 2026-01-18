@@ -100,6 +100,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command("functional-group-status")
     def status():
         """Show the status of all defined functional groups."""
+        prompter.header("Show functional group status")
         config = load_config()
 
         if not config.functional_groups:
@@ -139,6 +140,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         interactive: bool = True,
     ):
         """Add a new functional group to the configuration file."""
+        prompter.header("Add functional group")
         # Prompt for name if not provided
         if not name:
             name = (
@@ -222,6 +224,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         environment: str = typer.Option(None, "--env", "-e", help="Environment name"),
     ):
         """Update the integration cursor for a functional group."""
+        prompter.header("Update functional group cursor")
         config_path = find_config_file()
         if not config_path:
             prompter.error("Configuration file not found")
@@ -312,6 +315,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
     ):
         """Remove a functional group and its integration cursor from the configuration."""
+        prompter.header("Remove functional group")
         # Prompt for name if not provided
         if not name:
             config = load_config()
@@ -365,6 +369,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
     ):
         """Remove all functional groups and their integration cursors from the configuration."""
+        prompter.header("Remove all functional groups")
         config_path = find_config_file()
         if not config_path:
             prompter.error("Configuration file not found")
@@ -411,6 +416,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         ),
     ):
         """Sync base branch and update integration cursor (interactive)."""
+        prompter.header("Sync base branch and update integration cursor")
         import re
         import subprocess
 

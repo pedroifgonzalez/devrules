@@ -34,6 +34,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         Requires: pip install devrules[tui]
         """
+        prompter.header("Show dashboard")
         try:
             from devrules.tui import DevRulesDashboard
         except ImportError:
