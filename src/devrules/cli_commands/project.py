@@ -244,12 +244,14 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         current_branch = get_current_branch()
         branch_mapping = mapping_manager.get_mapping_by_branch(current_branch)
 
+        final_item_title = None
         if branch_mapping:
             project_key = branch_mapping["project_key"]
             issue = branch_mapping["issue_number"]
             if item_id is None and getattr(config.github, "project_cache_enabled", False):
                 item_id = branch_mapping.get("item_id")
             prompter.info("Found mapping for branch, continuing...")
+            final_item_title = branch_mapping.get("item_title")
         else:
             project_key = project
             if project_key is None:
@@ -321,6 +323,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 if project_item.repository:
                     issue_repo = project_item.repository
 
+            final_item_title = item_title
+
         integration_comment = None
         if status == config.github.integration_comment_status:
             integration_comment = _ask_for_integration_comment()
@@ -364,11 +368,17 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise prompter.exit(1)
 
         prompter.success(
-            f"Updated status of project item for issue #{issue} to '{status}' (title: {item_title})",
+            f"Updated status of project item for issue #{issue} to '{status}' (title: {final_item_title})",
         )
 
         # Store the mapping for future use
-        mapping_manager.add_mapping(issue, current_branch, project_key, item_id=item_id)
+        mapping_manager.add_mapping(
+            issue,
+            current_branch,
+            project_key,
+            item_id=item_id,
+            item_title=final_item_title,
+        )
 
         if integration_comment and issue_repo and issue:
             repo_owner, repo_name = _get_repo_owner_and_name(

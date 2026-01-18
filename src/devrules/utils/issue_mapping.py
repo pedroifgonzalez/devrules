@@ -20,6 +20,7 @@ class IssueMapping:
     branch_name: str
     project_key: str
     item_id: Optional[str] = None
+    item_title: Optional[str] = None
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
 
 
@@ -81,6 +82,7 @@ class IssueMappingManager:
         branch_name: str,
         project_key: str,
         item_id: Optional[str] = None,
+        item_title: Optional[str] = None,
     ) -> None:
         """Add a new issue-branch-project mapping.
 
@@ -111,6 +113,8 @@ class IssueMappingManager:
             mappings[existing_mapping]["timestamp"] = datetime.now().isoformat()
             if item_id:
                 mappings[existing_mapping]["item_id"] = item_id
+            if item_title:
+                mappings[existing_mapping]["item_title"] = item_title
         else:
             # Add new mapping at the front
             mappings.insert(
@@ -120,6 +124,7 @@ class IssueMappingManager:
                     "branch_name": branch_name,
                     "project_key": project_key,
                     "item_id": item_id,
+                    "item_title": item_title,
                     "timestamp": datetime.now().isoformat(),
                 },
             )
