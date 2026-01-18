@@ -10,7 +10,7 @@ from devrules.cli_commands.commons import _fetch_project_items, _get_issue_and_s
 from devrules.cli_commands.prompters.factory import get_default_prompter
 from devrules.config import Config, load_config
 from devrules.core.git_service import (
-    checkout_branch_interactive,
+    checkout_branch,
     create_and_checkout_branch,
     create_staging_branch_name,
     delete_branch_local_and_remote,
@@ -38,6 +38,35 @@ from devrules.validators.ownership import list_user_owned_branches
 from devrules.validators.repo_state import display_repo_state_issues, validate_repo_state
 
 prompter = get_default_prompter()
+
+
+def checkout_branch_interactive(config: Config) -> None:
+    """Interactively select and checkout a branch."""
+    current_branch = get_current_branch()
+    branches = get_existing_branches()
+
+    # Filter out current branch from candidates
+    candidates = [b for b in branches if b != current_branch]
+
+    if not candidates:
+        prompter.warning("No other branches found to switch to.")
+        raise prompter.exit(code=0)
+
+    selected_branch = None
+    # Use filter so user can search
+    selected_branch = prompter.filter_list(
+        candidates, placeholder="Select branch to checkout...", header="Branches"
+    )
+    if not selected_branch:
+        prompter.error("Cancelled.")
+        raise prompter.exit(code=0)
+
+    result, message = checkout_branch(selected_branch)
+    if result is True:
+        prompter.success(message)
+    else:
+        prompter.error(f"Failed to checkout branch: {message}")
+        raise prompter.exit(code=1)
 
 
 def _get_branch_name_interactive(config: Config):
