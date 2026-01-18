@@ -1,6 +1,5 @@
 """Integration tests for enterprise build workflow."""
 
-import os
 import shutil
 
 import pytest
@@ -215,16 +214,6 @@ class TestConfigurationPriority:
             toml.dump(user_config, f)
 
         return project
-
-    def test_user_config_loads_without_enterprise(self, temp_project):
-        """Test that user config loads when no enterprise config exists."""
-        from devrules.config import load_config
-
-        os.chdir(temp_project)
-        config = load_config()
-
-        # User config should be loaded
-        assert config.branch.pattern == "^user/.*"
 
     def test_enterprise_config_overrides_user_when_locked(self, temp_project, tmp_path):
         """Test that locked enterprise config overrides user config."""

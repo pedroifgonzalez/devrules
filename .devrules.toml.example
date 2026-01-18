@@ -55,8 +55,9 @@ api_url = "https://api.github.com"
 timeout = 30
 owner = "pedroifgonzalez"
 repo = "devrules"
-valid_statuses = [ "Backlog", "Ready", "In progress", "Waiting Integration", "In review", "Done",]
+valid_statuses = [ "Backlog", "Ready", "In progress", "Waiting Integration", "Tech Lead Review", "In review", "Done",]
 integration_comment_status = "Waiting Integration"
+require_evidence_status = "Tech Lead Review"
 
 [github.status_emojis]
 backlog = "📋"

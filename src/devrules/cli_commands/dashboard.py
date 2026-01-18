@@ -4,6 +4,10 @@ from typing import Any, Callable, Dict, Optional
 
 import typer
 
+from devrules.cli_commands.prompters.factory import get_default_prompter
+
+prompter = get_default_prompter()
+
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     """Register dashboard command.
@@ -30,33 +34,31 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         Requires: pip install devrules[tui]
         """
+        prompter.header("Show dashboard")
         try:
             from devrules.tui import DevRulesDashboard
         except ImportError:
-            typer.secho(
-                "✘ Dashboard requires the 'tui' dependency group.",
-                fg=typer.colors.RED,
-                bold=True,
+            prompter.error(
+                "Dashboard requires the 'tui' dependency group.",
             )
-            typer.echo("\nInstall with:")
-            typer.secho("  pip install devrules[tui]", fg=typer.colors.CYAN)
-            typer.echo("\nOr if using uv:")
-            typer.secho("  uv pip install devrules[tui]", fg=typer.colors.CYAN)
-            raise typer.Exit(code=1)
+            prompter.info("Install with:")
+            prompter.indented_message("pip install devrules[tui]")
+            prompter.info("Or if using uv:")
+            prompter.indented_message("uv pip install devrules[tui]")
+            raise prompter.exit(code=1)
 
         if DevRulesDashboard is None:
-            typer.secho(
-                "✘ Failed to load dashboard. Please reinstall with: pip install devrules[tui]",
-                fg=typer.colors.RED,
+            prompter.error(
+                "Failed to load dashboard. Please reinstall with: pip install devrules[tui]",
             )
-            raise typer.Exit(code=1)
+            raise prompter.exit(code=1)
 
         # Launch the TUI
         try:
             dashboard_app = DevRulesDashboard(config_file=config_file)
             dashboard_app.run()
         except Exception as e:
-            typer.secho(f"✘ Dashboard error: {e}", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+            prompter.error(f"Dashboard error: {e}")
+            raise prompter.exit(code=1)
 
     return {"dashboard": dashboard}

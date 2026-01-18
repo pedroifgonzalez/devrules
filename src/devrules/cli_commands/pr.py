@@ -17,7 +17,7 @@ from devrules.core.github_service import ensure_gh_installed, fetch_pr_info
 from devrules.messages import pr as msg
 from devrules.utils.decorators import emit_events, ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
-from devrules.validators.documentation import display_documentation_guidance
+from devrules.validators.documentation import build_documentation_context, get_changed_files
 from devrules.validators.pr import validate_pr
 from devrules.validators.pr_target import (
     suggest_pr_target,
@@ -142,12 +142,17 @@ def create_pr_internal(
         config=config,
     )
 
+    # 1️⃣ Build documentation context BEFORE creating PR (snapshot)
+    doc_contexts: list = []
     if not skip_checks and config.documentation.show_on_pr and config.documentation.rules:
-        display_documentation_guidance(
-            rules=config.documentation.rules,
-            base_branch=base,
-            show_files=True,
-        )
+        with yaspin(text="Building documentation context...") as spinner:
+            changed_files = get_changed_files(base_branch=base)
+            if changed_files:
+                doc_contexts = build_documentation_context(
+                    rules=config.documentation.rules,
+                    changed_files=changed_files,
+                )
+            spinner.ok("✔")
 
     # Issue status validation
     if config.pr.require_issue_status_check:
@@ -164,20 +169,15 @@ def create_pr_internal(
             spinner.stop()
 
             for m in messages:
-                if "✔" in m or "ℹ" in m:
-                    prompter.success(m)
-                elif "⚠" in m:
-                    prompter.warning(m)
-                else:
-                    prompter.error(m)
+                prompter.info(m)
 
             if not is_valid:
                 prompter.error("Cannot create PR: Issue status check failed")
                 raise prompter.exit(code=1)
 
     # Confirmation
-    prompter.info(f"🔀 {current_branch} → {base}")
-    prompter.info(f"📝 Title: {title}")
+    prompter.info(f"{current_branch} → {base}")
+    prompter.info(f"Title: {title}")
 
     if not prompter.confirm("Create this PR?", default=True):
         prompter.warning(msg.PR_CANCELLED)
@@ -206,6 +206,8 @@ def create_pr_internal(
         "--title",
         title,
         "--fill",
+        "--assignee",
+        "@me",
     ]
 
     try:
@@ -215,6 +217,12 @@ def create_pr_internal(
         raise prompter.exit(code=1)
 
     prompter.success(f"Created pull request: {title}")
+
+    # 2️⃣ Show documentation context AFTER PR creation
+    if doc_contexts:
+        from devrules.cli_commands.commons import show_documentation_context
+
+        show_documentation_context(doc_contexts, show_files=True)
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
@@ -231,10 +239,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config: Config = Depends(load_config),
     ):
         """Interactive PR creation."""
-        prompter.header("🔀 Create Pull Request")
+        prompter.header("Create Pull Request")
 
         current_branch = get_current_branch()
-        prompter.info(f"📌 Current branch: {current_branch}")
+        prompter.info(f"Current branch: {current_branch}")
 
         allowed_targets = config.pr.allowed_targets or ["develop", "main", "master"]
         suggested = suggest_pr_target(current_branch, config.pr) or "develop"
@@ -268,7 +276,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config: Config = Depends(load_config),
     ):
         """Validate PR size and title format."""
-        prompter.header("🔍 Validate Pull Request")
+        prompter.header("Validate Pull Request")
         github_owner = owner or config.github.owner
         github_repo = repo or config.github.repo
         pr_number_selected = pr_number or prompter.input_text(

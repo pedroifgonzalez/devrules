@@ -45,6 +45,7 @@ class Prompter(ABC):
         options: list[str],
         header: str = "",
         limit: int = 1,
+        defaults: Optional[list[str]] = None,
     ) -> Optional[str | list[str]]:
         """Interactive selection from a list of options.
 
@@ -192,6 +193,15 @@ class Prompter(ABC):
 
         Args:
             message: Info message to display
+        """
+        pass
+
+    @abstractmethod
+    def indented_message(self, message: str) -> None:
+        """Print an indented message.
+
+        Args:
+            message: Indented message to display
         """
         pass
 

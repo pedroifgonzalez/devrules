@@ -6,22 +6,27 @@ from typing import Any, Callable, Dict, Optional
 import typer
 from yaspin import yaspin
 
+from devrules.cli_commands.commons import _fetch_project_items, _get_issue_and_status_interactively
+from devrules.cli_commands.prompters.factory import get_default_prompter
 from devrules.config import load_config
+from devrules.core.git_service import get_current_branch, get_current_issue_number
 from devrules.core.github_service import ensure_gh_installed
 from devrules.core.permission_service import can_transition_status
 from devrules.core.project_service import (
     add_issue_comment,
     find_project_item_for_issue,
+    get_issue_evidence,
     get_project_id,
     get_status_field_id,
     get_status_option_id,
-    list_project_items,
     print_project_items,
     resolve_project_number,
+    show_issue_on_web,
 )
-from devrules.utils import gum
-from devrules.utils.gum import GUM_AVAILABLE
+from devrules.utils.issue_mapping import get_issue_mapping_manager
 from devrules.utils.typer import add_typer_block_message
+
+prompter = get_default_prompter()
 
 
 def _get_valid_statuses() -> list[str]:
@@ -59,54 +64,8 @@ def _get_project_interactively(projects_keys: list[str]) -> Optional[str]:
         Optional[str]: Selected project key or None if cancelled
     """
     header = "Select a project"
-    subheader = "Available projects:"
-    if GUM_AVAILABLE:
-        project_key = gum.choose(
-            options=projects_keys,
-            header=header,
-        )
-        assert isinstance(project_key, str)
-    else:
-        add_typer_block_message(
-            header=header,
-            subheader=subheader,
-            messages=[f"{idx}. {b}" for idx, b in enumerate(projects_keys, 1)],
-        )
-        project_number = typer.prompt("Enter number", type=int)
-        if project_number < 1 or project_number > len(projects_keys):
-            typer.secho("✘ Invalid choice", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
-        project_key = projects_keys[project_number - 1]
+    project_key = prompter.choose(options=projects_keys, header=header)
     return project_key
-
-
-def _fetch_project_items(
-    owner: str, project_number: str, exclude_status: Optional[str] = None
-) -> list[dict]:
-    """Fetch items from a GitHub project.
-
-    Args:
-        owner: The GitHub owner.
-        project_number: The project number.
-        exclude_status: Optional status to exclude.
-
-    Returns:
-        List of project items.
-
-    Raises:
-        typer.Exit: If no items are found.
-    """
-    items = []
-    with yaspin(text="Fetching project items..."):
-        items = list_project_items(
-            owner=owner,
-            project_number=project_number,
-            exclude_status=exclude_status,
-        )
-    if not items:
-        typer.secho("✘ No items found in the project", fg=typer.colors.RED)
-        raise typer.Exit(code=1)
-    return items
 
 
 def _ask_for_integration_comment() -> Optional[str]:
@@ -123,14 +82,14 @@ def _ask_for_integration_comment() -> Optional[str]:
             "2. Press Enter to open your editor for multi-line markdown",
         ],
     )
-    simple_comment = typer.prompt(
+    simple_comment = prompter.info(
         "Comment (or press Enter for editor)", default="", show_default=False
     ).strip()
 
     if simple_comment:
         integration_comment = simple_comment
     else:
-        integration_comment = typer.edit(
+        integration_comment = prompter.write(
             "\n#! Add integration details below (markdown supported)\n#! Lines starting with #! will be ignored\n\n"
         )
         if integration_comment:
@@ -142,15 +101,49 @@ def _ask_for_integration_comment() -> Optional[str]:
             integration_comment = "\n".join(lines).strip()
 
     if not integration_comment:
-        typer.secho(
-            "⚠ Warning: No comment provided for Waiting Integration status",
-            fg=typer.colors.YELLOW,
+        prompter.warning(
+            "Warning: No comment provided for Waiting Integration status",
         )
-        confirm = typer.confirm("Continue without a comment?", default=False)
+        confirm = prompter.confirm("Continue without a comment?", default=False)
         if not confirm:
-            typer.echo("Cancelled.")
-            raise typer.Exit(code=0)
+            prompter.error("Cancelled.")
+            raise prompter.exit(code=0)
     return integration_comment
+
+
+def _ask_for_evidence(issue: str) -> None:
+    """Show to user the issue on web and aks him to complete adding some evidence"""
+    with yaspin(text="Checking if there are evidence assets..."):
+        evidence = get_issue_evidence(issue)
+
+    if evidence:
+        prompter.info("Evidence assets found, continuing...")
+        return None
+
+    with yaspin(text="Loading issue on web...", color="yellow"):
+        show_issue_on_web(issue)
+
+    prompter.info("The issue was opened on your browser. Please add evidence")
+    response = prompter.confirm("Are you done adding evidence?")
+
+    if response is False:
+        prompter.error("Cancelled.")
+        raise prompter.exit(0)
+
+    # check evidence was added
+    with yaspin(text="Checking evidence...", color="yellow"):
+        evidence = get_issue_evidence(issue)
+
+    # if evidence was added continue, if warn user and ask to continue anyway
+    if not evidence:
+        prompter.warning("No evidence found")
+        confirm = prompter.confirm("Continue without evidence?", default=False)
+        if not confirm:
+            prompter.error("Cancelled.")
+            raise prompter.exit(0)
+
+    prompter.info("Evidence assets found, continuing...")
+    return None
 
 
 def _get_repo_owner_and_name(config, owner, issue_repo) -> tuple[str, str]:
@@ -182,32 +175,10 @@ def _get_status_interactively(
 
     # Handle empty list case
     if not statuses_to_choose:
-        if GUM_AVAILABLE:
-            gum.warning("No other statuses available to choose from.")
-        else:
-            typer.secho("No other statuses available to choose from.", fg=typer.colors.YELLOW)
+        prompter.warning("No other statuses available to choose from.")
         return None
 
-    if GUM_AVAILABLE:
-        output = gum.choose(
-            options=statuses_to_choose,
-            header="Select the new status",
-        )
-        status = output if isinstance(output, str) else None
-    else:
-        typer.echo("\n📋 Select the new status:")
-        for i, status_option in enumerate(statuses_to_choose, 1):
-            typer.echo(f"{i}. {status_option}")
-
-        while True:
-            try:
-                selection = typer.prompt("\nEnter the number of the status", type=int)
-                if 1 <= selection <= len(statuses_to_choose):
-                    status = statuses_to_choose[selection - 1]
-                    break
-                typer.secho("Invalid selection. Please try again.", fg=typer.colors.YELLOW)
-            except ValueError:
-                typer.secho("Please enter a valid number.", fg=typer.colors.YELLOW)
+    status = prompter.choose(options=statuses_to_choose, header="Select the new status")
     return status
 
 
@@ -215,60 +186,10 @@ def _validate_status(status: str, valid_statuses: list[str]) -> None:
     """Validate the status."""
     if status not in valid_statuses:
         allowed = ", ".join(valid_statuses)
-        typer.secho(
-            f"✘ Invalid status '{status}'. Allowed values: {allowed}",
-            fg=typer.colors.RED,
+        prompter.error(
+            f"Invalid status '{status}'. Allowed values: {allowed}",
         )
-        raise typer.Exit(code=1)
-
-
-def _get_issue_and_status_interactively(items: list[Dict]) -> dict:
-    """Get issue and status interactively."""
-    if GUM_AVAILABLE:
-        options = [
-            f"#{item.get('content', {}).get('number')} - {item.get('title', 'No title')} [{item.get('status', 'No status')}]"
-            for item in items
-        ]
-        selected = gum.choose(
-            options=options,
-            header="Select an issue to update",
-        )
-        if not isinstance(selected, str):
-            typer.secho("No issue selected.", fg=typer.colors.YELLOW)
-            raise typer.Exit(0)
-        issue = int(selected.split(" ")[0][1:])
-        selected_item = next(
-            (item for item in items if str(item.get("content", {}).get("number")) == str(issue)),
-            None,
-        )
-        if selected_item is None:
-            typer.secho("Could not find selected issue.", fg=typer.colors.RED)
-            raise typer.Exit(1)
-        item_title = selected_item.get("title")
-        item_status = selected_item.get("status")
-    else:
-        typer.echo("\n📋 Select an issue to update:")
-        for i, item in enumerate(items, 1):
-            issue_num = item.get("content", {}).get("number")
-            title = item.get("title", "No title")
-            it_status = item.get("status", "No status")
-            typer.echo(f"{i}. #{issue_num} - {title} [{it_status}]")
-
-        while True:
-            try:
-                selection = typer.prompt("\nEnter the number of the issue", type=int)
-                if 1 <= selection <= len(items):
-                    selected_item = items[selection - 1]
-                    if selected_item:
-                        issue = selected_item["content"]["number"]
-                        item_title = selected_item["title"]
-                        item_status = selected_item.get("status", "No status")
-                        break
-                typer.secho("Invalid selection. Please try again.", fg=typer.colors.YELLOW)
-            except ValueError:
-                typer.secho("Please enter a valid number.", fg=typer.colors.YELLOW)
-
-    return dict(issue=issue, item_title=item_title, item_status=item_status)
+        raise prompter.exit(code=1)
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
@@ -309,26 +230,47 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         If no issue or status is provided, an interactive prompt will be shown to select them.
         """
+
+        prompter.header("Update issue status")
+
         ensure_gh_installed()
         config = load_config(None)
 
-        if GUM_AVAILABLE:
-            # Add sticked header for GUM
-            print(gum.style("Update issue status", foreground=81, bold=True))
-            print(gum.style("=" * 50, foreground=81))
-
         valid_statuses = _get_valid_statuses()
         projects_keys = list(config.github.projects.keys())
-        project_key = project
-        if project_key is None:
-            project_key = _get_project_interactively(projects_keys=projects_keys)
+
+        # Try to get mapping from current branch first
+        mapping_manager = get_issue_mapping_manager()
+        current_branch = get_current_branch()
+        branch_mapping = mapping_manager.get_mapping_by_branch(current_branch)
+
+        if branch_mapping:
+            project_key = branch_mapping["project_key"]
+            issue = branch_mapping["issue_number"]
+            if item_id is None and getattr(config.github, "project_cache_enabled", False):
+                item_id = branch_mapping.get("item_id")
+            prompter.info("Found mapping for branch, continuing...")
+        else:
+            project_key = project
+            if project_key is None:
+                project_key = _get_project_interactively(projects_keys=projects_keys)
 
         if not project_key:
-            typer.secho("Not valid project was selected", fg=typer.colors.RED)
-            raise typer.Exit(code=1)
+            prompter.error("Not valid project was selected")
+            raise prompter.exit(1)
 
         # Resolve project owner and number using existing logic
         owner, project_number = resolve_project_number(project_key)
+
+        # Extract issue from branch if possible (skip if already found from mapping)
+        if issue is None:
+            with yaspin(text="Extracting issue from branch") as spinner:
+                extracted_issue_number = get_current_issue_number()
+                if extracted_issue_number is not None:
+                    issue = int(extracted_issue_number)
+                    spinner.write(f"✔ Issue {extracted_issue_number} found")
+                else:
+                    spinner.write("✘ No issue found")
 
         # If no issue is provided, show interactive selection
         item_status = None
@@ -346,8 +288,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         # Validate the status
         if status is None:
-            typer.secho("Status is required.", fg=typer.colors.RED)
-            raise typer.Exit(1)
+            prompter.error("Status is required.")
+            raise prompter.exit(1)
+
         _validate_status(status, valid_statuses)
 
         # Permission check for status transition
@@ -355,14 +298,23 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             is_permitted, permission_msg = can_transition_status(status, config)
             if permission_msg and is_permitted:
                 # Warning case - allowed but with warning
-                typer.secho(f"⚠ {permission_msg}", fg=typer.colors.YELLOW)
+                prompter.warning(permission_msg)
             elif not is_permitted:
-                typer.secho(f"✘ {permission_msg}", fg=typer.colors.RED)
-                raise typer.Exit(code=1)
+                prompter.error(permission_msg)
+                raise prompter.exit(1)
 
         # If we got here with an issue number but no item_id, look up the item
         issue_repo, item_title = None, None
         if item_id is None and issue:
+            if getattr(config.github, "project_cache_enabled", False):
+                issue_mapping = mapping_manager.get_mapping_by_issue(int(issue))
+                if (
+                    issue_mapping
+                    and issue_mapping.get("project_key") == project_key
+                    and issue_mapping.get("item_id")
+                ):
+                    item_id = issue_mapping.get("item_id")
+
             with yaspin(text="Looking up project item..."):
                 project_item = find_project_item_for_issue(owner, project_number, issue)
                 item_id, item_title = project_item.id, project_item.title
@@ -372,6 +324,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         integration_comment = None
         if status == config.github.integration_comment_status:
             integration_comment = _ask_for_integration_comment()
+
+        if status == config.github.require_evidence_status:
+            _ask_for_evidence(issue=str(issue))
 
         with yaspin(text="Get project id..."):
             project_id = get_project_id(owner, project_number)
@@ -403,18 +358,17 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                     text=True,
                 )
         except subprocess.CalledProcessError as e:
-            typer.secho(
-                f"✘ Failed to update project item status: {e}",
-                fg=typer.colors.RED,
+            prompter.error(
+                f"Failed to update project item status: {e}",
             )
-            if e.stderr:
-                typer.echo(e.stderr)
-            raise typer.Exit(code=1)
+            raise prompter.exit(1)
 
-        typer.secho(
-            f"✔ Updated status of project item for issue #{issue} to '{status}' (title: {item_title})",
-            fg=typer.colors.GREEN,
+        prompter.success(
+            f"Updated status of project item for issue #{issue} to '{status}' (title: {item_title})",
         )
+
+        # Store the mapping for future use
+        mapping_manager.add_mapping(issue, current_branch, project_key, item_id=item_id)
 
         if integration_comment and issue_repo and issue:
             repo_owner, repo_name = _get_repo_owner_and_name(
@@ -423,9 +377,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             if repo_name and issue:
                 with yaspin(text=f"Adding integration comment to issue #{issue}", color="green"):
                     add_issue_comment(repo_owner, repo_name, issue, integration_comment)
-                    typer.secho(
-                        f"✔ Added integration comment to issue #{issue} (title: {item_title})",
-                        fg=typer.colors.GREEN,
+                    prompter.success(
+                        f"Added integration comment to issue #{issue} (title: {item_title})",
                     )
 
     @app.command()
@@ -461,7 +414,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         ),
     ):
         """List GitHub issues using the gh CLI."""
-
+        prompter.header("List issues")
         ensure_gh_installed()
 
         if project is not None:
@@ -471,11 +424,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
                 if status not in valid_statuses:
                     allowed = ", ".join(valid_statuses)
-                    typer.secho(
-                        f"✘ Invalid status '{status}'. Allowed values: {allowed}",
-                        fg=typer.colors.RED,
+                    prompter.error(
+                        f"Invalid status '{status}'. Allowed values: {allowed}",
                     )
-                    raise typer.Exit(code=1)
+                    raise prompter.exit(code=1)
 
             project_str = str(project)
 
@@ -485,18 +437,16 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 projects_map = getattr(config.github, "projects", {}) or {}
 
                 if not owner:
-                    typer.secho(
-                        "✘ GitHub owner must be configured in the config file under the [github] section to use --project all.",
-                        fg=typer.colors.RED,
+                    prompter.error(
+                        "GitHub owner must be configured in the config file under the [github] section to use --project all.",
                     )
-                    raise typer.Exit(code=1)
+                    raise prompter.exit(code=1)
 
                 if not projects_map:
-                    typer.secho(
-                        "✘ No projects configured under [github.projects] to use with --project all.",
-                        fg=typer.colors.RED,
+                    prompter.error(
+                        "No projects configured under [github.projects] to use with --project all.",
                     )
-                    raise typer.Exit(code=1)
+                    raise prompter.exit(code=1)
 
                 for key, label in sorted(projects_map.items()):
                     owner_for_key, project_number_for_key = resolve_project_number(key)
@@ -522,13 +472,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                             text=True,
                         )
                     except subprocess.CalledProcessError as e:
-                        typer.secho(
-                            f"✘ Failed to run gh command for project '{key}': {e}",
-                            fg=typer.colors.RED,
+                        prompter.error(
+                            f"Failed to run gh command for project '{key}': {e}",
                         )
-                        if e.stderr:
-                            typer.echo(e.stderr)
-                        raise typer.Exit(code=1)
+                        raise prompter.exit(code=1)
 
                     print_project_items(result.stdout, assignee, label, status)
 
@@ -550,11 +497,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             ]
         else:
             if status is not None:
-                typer.secho(
-                    "✘ --status can only be used together with --project.",
-                    fg=typer.colors.RED,
+                prompter.choose(
+                    "--status can only be used together with --project.",
                 )
-                raise typer.Exit(code=1)
+                raise prompter.exit(code=1)
 
             cmd = ["gh", "issue", "list", "--state", state, "--limit", str(limit)]
 
@@ -569,18 +515,15 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 text=True,
             )
         except subprocess.CalledProcessError as e:
-            typer.secho(
-                f"✘ Failed to run gh command: {e}",
-                fg=typer.colors.RED,
+            prompter.error(
+                f"Failed to run gh command: {e}",
             )
-            if e.stderr:
-                typer.echo(e.stderr)
-            raise typer.Exit(code=1)
+            raise prompter.exit(code=1)
 
         if project is not None:
             print_project_items(result.stdout, assignee, project, status)
         else:
-            typer.echo(result.stdout)
+            prompter.info(result.stdout)
 
     @app.command()
     def describe_issue(
@@ -593,7 +536,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         ),
     ):
         """Show the description (body) of a GitHub issue."""
-
+        prompter.header("Describe issue")
         ensure_gh_installed()
 
         config = load_config(None)
@@ -607,11 +550,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             if github_owner and github_repo:
                 repo_arg = f"{github_owner}/{github_repo}"
             else:
-                typer.secho(
-                    "✘ Repository must be provided via --repo or configured in the config file under [github] section.",
-                    fg=typer.colors.RED,
+                prompter.error(
+                    "Repository must be provided via --repo or configured in the config file under [github] section."
                 )
-                raise typer.Exit(code=1)
+                raise prompter.exit(code=1)
 
         cmd = [
             "gh",
@@ -630,15 +572,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 text=True,
             )
         except subprocess.CalledProcessError as e:
-            typer.secho(
-                f"✘ Failed to fetch issue #{issue}: {e}",
-                fg=typer.colors.RED,
+            prompter.error(
+                f"Failed to fetch issue #{issue}: {e}",
             )
-            if e.stderr:
-                typer.echo(e.stderr)
-            raise typer.Exit(code=1)
+            raise prompter.exit(code=1)
 
-        typer.echo(result.stdout)
+        prompter.info(result.stdout)
 
     return {
         "update_issue_status": update_issue_status,

@@ -72,7 +72,10 @@ class GitHubConfig:
     projects: dict = field(default_factory=dict)
     valid_statuses: list = field(default_factory=list)
     integration_comment_status: str = "Waiting Integration"
+    require_evidence_status: Optional[str] = None
     status_emojis: dict = field(default_factory=dict)
+    project_cache_enabled: bool = False
+    project_cache_path: Optional[str] = None
 
     def _validate(self):
         """Validate the configuration."""
@@ -83,6 +86,16 @@ class GitHubConfig:
         ):
             typer.secho(
                 f"Invalid integration comment status: {self.integration_comment_status}",
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(code=1)
+        if (
+            self.require_evidence_status
+            and self.valid_statuses
+            and self.require_evidence_status not in self.valid_statuses
+        ):
+            typer.secho(
+                f"Invalid evidence status: {self.require_evidence_status}",
                 fg=typer.colors.RED,
             )
             raise typer.Exit(code=1)
@@ -277,12 +290,14 @@ DEFAULT_CONFIG = {
         "repo": None,
         "projects": {},
         "integration_comment_status": "Waiting Integration",
+        "require_evidence_status": "Tech Lead Review",
         "valid_statuses": [
             "Backlog",
             "Blocked",
             "To Do",
             "In Progress",
             "Waiting Integration",
+            "Tech Lead Review",
             "QA Testing",
             "QA In Progress",
             "QA Approved",
@@ -290,6 +305,8 @@ DEFAULT_CONFIG = {
             "Done",
         ],
         "status_emojis": {},
+        "project_cache_enabled": False,
+        "project_cache_path": None,
     },
     "deployment": {
         "jenkins_url": "",
@@ -391,7 +408,7 @@ def load_config(config_path: Optional[Path] = None) -> Config:
             print(f"Warning: Error loading user config file: {e}")
 
     # Merge configurations with priority
-    config_data: Dict[str, Any] = {**DEFAULT_CONFIG}
+    config_data: Dict[str, Any] = {}
 
     # Apply user config if not locked by enterprise
     if user_config_data and not is_locked:

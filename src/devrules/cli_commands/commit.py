@@ -1,6 +1,6 @@
 """CLI commands for commit management."""
 
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict
 
 import typer
 from typer_di import Depends
@@ -19,6 +19,11 @@ from devrules.messages import commit as msg
 from devrules.utils.decorators import emit_events, ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.commit import validate_commit
+from devrules.validators.documentation import (
+    DocumentationContext,
+    build_documentation_context,
+    get_changed_files,
+)
 from devrules.validators.forbidden_files import (
     get_forbidden_file_suggestions,
     validate_no_forbidden_files,
@@ -63,7 +68,7 @@ def build_commit_message_interactive(config: Config, tags: list[str], prompter: 
     if default_message:
         kwargs["default"] = default_message
 
-    message = prompter.input_text(**kwargs)
+    message = prompter.write(**kwargs)
 
     if not message:
         prompter.warning(f"{msg.COMMIT_CANCELLED}")
@@ -74,7 +79,7 @@ def build_commit_message_interactive(config: Config, tags: list[str], prompter: 
     return message
 
 
-@inject_spinner(Spinners.dots, text="Validating commit message...", color="yellow")
+@inject_spinner(Spinners.dots, text="Validating commit message...")
 def _validate_commit(spinner: Yaspin, message: str, config: Config):
     """Validates commit message
 
@@ -94,7 +99,7 @@ def _validate_commit(spinner: Yaspin, message: str, config: Config):
         raise prompter.exit(code=1)
 
 
-@inject_spinner(Spinners.dots, text="Checking issue number...", color="magenta")
+@inject_spinner(Spinners.dots, text="Checking issue number...")
 def _auto_append_issue_number(spinner: Yaspin, message: str, config: Config):
     """Auto append issue number to commit message if necessary
 
@@ -112,7 +117,7 @@ def _auto_append_issue_number(spinner: Yaspin, message: str, config: Config):
     return message
 
 
-@inject_spinner(Spinners.dots, text="Checking forbidden files...", color="yellow")
+@inject_spinner(Spinners.dots, text="Checking forbidden files...")
 def _validate_forbidden_files(spinner: Yaspin, skip_checks: bool, config: Config):
     """Validates forbidden files
 
@@ -143,7 +148,7 @@ def _validate_forbidden_files(spinner: Yaspin, skip_checks: bool, config: Config
             raise prompter.exit(code=1)
 
 
-@inject_spinner(Spinners.dots, text="Validating protected branches...", color="yellow")
+@inject_spinner(Spinners.dots, text="Validating protected branches...")
 def _validate_branch_protection(spinner: Yaspin, current_branch: str, config: Config):
     """Validates protected branches
 
@@ -157,6 +162,7 @@ def _validate_branch_protection(spinner: Yaspin, current_branch: str, config: Co
     """
     if config.commit.protected_branch_prefixes:
         for prefix in config.commit.protected_branch_prefixes:
+            spinner.stop()
             if current_branch.count(prefix):
                 prompter.error(
                     msg.CANNOT_COMMIT_TO_PROTECTED_BRANCH.format(current_branch, prefix),
@@ -165,7 +171,7 @@ def _validate_branch_protection(spinner: Yaspin, current_branch: str, config: Co
         spinner.ok("✔")
 
 
-@inject_spinner(Spinners.dots, text="Checking branch ownership...", color="yellow")
+@inject_spinner(Spinners.dots, text="Checking branch ownership...")
 def _validate_ownership(spinner: Yaspin, current_branch: str, config: Config):
     """Validate current branch ownserhip if necessary
 
@@ -180,36 +186,41 @@ def _validate_ownership(spinner: Yaspin, current_branch: str, config: Config):
     if config.commit.restrict_branch_to_owner:
         is_owner, ownership_message = validate_branch_ownership(current_branch)
         if not is_owner:
-            typer.secho(f"✘ {ownership_message}", fg=typer.colors.RED)
+            prompter.error(ownership_message)
             raise prompter.exit(code=1)
         spinner.ok("✔")
 
 
-@inject_spinner(Spinners.dots, text="Getting context aware documentation...", color="blue")
-def fetch_documentation_guidance(
-    spinner: Yaspin, skip_checks: bool, config: Config
-) -> Optional[str]:
-    """Get documentation guidance
+@inject_spinner(Spinners.dots, text="Building documentation context...")
+def build_doc_context(spinner: Yaspin, config: Config) -> list[DocumentationContext]:
+    """Build documentation context snapshot before commit.
 
     Args:
         spinner (Yaspin): injected spinner
-        skip_checks (bool): skip checks
         config (Config): config
 
     Returns:
-        Optional[str]: documentation guidance
+        List of DocumentationContext objects
     """
-    if not skip_checks and config.documentation.show_on_commit and config.documentation.rules:
-        from devrules.validators.documentation import get_relevant_documentation
+    if not config.documentation.show_on_commit or not config.documentation.rules:
+        spinner.ok("✔")
+        return []
 
-        has_docs, doc_message = get_relevant_documentation(
-            rules=config.documentation.rules,
-            base_branch="HEAD",
-            show_files=True,
-        )
-        if has_docs:
-            return doc_message
-    return None
+    # Get changed files (staged files before commit)
+    changed_files = get_changed_files(base_branch="HEAD")
+
+    if not changed_files:
+        spinner.ok("✔")
+        return []
+
+    # Build context snapshot
+    contexts = build_documentation_context(
+        rules=config.documentation.rules,
+        changed_files=changed_files,
+    )
+
+    spinner.ok("✔")
+    return contexts
 
 
 def _confirm_commit(message: str):
@@ -221,7 +232,7 @@ def _confirm_commit(message: str):
     Raises:
         prompter.exit: if confirmation is false
     """
-    prompter.info(f"📝 Commit message: {message}")
+    prompter.info(f"Commit message: {message}")
     if not prompter.confirm("Proceed with commit?", default=True):
         prompter.warning(msg.COMMIT_CANCELLED)
         raise prompter.exit(code=0)
@@ -238,24 +249,28 @@ def _stage_files(config: Config):
         stage_files()
 
 
-def _perform_commit(message: str, config: Config, doc_message: Optional[str] = None):
-    """Perform commit
+def _perform_commit(message: str, config: Config, doc_contexts: list[DocumentationContext]):
+    """Perform commit and show documentation context.
 
     Args:
         message (str): commit message
         config (Config): config
-        doc_message (Optional[str], optional): documentation message. Defaults to None.
+        doc_contexts: Documentation context snapshot captured before commit
 
     Raises:
         prompter.exit: if any error occurs
     """
-    success, message = _commit(message, config)
+    success, commit_message = _commit(message, config)
     if not success:
-        prompter.error(msg.FAILED_TO_COMMIT_CHANGES.format(message))
+        prompter.error(msg.FAILED_TO_COMMIT_CHANGES.format(commit_message))
         raise prompter.exit(code=1)
     prompter.success(msg.COMMITTED_CHANGES)
-    if doc_message:
-        prompter.info(doc_message.strip("\n"))
+
+    # Show documentation context after commit
+    if doc_contexts:
+        from devrules.cli_commands.commons import show_documentation_context
+
+        show_documentation_context(doc_contexts, show_files=True)
 
 
 def run_validations(
@@ -295,7 +310,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         config: Config = Depends(load_config),
     ):
         """Interactive commit - build commit message with guided prompts."""
-        prompter.header("📝 Create Commit")
+        prompter.header("Commit changes")
         current_branch = get_current_branch()
         run_validations(
             skip_checks=skip_checks,
@@ -309,10 +324,15 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         )
         _validate_commit(message, config)
         message = _auto_append_issue_number(message, config)
-        doc_message = fetch_documentation_guidance(skip_checks, config)
         _stage_files(config)
+
+        # 1️⃣ Capture documentation context BEFORE commit (snapshot)
+        doc_contexts = build_doc_context(config)
+
         _confirm_commit(message)
-        _perform_commit(message, config, doc_message)
+
+        # 2️⃣ Perform commit and show documentation context
+        _perform_commit(message, config, doc_contexts)
 
     return {
         "commit": commit,

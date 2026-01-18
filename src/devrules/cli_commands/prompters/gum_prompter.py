@@ -38,6 +38,7 @@ class GumPrompter(Prompter):
         options: list[str],
         header: str = "",
         limit: int = 1,
+        defaults: Optional[list[str]] = None,
     ) -> Optional[str | list[str]]:
         """Interactive selection from a list of options using gum.
 
@@ -50,7 +51,7 @@ class GumPrompter(Prompter):
             Selected option(s) as string (if limit=1) or list of strings (if limit>1),
             or None if cancelled
         """
-        return gum.choose(options, header, limit)
+        return gum.choose(options, header, limit, defaults=defaults)
 
     def input_text(
         self,
@@ -89,7 +90,7 @@ class GumPrompter(Prompter):
         Returns:
             User input string or None if cancelled
         """
-        return gum.write(placeholder, header, char_limit)
+        return gum.write(placeholder, header, char_limit, default)
 
     def filter_list(
         self,
@@ -195,3 +196,11 @@ class GumPrompter(Prompter):
     def header(self, header: str) -> None:
         print(gum.style(header, foreground=81, bold=True))
         print(gum.style("=" * 50, foreground=81))
+
+    def indented_message(self, message: str) -> None:
+        """Print an indented message.
+
+        Args:
+            message: Indented message to display
+        """
+        print(gum.style(f"   {message}"))

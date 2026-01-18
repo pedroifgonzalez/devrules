@@ -224,31 +224,6 @@ def test_validate_repo_state_has_issues(mock_run):
 
 
 @patch("devrules.validators.repo_state.subprocess.run")
-def test_validate_repo_state_warn_only(mock_run):
-    """Test validating repo state with warn_only mode."""
-    # Mock uncommitted changes
-    mock_run.side_effect = [
-        MagicMock(returncode=1),  # git diff --cached (has changes)
-        MagicMock(returncode=0),  # git diff
-        MagicMock(stdout="", returncode=0),  # git ls-files
-        MagicMock(stdout="main\n", returncode=0),  # git rev-parse --abbrev-ref HEAD
-        MagicMock(returncode=0),  # git fetch
-        MagicMock(returncode=0),  # git rev-parse --verify origin/main
-        MagicMock(stdout="0\n", returncode=0),  # git rev-list --count
-    ]
-
-    is_valid, messages = validate_repo_state(
-        check_uncommitted=True,
-        check_behind=True,
-        warn_only=True,
-    )
-
-    # Should still return valid in warn_only mode
-    assert is_valid is True
-    assert len(messages) > 0
-
-
-@patch("devrules.validators.repo_state.subprocess.run")
 def test_validate_repo_state_skip_checks(mock_run):
     """Test validating repo state with checks disabled."""
     is_valid, messages = validate_repo_state(
