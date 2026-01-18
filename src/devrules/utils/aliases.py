@@ -6,6 +6,7 @@ ALIAS_MAP = {
     "check_pr": ["cpr"],
     "init_config": ["init"],
     "create_branch": ["nb"],
+    "switch_branch": ["sb"],
     "commit": ["ci"],
     "create_pr": ["pr"],
     "ipr": ["ipr"],

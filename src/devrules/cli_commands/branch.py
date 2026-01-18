@@ -474,15 +474,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         prompter.header("Switch branch")
         checkout_branch_interactive(config)
 
-    # Alias for switch-branch
-    @app.command(name="sb", hidden=True)
-    @ensure_git_repo()
-    def sb(
-        config: Config = Depends(get_config),
-    ):
-        """Alias for switch-branch."""
-        checkout_branch_interactive(config)
-
     return {
         "check_branch": check_branch,
         "create_branch": create_branch,
@@ -490,5 +481,4 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         "delete_branch": delete_branch,
         "delete_merged": delete_merged,
         "switch_branch": switch_branch,
-        "sb": sb,
     }
