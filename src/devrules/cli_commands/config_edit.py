@@ -142,8 +142,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         """Set configuration value."""
         path = _get_config_path()
         config = _load_config(path)
-        _check_locked(config)
         prompter.header("Set Configuration")
+        _check_locked(config)
 
         # Type inference
         import json
@@ -231,6 +231,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         """Interactive configuration editor."""
         path = _get_config_path()
         config = _load_config(path)
+        prompter.header("Update Configuration")
 
         # We allow viewing but check lock before save?
         # Or maybe warn at start? Let's check at start to be clear.
@@ -243,7 +244,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             # So browsing is fine. We just handle SAVE action.
 
         current_path: list[str] = []
-        prompter.header("Update Configuration")
 
         while True:
             # Navigate to current path
