@@ -15,13 +15,13 @@ def configure_logging(config: Config) -> None:
     """
     logging_config = config.logging
 
-    # Remove default handler
-    logger.remove()
-
     if not logging_config.enabled:
         # If disabled, disable logging for the package
         logger.disable("devrules")
         return
+
+    # Remove default handler before configuring sinks
+    logger.remove()
 
     # Enable logging for the package
     logger.enable("devrules")
