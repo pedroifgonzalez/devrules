@@ -44,7 +44,7 @@ def _get_issue_and_status_interactively(items: list[Dict]) -> dict:
     """Get issue and status interactively."""
     selected = prompter.filter_list(
         options=[f"{item.get('content', {}).get('number')}.{item.get('title')}" for item in items],
-        header="Select an issue to update",
+        header="Select an issue",
     )
     if selected is None:
         prompter.error("No selected issue")
