@@ -54,6 +54,7 @@ def derive_pr_title(branch: str, config: Config) -> str:
 
 
 def select_base_branch_interactive(
+    current_branch: str,
     allowed_targets: list[str],
     suggested: str,
 ) -> str:
@@ -64,13 +65,17 @@ def select_base_branch_interactive(
     if suggested in allowed_targets:
         allowed_targets = [suggested] + [b for b in allowed_targets if b != suggested]
 
+    no_duplicates_targets = set(allowed_targets)
+    if current_branch in no_duplicates_targets:
+        no_duplicates_targets.remove(current_branch)
+
     selected = prompter.choose(
-        allowed_targets,
-        header="🎯 Select Target Branch",
+        list(no_duplicates_targets),
+        header="Select Target Branch",
     )
 
     if not selected:
-        prompter.warning("No branch selected, using suggested.")
+        prompter.warning(f"No branch selected, using suggested: {suggested}")
         return suggested
 
     return selected
@@ -247,7 +252,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         allowed_targets = config.pr.allowed_targets or ["develop", "main", "master"]
         suggested = suggest_pr_target(current_branch, config.pr) or "develop"
 
-        base = select_base_branch_interactive(allowed_targets, suggested)
+        base = select_base_branch_interactive(current_branch, allowed_targets, suggested)
 
         title = derive_pr_title(current_branch, config)
 
