@@ -69,6 +69,13 @@ def _save_config(path: Path, config: Dict[str, Any]) -> None:
         raise prompter.exit(code=1)
 
 
+def _check_locked(config: Dict[str, Any]) -> None:
+    """Check if configuration is locked."""
+    if config.get("locked", False) or config.get("enterprise", {}).get("locked", False):
+        prompter.error("Configuration is locked. Updates are not allowed.")
+        raise prompter.exit(code=1)
+
+
 def _get_value(config: Dict[str, Any], path: str) -> Any:
     """Get value from nested dictionary using dot notation."""
     keys = path.split(".")
@@ -135,6 +142,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         """Set configuration value."""
         path = _get_config_path()
         config = _load_config(path)
+        _check_locked(config)
         prompter.header("Set Configuration")
 
         # Type inference
@@ -224,6 +232,16 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         path = _get_config_path()
         config = _load_config(path)
 
+        # We allow viewing but check lock before save?
+        # Or maybe warn at start? Let's check at start to be clear.
+        if config.get("locked", False) or config.get("enterprise", {}).get("locked", False):
+            prompter.warning(
+                "Configuration is locked. Interactive mode will be read-only (save disabled)."
+            )
+            # We can still browse?
+            # Task says "solo poder actualizar ... si no esta locked".
+            # So browsing is fine. We just handle SAVE action.
+
         current_path: list[str] = []
         prompter.header("Update Configuration")
 
@@ -275,6 +293,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 return
 
             if action == "SAVE":
+                _check_locked(config)
                 _save_config(path, config)
                 return
 
