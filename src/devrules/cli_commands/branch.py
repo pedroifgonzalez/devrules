@@ -28,7 +28,6 @@ from devrules.messages import git as git_msg
 from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.dependencies import get_config
 from devrules.utils.issue_mapping import get_issue_mapping_manager
-from devrules.utils.typer import add_typer_block_message
 from devrules.validators.branch import (
     validate_branch,
     validate_cross_repo_card,
@@ -321,12 +320,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             prompter.warning(msg.NO_BRANCHES_OWNED_BY_YOU)
             raise prompter.exit(code=0)
 
-        add_typer_block_message(
-            header="Branches owned by you",
-            subheader="",
-            messages=[f"- {b}" for b in branches],
-            indent_block=False,
-        )
+        prompter.info("Branches owned by you:")
+        for b in branches:
+            prompter.indented_message(f"- {b}")
 
     @app.command()
     @ensure_git_repo()

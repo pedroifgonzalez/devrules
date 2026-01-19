@@ -1,12 +1,11 @@
 """Notification dispatcher for sending events to multiple channels."""
 
-import logging
 from typing import Iterable
+
+from loguru import logger
 
 from devrules.notifications.channels.base import NotificationChannel
 from devrules.notifications.events import NotificationEvent
-
-logger = logging.getLogger(__name__)
 
 
 class NotificationDispatcher:
@@ -18,6 +17,7 @@ class NotificationDispatcher:
 
     def dispatch(self, event: NotificationEvent) -> None:
         """Dispatch a notification event."""
+        logger.debug(f"Dispatching event: {event}")
         for channel in self.channels:
             if channel.supports(event):
                 try:

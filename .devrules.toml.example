@@ -165,3 +165,12 @@ prod = "#prod-deploys"
 paths = ["./custom_rules/"]
 # Python packages to import rules from
 packages = ["my_company_rules"]
+
+[logging]
+# Enable debug logging
+enabled = false
+# Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+level = "WARNING"
+# Optional custom format string
+# format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+

@@ -5,6 +5,7 @@ import string
 import subprocess
 
 import typer
+from loguru import logger
 from yaspin import yaspin
 
 from devrules.config import Config
@@ -17,6 +18,7 @@ from devrules.utils.typer import add_typer_block_message
 def ensure_git_repo() -> None:
     """Ensure we are in a git repository."""
     try:
+        logger.debug("Checking if current directory is a git repository")
         subprocess.run(["git", "rev-parse", "--git-dir"], check=True, capture_output=True)
     except subprocess.CalledProcessError:
         typer.secho(msg.NOT_A_GIT_REPOSITORY, fg=typer.colors.RED)
@@ -26,6 +28,7 @@ def ensure_git_repo() -> None:
 def get_current_branch() -> str:
     """Get the name of the current git branch."""
     try:
+        logger.debug("Getting current branch name")
         result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
             check=True,
@@ -55,6 +58,7 @@ def get_existing_branches() -> list[str]:
 def create_and_checkout_branch(branch_name: str) -> None:
     """Create and checkout the new branch, showing success message."""
     try:
+        logger.info(f"Creating and checking out branch: {branch_name}")
         subprocess.run(["git", "checkout", "-b", branch_name], check=True)
 
         add_typer_block_message(
@@ -83,8 +87,10 @@ def handle_existing_branch(branch_name: str) -> None:
             typer.secho(msg.BRANCH_NAME_ALREADY_EXISTS.format(branch_name), fg=typer.colors.RED)
 
             if typer.confirm("\n  Switch to existing branch?", default=False):
+                logger.info(f"Switching to existing branch: {branch_name}")
                 subprocess.run(["git", "checkout", branch_name], check=True)
                 typer.secho(f"\n✔ Switched to '{branch_name}'", fg=typer.colors.GREEN)
+
             raise typer.Exit(code=0)
     except subprocess.CalledProcessError:
         pass  # Branch doesn't exist, continue
