@@ -6,7 +6,6 @@ from typing import Callable, Tuple
 
 import typer
 from loguru import logger
-from yaspin import yaspin
 
 
 def check_uncommitted_changes() -> Tuple[bool, str]:
@@ -147,11 +146,9 @@ def validate_repo_state(
         }
     )
 
-    for label, (check, func) in MAP_CHECKINGS.items():
+    for _, (check, func) in MAP_CHECKINGS.items():
         if check:
-            with yaspin(text=label) as spinner:
-                issues, msg = func()
-                spinner.ok("✔")
+            issues, msg = func()
             if issues:
                 has_issues = True
                 messages.append(msg)
