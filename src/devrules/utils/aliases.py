@@ -26,8 +26,11 @@ ALIAS_MAP = {
     "add_functional_group": ["afg"],
     "set_cursor": ["sc"],
     "remove_functional_group": ["rfg"],
-    "clear_functional_groups": ["cfg"],
+    "clear_functional_groups": ["clfg"],
     "sync_cursor": ["scf"],
+    "config_edit": ["cfg", "conf"],
+    "config_get": ["cget"],
+    "config_set": ["cset"],
 }
 
 
