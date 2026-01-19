@@ -5,6 +5,7 @@ from collections import OrderedDict
 from typing import Callable, Tuple
 
 import typer
+from loguru import logger
 from yaspin import yaspin
 
 
@@ -37,6 +38,10 @@ def check_uncommitted_changes() -> Tuple[bool, str]:
         has_staged = result_staged.returncode != 0
         has_unstaged = result_unstaged.returncode != 0
         has_untracked = bool(result_untracked.stdout.strip())
+
+        logger.debug(
+            f"Repo state check: staged={has_staged}, unstaged={has_unstaged}, untracked={has_untracked}"
+        )
 
         if any([has_staged, has_unstaged, has_untracked]):
             changes = []
@@ -102,6 +107,7 @@ def check_behind_remote(branch: str = "HEAD") -> Tuple[bool, str]:
         )
 
         commits_behind = int(result.stdout.strip())
+        logger.debug(f"Commits behind remote '{branch}': {commits_behind}")
 
         if commits_behind > 0:
             message = f"Local branch is {commits_behind} commit(s) behind origin/{branch}"

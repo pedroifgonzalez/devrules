@@ -210,6 +210,15 @@ class PermissionsConfig:
 
 
 @dataclass
+class LoggingConfig:
+    """Logging configuration."""
+
+    enabled: bool = False
+    level: str = "WARNING"
+    format: Optional[str] = None
+
+
+@dataclass
 class CustomRulesConfig:
     """Configuration for custom validation rules."""
 
@@ -232,6 +241,7 @@ class Config:
     channel: ChannelConfig = field(default_factory=ChannelConfig)
     permissions: PermissionsConfig = field(default_factory=PermissionsConfig)
     custom_rules: CustomRulesConfig = field(default_factory=CustomRulesConfig)
+    logging: LoggingConfig = field(default_factory=LoggingConfig)
 
 
 DEFAULT_CONFIG = {
@@ -340,6 +350,11 @@ DEFAULT_CONFIG = {
     "custom_rules": {
         "paths": [],
         "packages": [],
+    },
+    "logging": {
+        "enabled": False,
+        "level": "WARNING",
+        "format": None,
     },
 }
 
@@ -527,6 +542,10 @@ def load_config(config_path: Optional[Path] = None) -> Config:
         packages=custom_rules_data.get("packages", []),
     )
 
+    # Parse logging config
+    logging_data = config_data.get("logging", {})
+    logging_config = LoggingConfig(**logging_data)
+
     return Config(
         branch=BranchConfig(**config_data["branch"]),
         commit=CommitConfig(**{**config_data["commit"], "pattern": commit_pattern}),
@@ -539,4 +558,5 @@ def load_config(config_path: Optional[Path] = None) -> Config:
         channel=channel_config,
         permissions=permissions_config,
         custom_rules=custom_rules_config,
+        logging=logging_config,
     )

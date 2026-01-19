@@ -4,6 +4,8 @@ import os
 import subprocess
 from typing import Tuple
 
+from loguru import logger
+
 
 def validate_branch_ownership(current_branch: str) -> Tuple[bool, str]:
     """Validate that the current user is allowed to commit on the given branch.
@@ -26,6 +28,8 @@ def validate_branch_ownership(current_branch: str) -> Tuple[bool, str]:
         text=True,
     )
     current_user = user_result.stdout.strip() or os.environ.get("USER", "")
+
+    logger.debug(f"Verifying ownership for branch '{current_branch}' by user '{current_user}'")
 
     if not current_user:
         return (
@@ -62,6 +66,7 @@ def validate_branch_ownership(current_branch: str) -> Tuple[bool, str]:
         return True, "New branch with no history after base — first commit allowed"
 
     branch_owner = authors[0]
+    logger.debug(f"Branch owner detected: {branch_owner}")
 
     if branch_owner != current_user:
         return (
@@ -74,8 +79,9 @@ def validate_branch_ownership(current_branch: str) -> Tuple[bool, str]:
 
 def _get_current_user() -> str:
     """Return the current Git user.name or fall back to OS USER."""
-
-    user_result = subprocess.run(["git", "config", "user.name"], capture_output=True, text=True)
+    cmd = ["git", "config", "user.name"]
+    logger.debug(f"Executing command: {' '.join(cmd)}")
+    user_result = subprocess.run(cmd, capture_output=True, text=True)
     current_user = user_result.stdout.strip() or os.environ.get("USER", "")
     return current_user
 
