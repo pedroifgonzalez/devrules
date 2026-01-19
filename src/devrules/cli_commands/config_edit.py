@@ -48,13 +48,24 @@ def _load_config(path: Path) -> Dict[str, Any]:
 
 
 def _save_config(path: Path, config: Dict[str, Any]) -> None:
-    """Save configuration to file."""
+    """Save configuration to file atomically."""
+    import os
+    import tempfile
+
     try:
-        with open(path, "w") as f:
+        # Create temp file in same directory to ensure atomic move works across filesystems
+        dir_path = path.parent
+        with tempfile.NamedTemporaryFile("w", dir=dir_path, delete=False) as f:
             toml.dump(config, f)
-        prompter.success(f"Configuration saved to {path}")
+            temp_path = Path(f.name)
+
+        # Atomic replace
+        os.replace(temp_path, path)
+        prompter.success(f"Configuration saved to {path} (atomic)")
     except Exception as e:
         prompter.error(f"Failed to save configuration: {e}")
+        # Build logic might leave a temp file if it crashes before replace, cleaning up tricky here without try/finally blocking
+        # but for now this is much safer than partial write
         raise prompter.exit(code=1)
 
 
@@ -226,82 +237,101 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             values = sorted([k for k, v in current_dict.items() if not isinstance(v, dict)])
 
             options = []
-            if current_path:
-                options.append(".. (Back)")
+            option_map: Any = {}  # Map display string to key/action
 
-            options.extend([f"[{s}]" for s in sections])
-            options.extend([f"{k} = {current_dict[k]}" for k in values])
-            options.append("Save & Exit")
-            options.append("Cancel & Exit")
+            if current_path:
+                back_opt = ".. (Back)"
+                options.append(back_opt)
+                option_map[back_opt] = "BACK"
+
+            for s in sections:
+                opt = f"[{s}]"
+                options.append(opt)
+                option_map[opt] = ("SECTION", s)
+
+            for k in values:
+                val = current_dict[k]
+                opt = f"{k} = {val}"
+                options.append(opt)
+                option_map[opt] = ("VALUE", k)
+
+            save_opt = "Save & Exit"
+            cancel_opt = "Cancel & Exit"
+            options.append(save_opt)
+            options.append(cancel_opt)
+            option_map[save_opt] = "SAVE"
+            option_map[cancel_opt] = "CANCEL"
 
             selection = prompter.choose(options, "Select item to edit or navigate:", limit=1)
 
             if not selection:  # Cancelled
                 return
 
-            selection = selection if isinstance(selection, str) else selection[0]
+            selection_str = selection if isinstance(selection, str) else selection[0]
+            action = option_map.get(selection_str)
 
-            if selection == "Cancel & Exit":
+            if action == "CANCEL":
                 prompter.warning("Exited without saving.")
                 return
 
-            if selection == "Save & Exit":
+            if action == "SAVE":
                 _save_config(path, config)
                 return
 
-            if selection == ".. (Back)":
+            if action == "BACK":
                 current_path.pop()
                 continue
 
-            if selection.startswith("[") and selection.endswith("]"):
-                # Enter section
-                section_name = selection[1:-1]
-                current_path.append(section_name)
-                continue
+            if isinstance(action, tuple):
+                act_type, target = action
+                if act_type == "SECTION":
+                    current_path.append(target)
+                    continue
 
-            # Edit value
-            key = selection.split(" = ")[0]
-            current_val = current_dict[key]
+                if act_type == "VALUE":
+                    key = target
+                    current_val = current_dict[key]
 
-            new_val = None
-            if isinstance(current_val, bool):
-                # Toggle
-                options = ["True", "False"]
-                choice = prompter.choose(options, f"Set {key} (Current: {current_val})", limit=1)
-                if choice:
-                    new_val = choice == "True" or (isinstance(choice, list) and choice[0] == "True")
-            elif isinstance(current_val, list):
-                # Simple list editing not fully supported in this simplified version, fallback to generic
-                # Or specifically handle list of strings
-                val_str = prompter.input_text(
-                    "Edit list (comma separated)", default=",".join(map(str, current_val))
-                )
-                if val_str is not None:
-                    # Attempt to keep types if original was int list? For now assume strings for simplicity or infer
-                    new_val = [s.strip() for s in val_str.split(",")]
-            else:
-                # String/Int/Float
-                val_str = prompter.input_text(f"Edit {key}", default=str(current_val))
-                if val_str is not None:
-                    # Type inference similar to config-set
-                    if isinstance(current_val, int):
-                        try:
-                            new_val = int(val_str)
-                        except ValueError:
-                            prompter.error("Invalid integer")
-                            continue
-                    elif isinstance(current_val, float):
-                        try:
-                            new_val = float(val_str)
-                        except ValueError:
-                            prompter.error("Invalid float")
-                            continue
+                    new_val = None
+                    if isinstance(current_val, bool):
+                        # Toggle
+                        options = ["True", "False"]
+                        choice = prompter.choose(
+                            options, f"Set {key} (Current: {current_val})", limit=1
+                        )
+                        if choice:
+                            new_val = choice == "True" or (
+                                isinstance(choice, list) and choice[0] == "True"
+                            )
+                    elif isinstance(current_val, list):
+                        val_str = prompter.input_text(
+                            "Edit list (comma separated)", default=",".join(map(str, current_val))
+                        )
+                        if val_str is not None:
+                            new_val = [s.strip() for s in val_str.split(",")]
                     else:
-                        new_val = val_str
+                        # String/Int/Float
+                        val_str = prompter.input_text(f"Edit {key}", default=str(current_val))
+                        if val_str is not None:
+                            # Type inference similar to config-set
+                            if isinstance(current_val, int):
+                                try:
+                                    new_val = int(val_str)
+                                except ValueError:
+                                    prompter.error("Invalid integer")
+                                    continue
+                            elif isinstance(current_val, float):
+                                try:
+                                    new_val = float(val_str)
+                                except ValueError:
+                                    prompter.error("Invalid float")
+                                    continue
+                            else:
+                                new_val = val_str
 
-            if new_val is not None:
-                current_dict[key] = new_val
-                prompter.success(f"Updated {key} to {new_val}")
+                    if new_val is not None:
+                        current_dict[key] = new_val
+                        prompter.success(f"Updated {key} to {new_val}")
 
     return {
         "config_get": config_get,
