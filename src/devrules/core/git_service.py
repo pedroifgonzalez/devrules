@@ -501,13 +501,16 @@ def push_branch(branch: str):
         return False, str(e)
 
 
-def check_changes_not_pushed() -> bool:
+def check_not_pushed_changes() -> bool:
     """Check if there are changes that have not been pushed."""
     try:
-        subprocess.run(
-            ["git", "status", "--porcelain"],
+        result = subprocess.run(
+            ["git", "status"],
             check=True,
+            text=True,
         )
+        if 'use "git push" to publish your local commits' in result.stdout:
+            return True
         return False
     except subprocess.CalledProcessError:
         return True
