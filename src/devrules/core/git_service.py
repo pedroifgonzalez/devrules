@@ -499,3 +499,15 @@ def push_branch(branch: str):
         )
     except subprocess.CalledProcessError as e:
         return False, str(e)
+
+
+def check_changes_not_pushed() -> bool:
+    """Check if there are changes that have not been pushed."""
+    try:
+        subprocess.run(
+            ["git", "status", "--porcelain"],
+            check=True,
+        )
+        return False
+    except subprocess.CalledProcessError:
+        return True
