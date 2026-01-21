@@ -502,14 +502,16 @@ def push_branch(branch: str):
 
 
 def check_not_pushed_changes() -> bool:
-    """Return True if there are commits not pushed to upstream."""
+    """
+    Return True if the current branch is ahead of its upstream.
+    """
     try:
         result = subprocess.run(
-            ["git", "rev-list", "--count", "--left-only", "@{u}...HEAD"],
+            ["git", "status", "-sb"],
             check=True,
             text=True,
             capture_output=True,
         )
-        return int(result.stdout.strip()) > 0
+        return "[ahead" in result.stdout
     except subprocess.CalledProcessError:
         return True
