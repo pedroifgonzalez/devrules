@@ -535,7 +535,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
     @app.command()
     def describe_issue(
-        issue: int = typer.Argument(..., help="Issue number (e.g. 123)"),
+        issue: int = typer.Option(None, "--issue", "-i", help="Issue number (e.g. 123)"),
         repo: Optional[str] = typer.Option(
             None,
             "--repo",
@@ -548,6 +548,18 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         ensure_gh_installed()
 
         config = load_config(None)
+
+        mapping_manager = get_issue_mapping_manager()
+        current_branch = get_current_branch()
+        branch_mapping = mapping_manager.get_mapping_by_branch(current_branch)
+
+        if branch_mapping:
+            issue = branch_mapping["issue_number"]
+
+        if not issue:
+            prompter.warning("Issue was not detected at current branch.")
+            prompter.error("Issue number must be provided via --issue.")
+            raise prompter.exit(code=1)
 
         # Determine repository
         if repo:
@@ -585,7 +597,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             )
             raise prompter.exit(code=1)
 
-        prompter.info(result.stdout)
+        prompter.indented_message(result.stdout)
 
     return {
         "update_issue_status": update_issue_status,
