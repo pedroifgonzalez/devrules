@@ -502,15 +502,14 @@ def push_branch(branch: str):
 
 
 def check_not_pushed_changes() -> bool:
-    """Check if there are changes that have not been pushed."""
+    """Return True if there are commits not pushed to upstream."""
     try:
         result = subprocess.run(
-            ["git", "status"],
+            ["git", "rev-list", "--count", "--left-only", "@{u}...HEAD"],
             check=True,
             text=True,
+            capture_output=True,
         )
-        if 'use "git push" to publish your local commits' in result.stdout:
-            return True
-        return False
+        return int(result.stdout.strip()) > 0
     except subprocess.CalledProcessError:
         return True
