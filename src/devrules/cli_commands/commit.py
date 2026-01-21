@@ -14,7 +14,12 @@ from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.config import Config, load_config
 from devrules.core.enum import DevRulesEvent
 from devrules.core.git_service import commit as _commit
-from devrules.core.git_service import get_current_branch, get_current_issue_number, stage_files
+from devrules.core.git_service import (
+    get_current_branch,
+    get_current_issue_number,
+    push_branch,
+    stage_files,
+)
 from devrules.messages import commit as msg
 from devrules.utils.decorators import emit_events, ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
@@ -265,6 +270,10 @@ def _perform_commit(message: str, config: Config, doc_contexts: list[Documentati
         prompter.error(msg.FAILED_TO_COMMIT_CHANGES.format(commit_message))
         raise prompter.exit(code=1)
     prompter.success(msg.COMMITTED_CHANGES)
+
+    if config.commit.auto_push:
+        prompter.info("Auto pushing commit...")
+        push_branch(get_current_branch())
 
     # Show documentation context after commit
     if doc_contexts:

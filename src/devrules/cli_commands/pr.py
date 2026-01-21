@@ -12,7 +12,7 @@ from devrules.adapters.prompters import Prompter
 from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.config import Config, load_config
 from devrules.core.enum import DevRulesEvent
-from devrules.core.git_service import get_current_branch, remote_branch_exists
+from devrules.core.git_service import get_current_branch, push_branch, remote_branch_exists
 from devrules.core.github_service import ensure_gh_installed, fetch_pr_info
 from devrules.messages import pr as msg
 from devrules.utils.decorators import emit_events, ensure_git_repo
@@ -192,10 +192,7 @@ def create_pr_internal(
     if auto_push:
         if not remote_branch_exists(current_branch):
             with yaspin(text=f"🚀 Pushing '{current_branch}'..."):
-                subprocess.run(
-                    ["git", "push", "-u", "origin", current_branch],
-                    check=True,
-                )
+                push_branch(branch=current_branch)
         else:
             prompter.info(f"Branch '{current_branch}' already exists on remote, skipping push.")
 

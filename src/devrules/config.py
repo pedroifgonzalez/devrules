@@ -45,6 +45,7 @@ class CommitConfig:
     forbidden_paths: list = field(default_factory=list)
     auto_stage: bool = False
     enable_ai_suggestions: bool = False
+    auto_push: bool = False
 
 
 @dataclass

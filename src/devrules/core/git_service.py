@@ -488,3 +488,14 @@ def checkout_branch(selected_branch: str) -> tuple[bool, str]:
         return True, f"Switched to branch '{selected_branch}'"
     except subprocess.CalledProcessError as e:
         return False, str(e)
+
+
+def push_branch(branch: str):
+    """Push a branch to remote."""
+    try:
+        subprocess.run(
+            ["git", "push", "-u", "origin", branch],
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        return False, str(e)

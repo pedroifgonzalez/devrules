@@ -243,6 +243,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 items = _fetch_project_items(owner, project_number)
                 issue_data = _get_issue_and_status_interactively(items)
                 selected_issue = int(issue_data.get("issue", 0))
+                issue = selected_issue
 
             with yaspin(text="Extracting information from issue"):
                 assert isinstance(selected_issue, int)
