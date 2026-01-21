@@ -257,14 +257,14 @@ def test_discovery_file_load_error(tmp_path, capsys):
     assert str(bad_file) in captured.out
 
 
-@patch("devrules.cli_commands.prompters.factory.get_default_prompter")
+@patch("devrules.adapters.prompters.factory.get_default_prompter")
 def test_prompt_for_rule_arguments_rule_not_found(mock_get_prompter):
     """Test prompt_for_rule_arguments when rule doesn't exist."""
     result = prompt_for_rule_arguments("nonexistent-rule")
     assert result == {}
 
 
-@patch("devrules.cli_commands.prompters.factory.get_default_prompter")
+@patch("devrules.adapters.prompters.factory.get_default_prompter")
 def test_prompt_for_rule_arguments_success(mock_get_prompter):
     """Test successful prompting for rule arguments."""
     mock_prompter = MagicMock()
@@ -283,7 +283,7 @@ def test_prompt_for_rule_arguments_success(mock_get_prompter):
     assert mock_prompter.input_text.call_count == 2
 
 
-@patch("devrules.cli_commands.prompters.factory.get_default_prompter")
+@patch("devrules.adapters.prompters.factory.get_default_prompter")
 def test_prompt_for_rule_arguments_with_ignore_defaults(mock_get_prompter):
     """Test prompting when rule has ignore_defaults=True."""
     mock_prompter = MagicMock()
@@ -303,7 +303,7 @@ def test_prompt_for_rule_arguments_with_ignore_defaults(mock_get_prompter):
     mock_prompter.input_text.assert_called_once()
 
 
-@patch("devrules.cli_commands.prompters.factory.get_default_prompter")
+@patch("devrules.adapters.prompters.factory.get_default_prompter")
 def test_prompt_for_rule_arguments_empty_input_error(mock_get_prompter):
     """Test prompting when user provides empty input for required parameter."""
     mock_prompter = MagicMock()

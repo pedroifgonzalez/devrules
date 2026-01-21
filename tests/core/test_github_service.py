@@ -170,7 +170,7 @@ class TestFetchPrInfo:
 
     @patch("requests.get")
     @patch.dict(os.environ, {"GH_TOKEN": "test-token"})
-    def test_fetch_pr_info_uses_timeout(self, mock_get, github_config, mock_pr_response):
+    def test_fetch_pr_info_uses_timeout(self, mock_get, mock_pr_response):
         """Test that fetch_pr_info respects the timeout configuration."""
         mock_response = MagicMock()
         mock_response.status_code = 200

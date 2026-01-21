@@ -31,7 +31,7 @@ class TestEnsureGitRepoDecorator(unittest.TestCase):
 
 
 class TestEmitEventsDecorator(unittest.TestCase):
-    @patch("devrules.cli_commands.prompters.factory.get_default_prompter")
+    @patch("devrules.adapters.prompters.factory.get_default_prompter")
     @patch("devrules.utils.decorators.attach_event")
     @patch("devrules.utils.decorators.prompt_for_rule_arguments")
     @patch("devrules.utils.decorators.execute_rule")
@@ -51,7 +51,7 @@ class TestEmitEventsDecorator(unittest.TestCase):
         mock_attach.assert_called_once_with(DevRulesEvent.PRE_COMMIT)
         mock_prompter.header.assert_not_called()
 
-    @patch("devrules.cli_commands.prompters.factory.get_default_prompter")
+    @patch("devrules.adapters.prompters.factory.get_default_prompter")
     @patch("devrules.utils.decorators.attach_event")
     @patch("devrules.utils.decorators.prompt_for_rule_arguments")
     @patch("devrules.utils.decorators.execute_rule")
@@ -80,7 +80,7 @@ class TestEmitEventsDecorator(unittest.TestCase):
         mock_execute.assert_called_once_with("test_rule", arg1="value1")
         mock_prompter.success.assert_called_once_with("Rule passed")
 
-    @patch("devrules.cli_commands.prompters.factory.get_default_prompter")
+    @patch("devrules.adapters.prompters.factory.get_default_prompter")
     @patch("devrules.utils.decorators.attach_event")
     @patch("devrules.utils.decorators.prompt_for_rule_arguments")
     @patch("devrules.utils.decorators.execute_rule")
@@ -105,7 +105,7 @@ class TestEmitEventsDecorator(unittest.TestCase):
         mock_prompter.error.assert_called_once_with("Rule failed")
         mock_prompter.exit.assert_called_once_with(1)
 
-    @patch("devrules.cli_commands.prompters.factory.get_default_prompter")
+    @patch("devrules.adapters.prompters.factory.get_default_prompter")
     @patch("devrules.utils.decorators.attach_event")
     @patch("devrules.utils.decorators.prompt_for_rule_arguments")
     @patch("devrules.utils.decorators.execute_rule")
@@ -124,7 +124,7 @@ class TestEmitEventsDecorator(unittest.TestCase):
         mock_prompt_args.return_value = {}
         mock_execute.return_value = (True, "Success\n")
 
-        @emit_events(DevRulesEvent.PRE_COMMIT)
+        @emit_events([DevRulesEvent.PRE_COMMIT])
         def test_func():
             return "done"
 

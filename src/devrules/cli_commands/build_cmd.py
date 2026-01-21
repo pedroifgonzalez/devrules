@@ -7,9 +7,10 @@ from typing import Any, Callable, Dict, List, Optional
 
 import toml
 import typer
+from loguru import logger
 from yaspin import yaspin
 
-from devrules.cli_commands.prompters.factory import get_default_prompter
+from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.config import load_config
 from devrules.enterprise.builder import EnterpriseBuilder
 
@@ -479,6 +480,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         except typer.Exit:
             raise
         except Exception as e:
+            logger.exception(f" Error: {e}")
             prompter.error(f" Error: {e}")
             raise prompter.exit(code=1)
 

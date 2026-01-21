@@ -184,7 +184,7 @@ def valid_usage_of_auto_detected_prompter() -> tuple[bool, str]:
 
         try:
             module_ast = ast.parse(path.read_text(encoding="utf-8"))
-        except Exception as e:
+        except (SyntaxError, UnicodeDecodeError, OSError) as e:
             offenders.append((rel_path, [f"parse error: {e}"]))
             continue
 
@@ -243,7 +243,7 @@ def valid_usage_of_headers_in_commands() -> tuple[bool, str]:
 
         try:
             module_ast = ast.parse(path.read_text(encoding="utf-8"))
-        except Exception:
+        except (SyntaxError, UnicodeDecodeError, OSError):
             missing_modules.append(rel_path)
             continue
 

@@ -32,6 +32,6 @@ repos:
         files: "^src/"
 
   - repo: https://github.com/adrienverge/yamllint.git
-    rev: v1.33.0  # Use the latest stable tag or revision
+    rev: v1.38.0
     hooks:
       - id: yamllint

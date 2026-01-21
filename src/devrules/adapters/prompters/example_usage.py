@@ -3,7 +3,7 @@
 This module demonstrates how to use the prompter factory and concrete implementations.
 """
 
-from devrules.cli_commands.prompters.factory import get_default_prompter
+from devrules.adapters.prompters.factory import get_default_prompter
 
 
 def example_basic_usage():
@@ -90,8 +90,8 @@ def example_filter():
 
 def example_force_strategy():
     """Example: Force a specific strategy."""
-    from devrules.cli_commands.prompters.gum_prompter import GumPrompter
-    from devrules.cli_commands.prompters.typer_prompter import TyperPrompter
+    from devrules.adapters.prompters.gum_prompter import GumPrompter
+    from devrules.adapters.prompters.typer_prompter import TyperPrompter
 
     # Try to use Gum
     gum_prompter = GumPrompter()

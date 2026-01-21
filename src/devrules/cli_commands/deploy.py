@@ -8,7 +8,7 @@ import typer
 from typer_di import Depends
 from yaspin import yaspin
 
-from devrules.cli_commands.prompters.factory import get_default_prompter
+from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.config import Config, load_config
 from devrules.core.deployment_service import check_deployment_readiness, execute_deployment
 from devrules.core.deployment_service import get_deployed_branch as _get_deployed_branch

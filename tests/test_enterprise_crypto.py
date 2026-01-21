@@ -159,8 +159,9 @@ class TestConfigCrypto:
         decrypted = crypto2.decrypt_field(encrypted)
         assert decrypted == original
 
-    def test_save_key_without_key_raises_error(self, tmp_path):
+    def test_save_key_without_key_raises_error(self, tmp_path, monkeypatch):
         """Test that save_key raises error when no key is set."""
+        monkeypatch.delenv("DEVRULES_ENTERPRISE_KEY", raising=False)
         crypto = ConfigCrypto(key=None)
         key_file = tmp_path / "test.key"
 

@@ -5,7 +5,7 @@ from typing import Optional
 import typer
 from typing_extensions import NoReturn
 
-from devrules.cli_commands.prompters import Prompter
+from devrules.adapters.prompters import Prompter
 
 
 class TyperPrompter(Prompter):

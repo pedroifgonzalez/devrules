@@ -6,8 +6,8 @@ import typer
 from typer_di import Depends
 from yaspin import yaspin
 
+from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.cli_commands.commons import _fetch_project_items, _get_issue_and_status_interactively
-from devrules.cli_commands.prompters.factory import get_default_prompter
 from devrules.config import Config, load_config
 from devrules.core.git_service import (
     checkout_branch,
@@ -20,7 +20,7 @@ from devrules.core.git_service import (
     get_merged_branches,
     handle_existing_branch,
     resolve_issue_branch,
-    sanitize_description,
+    sanitize_text,
 )
 from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
 from devrules.messages import branch as msg
@@ -97,7 +97,7 @@ def _get_branch_name_interactive(config: Config):
         raise prompter.exit(code=1)
 
     # Clean and format description
-    description = sanitize_description(description)
+    description = sanitize_text(description)
 
     if not description:
         prompter.error(git_msg.DESCRIPTION_SANITATION_ERROR)

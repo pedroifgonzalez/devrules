@@ -342,7 +342,7 @@ class TestEnterpriseConfigEdgeCases:
         # Mock EnterpriseConfig to use our temp directory
         original_init = config_module.EnterpriseConfig.__init__
 
-        def mock_init(self, package_dir=None):
+        def mock_init(self, __package_dir=None):
             original_init(self, package_dir=temp_enterprise_dir)
 
         monkeypatch.setattr(config_module.EnterpriseConfig, "__init__", mock_init)
@@ -365,7 +365,7 @@ class TestEnterpriseConfigEdgeCases:
 
         original_init = config_module.EnterpriseConfig.__init__
 
-        def mock_init(self, package_dir=None):
+        def mock_init(self, _package_dir=None):
             original_init(self, package_dir=temp_enterprise_dir)
 
         monkeypatch.setattr(config_module.EnterpriseConfig, "__init__", mock_init)
@@ -391,7 +391,7 @@ class TestEnterpriseConfigEdgeCases:
 
         original_init = config_module.EnterpriseConfig.__init__
 
-        def mock_init(self, package_dir=None):
+        def mock_init(self, _package_dir=None):
             original_init(self, package_dir=temp_enterprise_dir)
 
         monkeypatch.setattr(config_module.EnterpriseConfig, "__init__", mock_init)

@@ -104,6 +104,8 @@ class TestHistoryManager(unittest.TestCase):
         self.assertEqual(history, {})
 
     def test_load_io_error(self):
+        # Create a file first so the existence check passes
+        self.history_path.write_text("{}")
         with patch("builtins.open", side_effect=IOError("Permission denied")):
             history = self.manager._load_history()
             self.assertEqual(history, {})

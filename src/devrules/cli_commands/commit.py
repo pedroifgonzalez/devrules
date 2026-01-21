@@ -9,8 +9,8 @@ from yaspin.core import Yaspin
 from yaspin.spinners import Spinners
 
 from devrules.adapters.ai import diny
-from devrules.cli_commands.prompters import Prompter
-from devrules.cli_commands.prompters.factory import get_default_prompter
+from devrules.adapters.prompters import Prompter
+from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.config import Config, load_config
 from devrules.core.enum import DevRulesEvent
 from devrules.core.git_service import commit as _commit

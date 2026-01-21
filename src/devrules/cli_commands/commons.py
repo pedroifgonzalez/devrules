@@ -4,7 +4,7 @@ from typing import Dict, Optional
 
 from yaspin import yaspin
 
-from devrules.cli_commands.prompters.factory import get_default_prompter
+from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.core.project_service import list_project_items
 from devrules.validators.documentation import DocumentationContext
 
@@ -50,7 +50,7 @@ def _get_issue_and_status_interactively(items: list[Dict]) -> dict:
         prompter.error("No selected issue")
         raise prompter.exit(1)
 
-    issue, title = selected.split(".")
+    issue, title = selected.split(".", maxsplit=1)
     item_status = None
     for item in items:
         number = item.get("content", {}).get("number")
@@ -58,9 +58,6 @@ def _get_issue_and_status_interactively(items: list[Dict]) -> dict:
             continue
         if str(number) == issue:
             item_status = item.get("status")
-    if not item_status:
-        prompter.error("No issue number was found")
-        prompter.exit(1)
     return dict(issue=issue, item_title=title, item_status=item_status)
 
 

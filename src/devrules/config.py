@@ -7,9 +7,12 @@ from typing import Any, Dict, Optional
 import toml
 import typer
 
+from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.notifications import configure
 from devrules.notifications.channels.slack import SlackChannel, resolve_slack_channel
 from devrules.notifications.dispatcher import NotificationDispatcher
+
+prompter = get_default_prompter()
 
 
 @dataclass
@@ -393,20 +396,21 @@ def load_config(config_path: Optional[Path] = None) -> Config:
         if enterprise_mgr.is_enterprise_mode():
             # Verify integrity
             if not verify_enterprise_integrity():
-                print("⚠️  Warning: Enterprise configuration integrity check failed!")
-                print("   The configuration may have been tampered with.")
+                prompter.warning("Enterprise configuration integrity check failed!")
+                prompter.warning("The configuration may have been tampered with.")
 
             # Load enterprise config
             enterprise_config_data = enterprise_mgr.load_enterprise_config()
             is_locked = enterprise_mgr.is_locked()
 
             if enterprise_config_data and is_locked:
-                print("🔒 Enterprise mode: Using locked corporate configuration")
+                prompter.info("Enterprise mode: Using locked corporate configuration")
     except ImportError:
         # Enterprise module not available
         pass
     except Exception as e:
-        print(f"Warning: Error loading enterprise config: {e}")
+        prompter.error(f"Error loading enterprise config: {e}")
+        prompter.exit(code=1)
 
     # Load user configuration
     path: Optional[Path]
@@ -420,7 +424,8 @@ def load_config(config_path: Optional[Path] = None) -> Config:
         try:
             user_config_data = toml.load(path)
         except Exception as e:
-            print(f"Warning: Error loading user config file: {e}")
+            prompter.error(f"Error loading user config file:\n{e}")
+            prompter.exit(code=1)
 
     # Merge configurations with priority
     config_data: Dict[str, Any] = {}

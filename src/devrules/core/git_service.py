@@ -3,6 +3,7 @@
 import re
 import string
 import subprocess
+import unicodedata
 
 import typer
 from loguru import logger
@@ -96,13 +97,14 @@ def handle_existing_branch(branch_name: str) -> None:
         pass  # Branch doesn't exist, continue
 
 
-def sanitize_description(description: str) -> str:
-    """Clean and format branch description."""
-    description = description.lower().strip()
-    description = re.sub(r"[^a-z0-9-]", "-", description)
-    description = re.sub(r"-+", "-", description)  # Remove multiple hyphens
-    description = description.strip("-")  # Remove leading/trailing hyphens
-    return description
+def sanitize_text(text: str) -> str:
+    """Clean and format text."""
+    text = text.strip()
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("utf-8")
+    text = re.sub(r"[^a-z0-9-]", "-", text)
+    text = re.sub(r"-+", "-", text)  # Remove multiple hyphens
+    text = text.strip("-")  # Remove leading/trailing hyphens
+    return text
 
 
 def get_branch_name_interactive(config: Config) -> str:
@@ -152,7 +154,7 @@ def _get_branch_name_with_gum(config: Config) -> str:
         raise typer.Exit(code=1)
 
     # Clean and format description
-    description = sanitize_description(description)
+    description = sanitize_text(description)
 
     if not description:
         gum.error("Description cannot be empty after sanitization")
@@ -193,7 +195,7 @@ def _get_branch_name_with_typer(config: Config) -> str:
     description = typer.prompt("  Description")
 
     # Clean and format description
-    description = sanitize_description(description)
+    description = sanitize_text(description)
 
     if not description:
         typer.secho(msg.DESCRIPTION_CAN_NOT_BE_EMPTY, fg=typer.colors.RED)
@@ -245,7 +247,8 @@ def resolve_issue_branch(scope: str, project_item: ProjectItem, issue: int) -> s
     """
     translator = str.maketrans("", "", string.punctuation)
     sanitized = project_item.title.lower().translate(translator).split()
-    return f"{scope}/{issue}-{'-'.join(sanitized)}"
+    sanitized_words = [sanitize_text(word) for word in sanitized]
+    return f"{scope}/{issue}-{'-'.join(sanitized_words)}"
 
 
 def get_current_issue_number():

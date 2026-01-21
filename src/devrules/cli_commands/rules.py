@@ -5,8 +5,8 @@ from typing import Any, Callable, Dict, Optional
 
 import typer
 
-from devrules.cli_commands.prompters import Prompter
-from devrules.cli_commands.prompters.factory import get_default_prompter
+from devrules.adapters.prompters import Prompter
+from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.config import load_config
 from devrules.core.rules_engine import (
     RuleDefinition,

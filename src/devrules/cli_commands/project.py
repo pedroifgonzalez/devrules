@@ -6,8 +6,8 @@ from typing import Any, Callable, Dict, Optional
 import typer
 from yaspin import yaspin
 
+from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.cli_commands.commons import _fetch_project_items, _get_issue_and_status_interactively
-from devrules.cli_commands.prompters.factory import get_default_prompter
 from devrules.config import load_config
 from devrules.core.git_service import get_current_branch, get_current_issue_number
 from devrules.core.github_service import ensure_gh_installed
@@ -75,19 +75,17 @@ def _ask_for_integration_comment() -> Optional[str]:
         Optional[str]: The integration comment or None if cancelled.
     """
     add_typer_block_message(
-        header="📝 Please provide integration details for frontend colleagues:",
+        header="Please provide integration details for frontend colleagues:",
         subheader="Options:",
         messages=[
             "1. Type a simple comment directly",
             "2. Press Enter to open your editor for multi-line markdown",
         ],
     )
-    simple_comment = prompter.info(
-        "Comment (or press Enter for editor)", default="", show_default=False
-    ).strip()
+    simple_comment = prompter.input_text("Comment (or press Enter for editor)", default="")
 
     if simple_comment:
-        integration_comment = simple_comment
+        integration_comment = simple_comment.strip()
     else:
         integration_comment = prompter.write(
             "\n#! Add integration details below (markdown supported)\n#! Lines starting with #! will be ignored\n\n"

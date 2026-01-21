@@ -8,8 +8,8 @@ import typer
 from typer_di import Depends
 from yaspin import yaspin
 
-from devrules.cli_commands.prompters import Prompter
-from devrules.cli_commands.prompters.factory import get_default_prompter
+from devrules.adapters.prompters import Prompter
+from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.config import Config, load_config
 from devrules.core.enum import DevRulesEvent
 from devrules.core.git_service import get_current_branch, remote_branch_exists
@@ -163,7 +163,7 @@ def create_pr_internal(
     if config.pr.require_issue_status_check:
         from devrules.validators.pr import validate_pr_issue_status
 
-        with yaspin(text="🔍 Checking issue status...") as spinner:
+        with yaspin(text="Checking issue status...") as spinner:
             project_override = [project] if project else None
             is_valid, messages = validate_pr_issue_status(
                 current_branch,

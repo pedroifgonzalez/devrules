@@ -177,8 +177,8 @@ def execute_rule(name: str, *args, **kwargs) -> Tuple[bool, str]:
 
 def prompt_for_rule_arguments(rule_name: str) -> Dict[str, Any]:
     """Interactively prompt for rule arguments based on the rule's signature."""
-    from devrules.cli_commands.prompters import Prompter
-    from devrules.cli_commands.prompters.factory import get_default_prompter
+    from devrules.adapters.prompters import Prompter
+    from devrules.adapters.prompters.factory import get_default_prompter
 
     prompter: Prompter = get_default_prompter()
 

@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, Optional
 import typer
 from typer_di import Depends
 
-from devrules.cli_commands.prompters.factory import get_default_prompter
+from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.config import Config
 from devrules.core.git_service import get_current_branch
 from devrules.messages import commit as msg
