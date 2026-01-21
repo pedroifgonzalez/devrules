@@ -14,7 +14,12 @@ from devrules.core.deployment_service import check_deployment_readiness, execute
 from devrules.core.deployment_service import get_deployed_branch as _get_deployed_branch
 from devrules.core.deployment_service import rollback_deployment
 from devrules.core.enum import DevRulesEvent
-from devrules.core.git_service import get_author, get_current_branch, get_current_repo_name
+from devrules.core.git_service import (
+    check_not_pushed_changes,
+    get_author,
+    get_current_branch,
+    get_current_repo_name,
+)
 from devrules.core.permission_service import can_deploy_to_environment
 from devrules.messages import deploy as msg
 from devrules.notifications import emit
@@ -68,6 +73,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         5. Handle failures with rollback option
         """
         prompter.header("Deploy branch")
+
+        if check_not_pushed_changes():
+            prompter.warning("There are unpushed changes.")
+            response = prompter.confirm("Do you want to continue?", default=False)
+            if response is False:
+                raise prompter.exit(code=1)
 
         # Validate environment configuration
         if environment not in config.deployment.environments:
