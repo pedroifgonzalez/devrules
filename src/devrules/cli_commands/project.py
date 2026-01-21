@@ -11,6 +11,7 @@ from devrules.cli_commands.commons import _fetch_project_items, _get_issue_and_s
 from devrules.config import load_config
 from devrules.core.git_service import get_current_branch, get_current_issue_number
 from devrules.core.github_service import ensure_gh_installed
+from devrules.core.github_service import update_issue_status as _update_issue_status
 from devrules.core.permission_service import can_transition_status
 from devrules.core.project_service import (
     add_issue_comment,
@@ -337,33 +338,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         with yaspin(text="Get status option id..."):
             status_option_id = get_status_option_id(owner, project_number, status)
 
-        cmd = [
-            "gh",
-            "project",
-            "item-edit",
-            "--id",
-            item_id,
-            "--field-id",
-            status_field_id,
-            "--project-id",
-            project_id,
-            "--single-select-option-id",
-            status_option_id,
-        ]
-
-        try:
-            with yaspin(text="Updating status...", color="green"):
-                subprocess.run(
-                    cmd,
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                )
-        except subprocess.CalledProcessError as e:
-            prompter.error(
-                f"Failed to update project item status: {e}",
-            )
-            raise prompter.exit(1)
+        _update_issue_status(
+            item_id=item_id,
+            status_field_id=status_field_id,
+            project_id=project_id,
+            status_option_id=status_option_id,
+        )
 
         prompter.success(
             f"Updated status of project item for issue #{issue} to '{status}' (title: {final_item_title})",

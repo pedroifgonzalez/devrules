@@ -113,6 +113,9 @@ class EnvironmentConfig:
     default_branch: str
     jenkins_job_name: Optional[str] = None  # If None, uses repo name from github.repo
     pattern: Optional[str] = None
+    transition_status: Optional[str] = (
+        None  # Status to transition the current issue detected by branch
+    )
 
 
 @dataclass

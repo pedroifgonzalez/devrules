@@ -9,7 +9,7 @@ from typer_di import Depends
 from yaspin import yaspin
 
 from devrules.adapters.prompters.factory import get_default_prompter
-from devrules.config import Config, load_config
+from devrules.config import Config, EnvironmentConfig, load_config
 from devrules.core.deployment_service import check_deployment_readiness, execute_deployment
 from devrules.core.deployment_service import get_deployed_branch as _get_deployed_branch
 from devrules.core.deployment_service import rollback_deployment
@@ -20,11 +20,13 @@ from devrules.core.git_service import (
     get_current_branch,
     get_current_repo_name,
 )
+from devrules.core.github_service import update_issue_status
 from devrules.core.permission_service import can_deploy_to_environment
 from devrules.messages import deploy as msg
 from devrules.notifications import emit
 from devrules.notifications.events import DeployEvent
 from devrules.utils.decorators import emit_events, ensure_git_repo
+from devrules.utils.issue_mapping import get_issue_mapping_manager
 
 prompter = get_default_prompter()
 
@@ -89,7 +91,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             prompter.info(f"Available environments: {available}")
             raise prompter.exit(code=1)
 
-        env_config = config.deployment.environments[environment]
+        env_config: EnvironmentConfig = config.deployment.environments[environment]
 
         # Permission check for deployment (--force does NOT bypass this)
         is_permitted, permission_msg = can_deploy_to_environment(environment, config)
@@ -207,6 +209,23 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                         raise prompter.exit(1)
 
             raise prompter.exit(1)
+
+        if new_status := env_config.transition_status:
+            mapping_manager = get_issue_mapping_manager()
+            mapping = mapping_manager.get_mapping_by_branch(deployed_branch)
+            if not mapping:
+                raise prompter.exit(0)
+            prompter.info(f"Changing issue #{mapping.get('issue_number')} status to {new_status}")
+            fields = [
+                ("issue_id", "issue_number"),
+                ("status_field_id", mapping.get("status_field_id")),
+                ("status_option_id", mapping.get("status_option_id")),
+                ("project_id", mapping.get("project_id")),
+            ]
+            data = {}
+            for field in fields:
+                data[field] = mapping.get(field)
+            update_issue_status(**data)
 
     @app.command()
     @ensure_git_repo()

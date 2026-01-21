@@ -2,12 +2,17 @@
 
 import os
 import shutil
+import subprocess
 
 import requests
 import typer
+from yaspin import yaspin
 
+from devrules.cli_commands.commons import get_default_prompter
 from devrules.config import GitHubConfig
 from devrules.dtos.github import PRInfo
+
+prompter = get_default_prompter()
 
 
 def ensure_gh_installed() -> None:
@@ -42,3 +47,34 @@ def fetch_pr_info(owner: str, repo: str, pr_number: int, github_config: GitHubCo
         changed_files=data.get("changed_files", 0),
         title=data.get("title", ""),
     )
+
+
+def update_issue_status(item_id: str, status_field_id: str, project_id: str, status_option_id: str):
+    """Update the status of a project item on GitHub."""
+    cmd = [
+        "gh",
+        "project",
+        "item-edit",
+        "--id",
+        item_id,
+        "--field-id",
+        status_field_id,
+        "--project-id",
+        project_id,
+        "--single-select-option-id",
+        status_option_id,
+    ]
+
+    try:
+        with yaspin(text="Updating status...", color="green"):
+            subprocess.run(
+                cmd,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+    except subprocess.CalledProcessError as e:
+        prompter.error(
+            f"Failed to update project item status: {e}",
+        )
+        raise prompter.exit(1)
