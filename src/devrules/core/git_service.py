@@ -98,12 +98,12 @@ def handle_existing_branch(branch_name: str) -> None:
 
 
 def sanitize_text(text: str) -> str:
-    """Clean and format text."""
-    text = text.strip()
+    """Clean and format text (lowercase slug)."""
+    text = text.strip().lower()
     text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("utf-8")
     text = re.sub(r"[^a-z0-9-]", "-", text)
-    text = re.sub(r"-+", "-", text)  # Remove multiple hyphens
-    text = text.strip("-")  # Remove leading/trailing hyphens
+    text = re.sub(r"-+", "-", text)
+    text = text.strip("-")
     return text
 
 
