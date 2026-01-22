@@ -12,6 +12,7 @@ from devrules.adapters.prompters.factory import get_default_prompter
 
 prompter = get_default_prompter()
 console = Console()
+_MISSING = object()
 
 
 def _get_config_path() -> Path:
@@ -82,7 +83,7 @@ def _get_value(config: Dict[str, Any], path: str) -> Any:
     current = config
     for key in keys:
         if not isinstance(current, dict) or key not in current:
-            return None
+            return _MISSING
         current = current[key]
     return current
 
@@ -117,7 +118,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         if key_path:
             value = _get_value(config, key_path)
-            if value is None:
+            if value is _MISSING:
                 prompter.error(f"Key not found: {key_path}")
                 raise prompter.exit(code=1)
 
@@ -169,6 +170,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                         typed_value = value
 
         old_value = _get_value(config, key_path)
+        if old_value is _MISSING:
+            old_value = "<missing>"
 
         prompter.info(f"Path: {key_path}")
         prompter.info(f"Old Value: {old_value}")
@@ -193,7 +196,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         target = config
         if section:
             target = _get_value(config, section)
-            if target is None:
+            if target is _MISSING:
                 prompter.error(f"Section not found: {section}")
                 raise prompter.exit(code=1)
 

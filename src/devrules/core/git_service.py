@@ -380,7 +380,7 @@ def get_author() -> str:
 
 def get_files_difference_between_branches_in_path(
     repo_path: str, path: str, base_branch: str, target_branch: str
-):
+) -> list[str]:
     try:
         result = subprocess.run(
             [
@@ -450,7 +450,7 @@ def get_default_branch() -> str:
     return "main"  # Default fallback
 
 
-def stage_files():
+def stage_files() -> bool:
     """Stage all files for commit."""
     try:
         subprocess.run(
@@ -461,8 +461,9 @@ def stage_files():
             ],
             check=True,
         )
+        return True
     except subprocess.CalledProcessError:
-        return
+        return False
 
 
 def commit(message: str, config: Config):
@@ -476,7 +477,7 @@ def commit(message: str, config: Config):
     options.append(message)
     try:
         subprocess.run(["git", "commit", *options], check=True)
-        return True, "Changes commited"
+        return True, "Changes committed"
     except subprocess.CalledProcessError as e:
         return False, str(e)
 

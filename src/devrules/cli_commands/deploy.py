@@ -130,7 +130,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         if environment not in config.deployment.environments:
             available = ", ".join(config.deployment.environments.keys())
             prompter.error(
-                "Environment '{environment}' not configured",
+                f"Environment '{environment}' not configured",
             )
             prompter.info(f"Available environments: {available}")
             raise prompter.exit(code=1)
@@ -161,13 +161,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             deployed_branch = _get_deployed_branch(environment, config)
             spinner.stop()
 
-        if deployed_branch:
-            prompter.info(f"Currently deployed: {deployed_branch}")
-        else:
-            prompter.warning(
-                f"Could not determine deployed branch, assuming: {env_config.default_branch}",
-            )
-            deployed_branch = env_config.default_branch
+        if not deployed_branch:
+            prompter.error(f"Could not determine deployed branch for '{environment}'")
+            raise prompter.exit(1)
+        prompter.info(f"Currently deployed: {deployed_branch} on {environment}")
 
         # Step 3: Check deployment readiness
         if not skip_checks:
@@ -211,7 +208,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         if success:
             prompter.success(message)
-            with yaspin(text="💬 Emitting deployment event...") as spinner:
+            with yaspin(text="Emitting deployment event...") as spinner:
                 author = get_author()
                 repo = config.github.repo or get_current_repo_name()
                 spinner.stop()

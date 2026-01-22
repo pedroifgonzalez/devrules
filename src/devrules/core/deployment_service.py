@@ -236,7 +236,7 @@ def get_deployed_branch(environment: str, config: Config) -> Optional[str]:
 
         typer.secho("Only multibranch pipelines are supported", fg=typer.colors.RED)
         return None
-    except Exception as e:
+    except requests.RequestException as e:
         typer.secho(f"Error fetching Jenkins data: {e}", fg=typer.colors.RED)
         return None
 

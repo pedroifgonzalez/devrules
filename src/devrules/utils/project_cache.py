@@ -123,6 +123,9 @@ _global_project_cache_manager: Optional[ProjectCacheManager] = None
 def get_project_cache_manager(storage_path: Optional[str] = None) -> ProjectCacheManager:
     """Get global project cache manager"""
     global _global_project_cache_manager
-    if _global_project_cache_manager is None:
+    if _global_project_cache_manager is None or (
+        storage_path is not None
+        and str(_global_project_cache_manager.storage_path) != os.path.expanduser(storage_path)
+    ):
         _global_project_cache_manager = ProjectCacheManager(storage_path=storage_path)
     return _global_project_cache_manager

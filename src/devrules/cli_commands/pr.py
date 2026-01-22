@@ -65,12 +65,11 @@ def select_base_branch_interactive(
     if suggested in allowed_targets:
         allowed_targets = [suggested] + [b for b in allowed_targets if b != suggested]
 
-    no_duplicates_targets = set(allowed_targets)
-    if current_branch in no_duplicates_targets:
-        no_duplicates_targets.remove(current_branch)
+    # Remove current branch while preserving order
+    no_duplicates_targets = [b for b in allowed_targets if b != current_branch]
 
     selected = prompter.choose(
-        list(no_duplicates_targets),
+        no_duplicates_targets,
         header="Select Target Branch",
     )
 
@@ -216,7 +215,7 @@ def create_pr_internal(
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
         prompter.error(msg.FAILED_TO_CREATE_PR.format(e))
-        raise prompter.exit(code=1)
+        raise prompter.exit(code=1) from e
 
     prompter.success(f"Created pull request: {title}")
 

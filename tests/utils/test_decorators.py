@@ -36,7 +36,7 @@ class TestEmitEventsDecorator(unittest.TestCase):
     @patch("devrules.utils.decorators.prompt_for_rule_arguments")
     @patch("devrules.utils.decorators.execute_rule")
     def test_emit_events_no_custom_rules(
-        self, mock_execute, mock_prompt_args, mock_attach, mock_get_prompter
+        self, _mock_execute, _mock_prompt_args, mock_attach, mock_get_prompter
     ):
         mock_prompter = MagicMock()
         mock_get_prompter.return_value = mock_prompter

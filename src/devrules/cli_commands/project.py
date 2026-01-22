@@ -140,6 +140,8 @@ def _ask_for_evidence(issue: str) -> None:
         if not confirm:
             prompter.error("Cancelled.")
             raise prompter.exit(0)
+        prompter.info("Continuing without evidence.")
+        return None
 
     prompter.info("Evidence assets found, continuing...")
     return None
@@ -329,6 +331,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             integration_comment = _ask_for_integration_comment()
 
         if status == config.github.require_evidence_status:
+            if issue is None:
+                prompter.error("Issue number is required to collect evidence for this status")
+                prompter.exit(code=1)
             _ask_for_evidence(issue=str(issue))
 
         with yaspin(text="Get project id..."):
@@ -485,7 +490,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             ]
         else:
             if status is not None:
-                prompter.choose(
+                prompter.error(
                     "--status can only be used together with --project.",
                 )
                 raise prompter.exit(code=1)

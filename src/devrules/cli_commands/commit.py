@@ -97,11 +97,11 @@ def _validate_commit(spinner: Yaspin, message: str, config: Config):
         prompter.exit: if commit message is invalid
     """
     is_valid, result_message = validate_commit(message, config.commit)
-    spinner.ok("✔")
     if not is_valid:
         spinner.fail("✘")
         prompter.error(result_message)
         raise prompter.exit(code=1)
+    spinner.ok("✔")
 
 
 @inject_spinner(Spinners.dots, text="Checking issue number...")
@@ -167,8 +167,8 @@ def _validate_branch_protection(spinner: Yaspin, current_branch: str, config: Co
     """
     if config.commit.protected_branch_prefixes:
         for prefix in config.commit.protected_branch_prefixes:
-            spinner.stop()
             if current_branch.count(prefix):
+                spinner.fail("✘")
                 prompter.error(
                     msg.CANNOT_COMMIT_TO_PROTECTED_BRANCH.format(current_branch, prefix),
                 )

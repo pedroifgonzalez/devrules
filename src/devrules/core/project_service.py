@@ -658,8 +658,8 @@ def show_issue_on_web(issue: str) -> bool:
     """Open an issue on the web using GitHub CLI."""
     cmd = ["gh", "issue", "view", issue, "--web"]
     try:
-        result = subprocess.run(cmd, capture_output=True, check=True, text=True)
-        return True if result.returncode == 0 else False
+        subprocess.run(cmd, capture_output=True, check=True, text=True)
+        return True
     except Exception as e:
         typer.secho(f"Error opening issue on web: {e}", fg=typer.colors.RED)
         return False
