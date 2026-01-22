@@ -22,6 +22,12 @@ from devrules.core.git_service import (
 )
 from devrules.core.github_service import update_issue_status
 from devrules.core.permission_service import can_deploy_to_environment
+from devrules.core.project_service import (
+    get_project_id,
+    get_status_field_id,
+    get_status_option_id,
+    resolve_project_number,
+)
 from devrules.messages import deploy as msg
 from devrules.notifications import emit
 from devrules.notifications.events import DeployEvent
@@ -29,6 +35,43 @@ from devrules.utils.decorators import emit_events, ensure_git_repo
 from devrules.utils.issue_mapping import get_issue_mapping_manager
 
 prompter = get_default_prompter()
+
+
+def _update_deploy_issue_status(branch: str, new_status: str):
+    """Update issue using deployment environment status set after deploy"""
+    mapping_manager = get_issue_mapping_manager()
+    mapping = mapping_manager.get_mapping_by_branch(branch)
+    if not mapping:
+        raise prompter.exit(0)
+
+    issue_id = mapping.get("issue_number")
+    project_key = mapping.get("project_key")
+
+    if not all([issue_id, project_key]):
+        raise prompter.exit(code=1)
+
+    owner, project_number = resolve_project_number(project_key)
+    if not all((issue_id, project_key, owner)):
+        raise prompter.exit(code=1)
+
+    with yaspin(text="Get project id..."):
+        project_id = get_project_id(owner, project_number)
+    with yaspin(text="Get status field id..."):
+        status_field_id = get_status_field_id(owner, project_number)
+    with yaspin(text="Get status option id..."):
+        status_option_id = get_status_option_id(owner, project_number, new_status)
+
+    data = {
+        "issue_id": issue_id,
+        "status_field_id": status_field_id,
+        "status_option_id": status_option_id,
+        "project_id": project_id,
+    }
+    if not all(data.values()):
+        raise prompter.exit(code=1)
+
+    prompter.info(f"Changing issue #{mapping.get('issue_number')} status to {new_status}...")
+    update_issue_status(**data)
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
@@ -129,7 +172,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         if not skip_checks:
             with yaspin(text="Checking migration conflicts..."):
                 is_ready, message = check_deployment_readiness(
-                    repo_path, branch, environment, config
+                    repo_path=repo_path,
+                    branch=branch,
+                    environment=environment,
+                    config=config,
+                    deployed_branch=deployed_branch,
                 )
 
             if not is_ready:
@@ -181,6 +228,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             prompter.info(
                 f"You can monitor the deployment at: {config.deployment.jenkins_url}/job/{env_config.jenkins_job_name.split('/')[0]}/job/{urllib.parse.quote(branch, safe='')}/"
             )
+            if new_status := env_config.transition_status:
+                _update_deploy_issue_status(new_status=new_status, branch=branch)
         else:
             prompter.error(
                 f"Deployment failed: {message}",
@@ -209,23 +258,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                         raise prompter.exit(1)
 
             raise prompter.exit(1)
-
-        if new_status := env_config.transition_status:
-            mapping_manager = get_issue_mapping_manager()
-            mapping = mapping_manager.get_mapping_by_branch(deployed_branch)
-            if not mapping:
-                raise prompter.exit(0)
-            prompter.info(f"Changing issue #{mapping.get('issue_number')} status to {new_status}")
-            fields = [
-                ("issue_id", "issue_number"),
-                ("status_field_id", mapping.get("status_field_id")),
-                ("status_option_id", mapping.get("status_option_id")),
-                ("project_id", mapping.get("project_id")),
-            ]
-            data = {}
-            for field in fields:
-                data[field] = mapping.get(field)
-            update_issue_status(**data)
 
     @app.command()
     @ensure_git_repo()
