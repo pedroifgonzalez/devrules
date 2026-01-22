@@ -50,19 +50,29 @@ def emit_events(*events: DevRulesEvent) -> Callable[[Callable[P, T]], Callable[P
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             """Decorator that ensures the function is being called from within a Git repository."""
-            custom_rules: list[RuleDefinition] = []
-            for event in events:
-                custom_rules.extend(attach_event(event))
-            prompter.header("Running custom rules...") if custom_rules else None
-            for custom_rule in custom_rules:
-                prompter.info(f"Running custom rule: {custom_rule.name}")
-                prompted_kwargs = prompt_for_rule_arguments(custom_rule.name)
-                valid, message = execute_rule(custom_rule.name, **prompted_kwargs)
-                if not valid:
-                    prompter.error(message)
-                    prompter.exit(1)
-                prompter.success(message.strip("\n"))
-            return func(*args, **kwargs)
+
+            def _run_events(selected_events: tuple[DevRulesEvent, ...]) -> None:
+                custom_rules: list[RuleDefinition] = []
+                for event in selected_events:
+                    custom_rules.extend(attach_event(event))
+                if custom_rules:
+                    prompter.header("Running custom rules...")
+                for custom_rule in custom_rules:
+                    prompter.info(f"Running custom rule: {custom_rule.name}")
+                    prompted_kwargs = prompt_for_rule_arguments(custom_rule.name)
+                    valid, message = execute_rule(custom_rule.name, **prompted_kwargs)
+                    if not valid:
+                        prompter.error(message)
+                        prompter.exit(1)
+                    prompter.success(message.strip("\n"))
+
+            pre_events = tuple(e for e in events if not e.value.startswith("post_"))
+            post_events = tuple(e for e in events if e.value.startswith("post_"))
+
+            _run_events(pre_events)
+            result = func(*args, **kwargs)
+            _run_events(post_events)
+            return result
 
         return cast(Callable[P, T], wrapper)
 
