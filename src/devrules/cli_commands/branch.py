@@ -141,10 +141,10 @@ def _handle_forbidden_cross_repo_card(gh_project_item: Any, config: Any, repo_me
         prompter.error(
             msg.CROSS_REPO_CARD_FORBIDDEN.format(actual, expected),
         )
-        prompter.exit(code=1)
+        raise prompter.exit(code=1)
     except Exception:
         prompter.error(repo_message)
-        prompter.exit(code=1)
+        raise prompter.exit(code=1)
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:

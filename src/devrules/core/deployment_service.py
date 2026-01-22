@@ -9,8 +9,11 @@ from typing import List, Optional, Tuple
 import requests
 import typer
 
+from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.config import Config, EnvironmentConfig
 from devrules.core.git_service import get_files_difference_between_branches_in_path
+
+prompter = get_default_prompter()
 
 
 def get_jenkins_auth(config: Config) -> Tuple[Optional[str], Optional[str]]:
@@ -22,11 +25,10 @@ def get_jenkins_auth(config: Config) -> Tuple[Optional[str], Optional[str]]:
     user = config.deployment.jenkins_user or os.getenv("JENKINS_USER")
     token = config.deployment.jenkins_token or os.getenv("JENKINS_TOKEN")
     if not user or not token:
-        typer.secho(
-            "⚠ No authentication credentials found",
-            fg=typer.colors.YELLOW,
+        prompter.error(
+            "No authentication credentials found",
         )
-        raise typer.Exit(code=1)
+        raise prompter.exit(code=1)
     return user, token
 
 

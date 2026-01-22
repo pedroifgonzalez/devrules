@@ -1,5 +1,6 @@
 """Configuration management for DevRules."""
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -432,7 +433,7 @@ def load_config(config_path: Optional[Path] = None) -> Config:
             prompter.exit(code=1)
 
     # Merge configurations with priority
-    config_data: Dict[str, Any] = {}
+    config_data: Dict[str, Any] = deepcopy(DEFAULT_CONFIG)
 
     # Apply user config if not locked by enterprise
     if user_config_data and not is_locked:

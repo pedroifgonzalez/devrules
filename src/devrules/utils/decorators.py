@@ -36,7 +36,7 @@ def ensure_git_repo() -> Callable[[Callable[P, T]], Callable[P, T]]:
     return decorator
 
 
-def emit_events(*events: DevRulesEvent) -> Callable[[Callable[P, T]], Callable[P, T]]:
+def emit_events(events: list[DevRulesEvent]) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """
     Decorator that emits an event for running custom rules hooked to that event
     """

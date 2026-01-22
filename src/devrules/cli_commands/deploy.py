@@ -86,7 +86,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     """
 
     @app.command()
-    @emit_events(DevRulesEvent.PRE_DEPLOY, DevRulesEvent.POST_DEPLOY)
+    @emit_events([DevRulesEvent.PRE_DEPLOY, DevRulesEvent.POST_DEPLOY])
     @ensure_git_repo()
     def deploy(
         environment: str = typer.Argument(..., help="Target environment (dev, staging, prod)"),

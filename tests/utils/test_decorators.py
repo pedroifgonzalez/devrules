@@ -42,7 +42,7 @@ class TestEmitEventsDecorator(unittest.TestCase):
         mock_get_prompter.return_value = mock_prompter
         mock_attach.return_value = []
 
-        @emit_events(DevRulesEvent.PRE_COMMIT)
+        @emit_events([DevRulesEvent.PRE_COMMIT])
         def test_func(arg):
             return arg * 2
 
@@ -68,7 +68,7 @@ class TestEmitEventsDecorator(unittest.TestCase):
         mock_prompt_args.return_value = {"arg1": "value1"}
         mock_execute.return_value = (True, "Rule passed")
 
-        @emit_events(DevRulesEvent.PRE_COMMIT)
+        @emit_events([DevRulesEvent.PRE_COMMIT])
         def test_func():
             return "success"
 
@@ -97,7 +97,7 @@ class TestEmitEventsDecorator(unittest.TestCase):
         mock_prompt_args.return_value = {}
         mock_execute.return_value = (False, "Rule failed")
 
-        @emit_events(DevRulesEvent.PRE_COMMIT)
+        @emit_events([DevRulesEvent.PRE_COMMIT])
         def test_func():
             return "should not reach"
 

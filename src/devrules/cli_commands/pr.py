@@ -230,7 +230,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     """Register PR commands."""
 
     @app.command()
-    @emit_events(DevRulesEvent.PRE_PR)
+    @emit_events([DevRulesEvent.PRE_PR])
     @ensure_git_repo()
     def create_pr(
         base: str = typer.Option("develop", "--base", "-b"),

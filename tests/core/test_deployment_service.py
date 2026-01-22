@@ -7,7 +7,6 @@ from urllib import parse
 
 import pytest
 import requests
-from click.exceptions import Exit
 from git import Repo
 
 from devrules.config import Config, EnvironmentConfig
@@ -375,8 +374,14 @@ def test_get_deployed_branch(
             config.github.repo = ""
         case "Not auth set (user)":
             config.deployment.jenkins_user = None
+            with pytest.raises(SystemExit):
+                get_deployed_branch(env, config)
+            return
         case "Not auth set (token)":
             config.deployment.jenkins_token = None
+            with pytest.raises(SystemExit):
+                get_deployed_branch(env, config)
+            return
         case "No multibranch pipeline set":
             config.deployment.multibranch_pipeline = False
         case "Response error":
@@ -605,7 +610,7 @@ def test_execute_deployment_fails(case: str, expected_message: str, config: Conf
             config.deployment.jenkins_user = ""
             config.deployment.jenkins_token = ""
 
-            with pytest.raises(Exit):
+            with pytest.raises(SystemExit):
                 execute_deployment(branch="test-branch", environment="dev", config=config)
             return
         case "Response raises error (404)":
