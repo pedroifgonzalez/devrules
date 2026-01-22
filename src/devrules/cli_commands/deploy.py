@@ -20,7 +20,6 @@ from devrules.core.git_service import (
     get_current_branch,
     get_current_repo_name,
 )
-from devrules.core.github_service import update_issue_status
 from devrules.core.permission_service import can_deploy_to_environment
 from devrules.core.project_service import (
     get_project_id,
@@ -39,6 +38,8 @@ prompter = get_default_prompter()
 
 def _update_deploy_issue_status(branch: str, new_status: str):
     """Update issue using deployment environment status set after deploy"""
+    from devrules.core.github_service import update_issue_status
+
     mapping_manager = get_issue_mapping_manager()
     mapping = mapping_manager.get_mapping_by_branch(branch)
     if not mapping:

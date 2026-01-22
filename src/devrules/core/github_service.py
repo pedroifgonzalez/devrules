@@ -8,7 +8,7 @@ import requests
 import typer
 from yaspin import yaspin
 
-from devrules.cli_commands.commons import get_default_prompter
+from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.config import GitHubConfig
 from devrules.dtos.github import PRInfo
 
