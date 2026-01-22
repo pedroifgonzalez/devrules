@@ -333,7 +333,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         if status == config.github.require_evidence_status:
             if issue is None:
                 prompter.error("Issue number is required to collect evidence for this status")
-                prompter.exit(code=1)
+                raise prompter.exit(code=1)
             _ask_for_evidence(issue=str(issue))
 
         with yaspin(text="Get project id..."):
@@ -468,7 +468,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                         prompter.error(
                             f"Failed to run gh command for project '{key}': {e}",
                         )
-                        raise prompter.exit(code=1)
+                        raise prompter.exit(code=1) from e
 
                     print_project_items(result.stdout, assignee, label, status)
 

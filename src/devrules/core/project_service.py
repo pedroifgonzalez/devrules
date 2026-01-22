@@ -659,10 +659,11 @@ def show_issue_on_web(issue: str) -> bool:
     cmd = ["gh", "issue", "view", issue, "--web"]
     try:
         subprocess.run(cmd, capture_output=True, check=True, text=True)
-        return True
-    except Exception as e:
+    except subprocess.CalledProcessError as e:
         typer.secho(f"Error opening issue on web: {e}", fg=typer.colors.RED)
         return False
+    else:
+        return True
 
 
 def get_issue_evidence(issue: str) -> list[str]:
@@ -698,7 +699,7 @@ def get_issue_evidence(issue: str) -> list[str]:
             f"gh command failed: {e.stderr or e}",
             fg=typer.colors.RED,
         )
-    except Exception as e:
+    except (json.JSONDecodeError, KeyError) as e:
         typer.secho(
             f"Error getting issue evidence: {e}",
             fg=typer.colors.RED,

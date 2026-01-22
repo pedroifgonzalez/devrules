@@ -77,7 +77,7 @@ def select_base_branch_interactive(
         prompter.warning(f"No branch selected, using suggested: {suggested}")
         return suggested
 
-    return selected
+    return selected if isinstance(selected, str) else selected[0]
 
 
 def run_pr_validations(
@@ -290,7 +290,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         try:
             pr_number_selected = int(pr_number_selected)
-        except ValueError:
+        except (ValueError, TypeError):
             pr_number_selected = None
 
         if not pr_number_selected:
@@ -308,7 +308,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             except Exception as e:
                 spinner.stop()
                 prompter.error(str(e))
-                raise prompter.exit(code=1)
+                raise prompter.exit(code=1) from e
 
         prompter.info(f"PR Title: {pr_info.title}")
         prompter.info(f"Total LOC: {pr_info.additions + pr_info.deletions}")
@@ -319,7 +319,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             try:
                 current_branch = get_current_branch()
             except Exception:
-                pass
+                current_branch = None  # Explicit fallback, branch detection failed
 
         is_valid, messages = validate_pr(
             pr_info,

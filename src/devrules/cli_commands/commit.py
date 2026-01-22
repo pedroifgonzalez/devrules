@@ -140,8 +140,8 @@ def _validate_forbidden_files(spinner: Yaspin, skip_checks: bool, config: Config
             forbidden_paths=config.commit.forbidden_paths,
             check_staged=True,
         )
-        spinner.ok("✔")
         if not is_valid:
+            spinner.fail("✘")
             add_typer_block_message(
                 header=msg.FORBIDDEN_FILES_DETECTED,
                 subheader=validation_message,
@@ -151,6 +151,7 @@ def _validate_forbidden_files(spinner: Yaspin, skip_checks: bool, config: Config
                 use_separator=False,
             )
             raise prompter.exit(code=1)
+        spinner.ok("✔")
 
 
 @inject_spinner(Spinners.dots, text="Validating protected branches...")
@@ -273,7 +274,10 @@ def _perform_commit(message: str, config: Config, doc_contexts: list[Documentati
 
     if config.commit.auto_push:
         prompter.info("Auto pushing commit...")
-        push_branch(get_current_branch())
+        success, message = push_branch(get_current_branch())
+        if not success:
+            prompter.error(message)
+            raise prompter.exit(code=1)
 
     # Show documentation context after commit
     if doc_contexts:

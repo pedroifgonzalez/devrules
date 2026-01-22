@@ -10,6 +10,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from loguru import logger
+
 
 @dataclass
 class ProjectCacheEntry:
@@ -59,7 +61,7 @@ class ProjectCacheManager:
             with open(self.storage_path, "w") as f:
                 json.dump(cache, f, indent=2)
         except IOError:
-            pass
+            logger.error(f"Failed to save cache to {self.storage_path}")
 
     def get_project_id(self, owner: str, project_number: str) -> Optional[str]:
         """Get project ID from cache"""
@@ -123,9 +125,10 @@ _global_project_cache_manager: Optional[ProjectCacheManager] = None
 def get_project_cache_manager(storage_path: Optional[str] = None) -> ProjectCacheManager:
     """Get global project cache manager"""
     global _global_project_cache_manager
-    if _global_project_cache_manager is None or (
-        storage_path is not None
-        and str(_global_project_cache_manager.storage_path) != os.path.expanduser(storage_path)
-    ):
+    if _global_project_cache_manager is None:
         _global_project_cache_manager = ProjectCacheManager(storage_path=storage_path)
+    elif storage_path is not None:
+        expanded = os.path.expanduser(storage_path)
+        if str(_global_project_cache_manager.storage_path) != expanded:
+            _global_project_cache_manager = ProjectCacheManager(storage_path=storage_path)
     return _global_project_cache_manager

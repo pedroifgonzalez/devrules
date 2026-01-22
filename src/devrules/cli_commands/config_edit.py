@@ -53,6 +53,7 @@ def _save_config(path: Path, config: Dict[str, Any]) -> None:
     import os
     import tempfile
 
+    temp_path = None
     try:
         # Create temp file in same directory to ensure atomic move works across filesystems
         dir_path = path.parent
@@ -62,12 +63,19 @@ def _save_config(path: Path, config: Dict[str, Any]) -> None:
 
         # Atomic replace
         os.replace(temp_path, path)
+        temp_path = None  # Clear so finally doesn't remove the target
         prompter.success(f"Configuration saved to {path} (atomic)")
     except Exception as e:
         prompter.error(f"Failed to save configuration: {e}")
         # Build logic might leave a temp file if it crashes before replace, cleaning up tricky here without try/finally blocking
         # but for now this is much safer than partial write
-        raise prompter.exit(code=1)
+        raise prompter.exit(code=1) from e
+    finally:
+        if temp_path is not None and temp_path.exists():
+            try:
+                temp_path.unlink()
+            except OSError:
+                pass
 
 
 def _check_locked(config: Dict[str, Any]) -> None:
@@ -98,7 +106,9 @@ def _set_value(config: Dict[str, Any], path: str, value: Any) -> None:
         current = current[key]
         if not isinstance(current, dict):
             # Cannot traverse through non-dict
-            raise ValueError(f"Key '{keys[i]}' is not a dictionary section")
+            raise TypeError(
+                f"Cannot traverse '{keys[i]}': expected dict, got {type(current).__name__}"
+            )
 
     current[keys[-1]] = value
 
@@ -330,7 +340,17 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                             "Edit list (comma separated)", default=",".join(map(str, current_val))
                         )
                         if val_str is not None:
-                            new_val = [s.strip() for s in val_str.split(",")]
+                            # Attempt to preserve numeric types
+                            new_val = []
+                            for s in val_str.split(","):
+                                s = s.strip()
+                                try:
+                                    new_val.append(int(s))
+                                except ValueError:
+                                    try:
+                                        new_val.append(float(s))
+                                    except ValueError:
+                                        new_val.append(s)
                     else:
                         # String/Int/Float
                         val_str = prompter.input_text(f"Edit {key}", default=str(current_val))

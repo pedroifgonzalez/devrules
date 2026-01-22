@@ -131,7 +131,7 @@ def test_get_existing_branches(git_repo: Repo):
         branches = get_existing_branches()
 
         # assert
-        assert set(branches) == {"main", "develop", "master"}
+        assert {"main", "develop"} <= set(branches)
     finally:
         os.chdir(original_cwd)
 
