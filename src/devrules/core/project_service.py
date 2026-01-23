@@ -8,11 +8,14 @@ from typing import Optional, Tuple
 
 import typer
 
+from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.config import load_config
 from devrules.dtos.github import ProjectItem
 from devrules.utils.project_cache import get_project_cache_manager
 
 VIDEO_EXTENSIONS = (".mp4", ".webm", ".gif")
+
+prompter = get_default_prompter()
 
 
 def extract_media_urls(text: str) -> list[str]:
@@ -58,12 +61,12 @@ def resolve_project_number(project: str) -> Tuple[str, str]:
         raw_value = projects_map.get(project_str)
 
         if raw_value is None:
-            available = ", ".join(sorted(projects_map.keys())) or "<none>"
-            typer.secho(
-                f"✘ Unknown project key '{project_str}'. Available keys: {available}",
-                fg=typer.colors.RED,
+            prompter.warning(
+                f"Unknown project key '{project_str}'",
             )
-            raise typer.Exit(code=1)
+            available_projects = list(projects_map.keys())
+            selected_project = prompter.choose(available_projects)
+            raw_value = projects_map.get(selected_project)
 
         match = __import__("re").search(r"(\d+)", str(raw_value))
         if match:
@@ -686,9 +689,6 @@ def get_issue_evidence(issue: str) -> list[str]:
         )
 
         data = json.loads(result.stdout)
-
-        # Issue body
-        evidence.extend(extract_media_urls(data.get("body", "")))
 
         # Comments
         for comment in data.get("comments", []):
