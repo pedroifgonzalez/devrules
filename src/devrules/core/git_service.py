@@ -482,9 +482,11 @@ def commit(message: str, config: Config):
         return False, str(e)
 
 
-def checkout_branch(selected_branch: str) -> tuple[bool, str]:
+def checkout_branch(selected_branch: str, fetch_first: bool = False) -> tuple[bool, str]:
     """Checkout a branch"""
     try:
+        if fetch_first:
+            subprocess.run(["git", "fetch", selected_branch], check=True)
         subprocess.run(["git", "checkout", selected_branch], check=True)
         return True, f"Switched to branch '{selected_branch}'"
     except subprocess.CalledProcessError as e:

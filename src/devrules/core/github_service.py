@@ -78,3 +78,30 @@ def update_issue_status(item_id: str, status_field_id: str, project_id: str, sta
             f"Failed to update project item status: {e}",
         )
         raise prompter.exit(1)
+
+
+def link_branch_to_issue(issue: int, branch_name: str) -> tuple[bool, str]:
+    """Link a branch to an issue on GitHub."""
+    cmd = [
+        "gh",
+        "issue",
+        "develop",
+        str(issue),
+        "--name",
+        branch_name,
+    ]
+    try:
+        with yaspin(text="Linking branch to issue...", color="green"):
+            subprocess.run(
+                cmd,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+    except subprocess.CalledProcessError as e:
+        prompter.error(
+            f"Failed to link branch to issue: {e}",
+        )
+        raise prompter.exit(1)
+
+    return True, "Branch linked to issue successfully."
