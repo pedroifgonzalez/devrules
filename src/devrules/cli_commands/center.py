@@ -354,13 +354,16 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     ):
         """Interactive Work Center (alias: wc)."""
         prompter = get_default_prompter()
-        prompter.header("Work Center - Main Menu")
 
         done = False
         while not done:
             choice = prompter.choose(
                 ["Pending Issues", "New Comments"],
+                header="Work Center - Main Menu",
             )
+            if not choice:
+                done = True
+                break
             if choice == "Pending Issues":
                 _handle_pending_issues(config, project)
             elif choice == "New Comments":
