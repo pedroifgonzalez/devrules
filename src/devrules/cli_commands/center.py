@@ -69,14 +69,13 @@ def _handle_pending_issues(config: Config, project_filter: Optional[str] = None)
                 excluded_statuses=config.github.excluded_work_statuses,
                 project_filter=project_filter,
             )
+            cached_issues.extend(issues)
     else:
         issues = cached_issues
 
     if not issues:
         prompter.info("No actionable issues found.")
         return
-
-    cached_issues.extend(issues)
 
     issue_options = {_format_issue_for_list(issue, config): issue for issue in issues}
     selected_label = prompter.filter_list(
@@ -88,6 +87,7 @@ def _handle_pending_issues(config: Config, project_filter: Optional[str] = None)
     if not selected_label:
         return
 
+    issue_options = {k.strip(): v for k, v in issue_options.items()}
     issue = issue_options[selected_label]
 
     action = prompter.choose(
