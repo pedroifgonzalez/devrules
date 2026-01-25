@@ -74,6 +74,7 @@ class GitHubConfig:
     timeout: int = 30
     owner: Optional[str] = None
     repo: Optional[str] = None
+    token: Optional[str] = None
     projects: dict = field(default_factory=dict)
     valid_statuses: list = field(default_factory=list)
     integration_comment_status: str = "Waiting Integration"
@@ -81,6 +82,9 @@ class GitHubConfig:
     status_emojis: dict = field(default_factory=dict)
     project_cache_enabled: bool = False
     project_cache_path: Optional[str] = None
+    excluded_work_statuses: list = field(default_factory=lambda: ["Blocked", "Waiting Integration"])
+    start_work_status: str = "In Progress"
+    recent_comments_hours: int = 24
 
     def _validate(self):
         """Validate the configuration."""
@@ -325,6 +329,9 @@ DEFAULT_CONFIG = {
         "status_emojis": {},
         "project_cache_enabled": False,
         "project_cache_path": None,
+        "excluded_work_statuses": ["Blocked", "Waiting Integration"],
+        "start_work_status": "In Progress",
+        "recent_comments_hours": 24,
     },
     "deployment": {
         "jenkins_url": "",

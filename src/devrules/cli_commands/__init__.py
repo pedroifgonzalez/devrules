@@ -13,6 +13,7 @@ from typer_di import TyperDI
 from devrules.cli_commands import (
     branch,
     build_cmd,
+    center,
     commit,
     config_cmd,
     config_edit,
@@ -42,6 +43,7 @@ namespace.update(build_cmd.register(app))
 namespace.update(deploy.register(app))
 namespace.update(group.register(app))
 namespace.update(rules.register(app))
+namespace.update(center.register(app))
 
 
 register_command_aliases(app, namespace)

@@ -22,7 +22,6 @@ from devrules.core.git_service import (
     resolve_issue_branch,
     sanitize_text,
 )
-from devrules.core.github_service import link_branch_to_issue
 from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
 from devrules.messages import branch as msg
 from devrules.messages import git as git_msg
@@ -307,11 +306,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             mapping_manager.add_mapping(int(issue), final_branch_name, project_number)
 
         # Create and checkout branch
-        if issue:
-            link_branch_to_issue(issue, final_branch_name)
-            checkout_branch(final_branch_name)
-        else:
-            create_and_checkout_branch(final_branch_name)
+        # TODO: complete branch linking
+        # if issue:
+        #     link_branch_to_issue(issue, final_branch_name)
+        #     checkout_branch(final_branch_name)
+        # else:
+        create_and_checkout_branch(final_branch_name)
 
     @app.command()
     @ensure_git_repo()
