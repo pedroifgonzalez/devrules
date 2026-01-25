@@ -98,6 +98,9 @@ def link_branch_to_issue(issue: int, branch_name: str) -> tuple[bool, str]:
                 capture_output=True,
                 text=True,
             )
+            subprocess.run(
+                ["git", "config", f"branch.{branch_name}.owner", "$(git config user.name)"]
+            )
     except subprocess.CalledProcessError as e:
         prompter.error(
             f"Failed to link branch to issue: {e}",
