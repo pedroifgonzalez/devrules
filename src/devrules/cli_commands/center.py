@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, Optional
 
 import typer
 from typer_di import Depends
+from typing_extensions import DefaultDict
 from yaspin import yaspin
 
 from devrules.adapters.prompters.factory import get_default_prompter
@@ -64,12 +65,12 @@ def _handle_pending_issues(config: Config, project_filter: Optional[str] = None)
 
     issues = []
     if not cached_issues:
-        with yaspin(text="Fetching actionable issues..."):
-            issues = gh.get_my_actionable_issues(
-                excluded_statuses=config.github.excluded_work_statuses,
-                project_filter=project_filter,
-            )
-            cached_issues.extend(issues)
+        prompter.info("Fetching actionable issues...")
+        issues = gh.get_my_actionable_issues(
+            excluded_statuses=config.github.excluded_work_statuses,
+            project_filter=project_filter,
+        )
+        cached_issues.extend(issues)
     else:
         issues = cached_issues
 
@@ -77,7 +78,13 @@ def _handle_pending_issues(config: Config, project_filter: Optional[str] = None)
         prompter.info("No actionable issues found.")
         return
 
-    issue_options = {_format_issue_for_list(issue, config): issue for issue in issues}
+    sorted_issues, status_issues = [], DefaultDict(list)
+    for issue in issues:
+        status_issues[issue.status].append(issue)
+    for _, iss in status_issues.items():
+        sorted_issues.extend(iss)
+
+    issue_options = {_format_issue_for_list(issue, config): issue for issue in sorted_issues}
     selected_label = prompter.filter_list(
         list(issue_options.keys()),
         placeholder="Search issues...",
