@@ -59,6 +59,14 @@ valid_statuses = [ "Backlog", "Ready", "In progress", "Waiting Integration", "Te
 integration_comment_status = "Waiting Integration"
 require_evidence_status = "Tech Lead Review"
 
+# Work Center Settings
+# List of status names to exclude from the work center view
+excluded_work_statuses = ["Blocked", "Waiting Integration"]
+# The status to set when starting work on an issue
+start_work_status = "In Progress"
+# Number of hours to look back for "new" comments (e.g., 24 for last day)
+recent_comments_hours = 24
+
 [github.status_emojis]
 backlog = "📋"
 ready = "🚀"

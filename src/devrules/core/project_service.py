@@ -429,13 +429,15 @@ def get_project_item_title_by_id(owner: str, project_number: str, item_id: str) 
     raise typer.Exit(code=1)
 
 
-def add_issue_comment(owner: str, repo: str, issue: int, comment: str) -> None:
+def add_issue_comment(
+    owner: str, repo: str, issue: int, comment: str, title: str = "Integration Details"
+) -> None:
     """Add a comment to a GitHub issue using gh CLI."""
 
     if comment.strip().startswith("#"):
         body = comment
     else:
-        body = f"## 🔄 Integration Details\n\n{comment}"
+        body = f"## {title}\n\n{comment}"
 
     repo_full = f"{owner}/{repo}"
 
@@ -707,3 +709,47 @@ def get_issue_evidence(issue: str) -> list[str]:
 
     # Remove duplicates while preserving order
     return list(dict.fromkeys(evidence))
+
+
+def update_issue_status(owner: str, project_number: str, item_id: str, status: str) -> None:
+    """Update the Status field of a GitHub Project item.
+
+    Args:
+        owner: The repository owner
+        project_number: The project number
+        item_id: The project item ID
+        status: The new status name
+    """
+    project_id = get_project_id(owner, project_number)
+    status_field_id = get_status_field_id(owner, project_number)
+    status_option_id = get_status_option_id(owner, project_number, status)
+
+    cmd = [
+        "gh",
+        "project",
+        "item-edit",
+        "--id",
+        item_id,
+        "--field-id",
+        status_field_id,
+        "--project-id",
+        project_id,
+        "--single-select-option-id",
+        status_option_id,
+    ]
+
+    try:
+        subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        typer.secho(
+            f"✘ Failed to update project item status: {e}",
+            fg=typer.colors.RED,
+        )
+        if e.stderr:
+            typer.echo(e.stderr)
+        raise typer.Exit(code=1)

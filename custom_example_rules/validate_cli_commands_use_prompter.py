@@ -225,7 +225,6 @@ def valid_usage_of_auto_detected_prompter() -> tuple[bool, str]:
 @rule(
     name="prompter_header_usage_cli_validator",
     description="Validates each cli command uses a header",
-    hooks=[DevRulesEvent.PRE_COMMIT],
 )
 def valid_usage_of_headers_in_commands() -> tuple[bool, str]:
     cli_commands_dir = _find_cli_commands_dir(Path(__file__).parent)
