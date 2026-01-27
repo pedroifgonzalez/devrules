@@ -31,7 +31,7 @@ def _format_issue_for_list(issue: GitHubIssue, config: Config) -> str:
         else "•"
     )
     project_part = f"[{issue.project_name}]" if issue.project_name else ""
-    return f"#{issue.number} {emoji} {issue.title} {project_part}"
+    return f"#{issue.number} {emoji} [{issue.repo_name}] {issue.title} {project_part}"
 
 
 def _format_comment_for_list(comment: GitHubComment) -> str:
@@ -186,6 +186,8 @@ def _view_details(issue: GitHubIssue):
     """Action: View issue details in terminal."""
     prompter = get_default_prompter()
     cmd = ["gh", "issue", "view", str(issue.number)]
+    if issue.owner and issue.repo_name:
+        cmd.extend(["-R", f"{issue.owner}/{issue.repo_name}"])
     try:
         subprocess.run(cmd)
     except Exception as e:

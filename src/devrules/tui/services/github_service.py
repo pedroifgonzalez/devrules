@@ -23,6 +23,8 @@ class GitHubIssue:
     branch_name: Optional[str] = None
     status: Optional[str] = None
     project_name: Optional[str] = None
+    repo_name: Optional[str] = None
+    owner: Optional[str] = None
 
 
 @dataclass
@@ -239,6 +241,10 @@ class GitHubService:
                     else:
                         label_names.append(str(label))
 
+                repo = item["content"].get("repository", "").split("/", maxsplit=1)
+                owner, repo_name = "", ""
+                if len(repo) == 2:
+                    owner, repo_name = repo[0], repo[1]
                 issue = GitHubIssue(
                     number=number,
                     title=content.get("title", ""),
@@ -248,6 +254,8 @@ class GitHubService:
                     url=content.get("url", ""),
                     status=status,
                     project_name=p_key,
+                    repo_name=repo_name,
+                    owner=owner,
                 )
                 issues.append(issue)
 
