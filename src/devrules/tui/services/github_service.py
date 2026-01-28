@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 import requests
+from loguru import logger
 
 
 @dataclass
@@ -22,6 +23,8 @@ class GitHubIssue:
     branch_name: Optional[str] = None
     status: Optional[str] = None
     project_name: Optional[str] = None
+    repo_name: Optional[str] = None
+    owner: Optional[str] = None
 
 
 @dataclass
@@ -140,7 +143,8 @@ class GitHubService:
             data = response.json()
             self._auth_user_cache = data.get("login")
             return self._auth_user_cache
-        except requests.RequestException:
+        except requests.RequestException as e:
+            logger.error(e)
             return None
 
     def get_my_actionable_issues(
@@ -159,73 +163,103 @@ class GitHubService:
         if not user:
             return []
 
-        # 1. Fetch all open issues assigned to me
-        url = f"{self.base_url}/repos/{self.owner}/{self.repo}/issues"
-        params = {"state": "open", "assignee": user, "per_page": "100"}
+        from devrules.config import load_config
+        from devrules.core.project_service import list_project_items, resolve_project_number
 
-        try:
-            response = requests.get(url, headers=self._get_headers(), params=params, timeout=10)
-            response.raise_for_status()
-            raw_issues = response.json()
-        except requests.RequestException:
-            return []
+        config = load_config(None)
+        projects_map = config.github.projects
 
-        # 2. Integrate with project service to get status for each issue
-        from devrules.core.project_service import (
-            find_project_item_for_issue,
-            resolve_project_number,
-        )
+        projects_to_check = []
+        if project_filter:
+            if project_filter in projects_map:
+                projects_to_check.append(project_filter)
+            else:
+                # If key not found, maybe it's a number, but resolve_project_number expects keys for mapping.
+                # branch.py logic mostly relies on keys.
+                # But let's try to search if it matches.
+                projects_to_check.append(project_filter)
+        else:
+            projects_to_check = list(projects_map.keys())
 
         issues = []
-        for item in raw_issues:
-            if "pull_request" in item:
+        seen_numbers = set()
+
+        for p_key in projects_to_check:
+            try:
+                owner, p_num = resolve_project_number(p_key)
+                items = list_project_items(owner, p_num)
+            except Exception:
                 continue
 
-            issue = GitHubIssue(
-                number=item["number"],
-                title=item["title"],
-                state=item["state"],
-                labels=[label["name"] for label in item.get("labels", [])],
-                assignee=item["assignee"]["login"] if item.get("assignee") else None,
-                url=item["html_url"],
-            )
-
-            # We need to find which project this issue belongs to if we want status
-            # For now, let's assume we check the project_filter or all projects in config
-            from devrules.config import load_config
-
-            config = load_config()
-            projects_to_check = []
-            if project_filter:
-                projects_to_check = [project_filter]
-            else:
-                projects_to_check = list(config.github.projects.keys())
-
-            found_in_any_project = False
-            for p_key in projects_to_check:
-                try:
-                    owner, p_num = resolve_project_number(p_key)
-                    project_item = find_project_item_for_issue(owner, p_num, issue.number)
-                    if project_item:
-                        issue.status = project_item.status
-                        issue.project_name = p_key
-                        found_in_any_project = True
-                        break
-                except Exception:
-                    # Issue might not be in this project
+            for item in items:
+                content = item.get("content", {})
+                if not content or content.get("type") != "Issue":
                     continue
 
-            # Filter by excluded statuses
-            if issue.status in excluded_statuses:
-                continue
+                # Check assignee
+                # Assignees can be on top-level item or inside content
+                assignees = item.get("assignees", [])
+                if not assignees:
+                    assignees = content.get("assignees", [])
 
-            # If project_filter was provided, only include if found in that project
-            if project_filter and not found_in_any_project:
-                continue
+                is_assigned = False
+                for a in assignees:
+                    # API can return dict or string depending on version/parsing
+                    login = a.get("login") if isinstance(a, dict) else str(a)
+                    if login == user:
+                        is_assigned = True
+                        break
 
-            issues.append(issue)
+                if not is_assigned:
+                    continue
 
-        return issues
+                status = item.get("status")
+                if status in excluded_statuses:
+                    continue
+
+                # Check state to filter out closed issues
+                # 'state' is usually "OPEN" or "CLOSED" in content
+                state = content.get("state", "OPEN").lower()
+                if state == "closed":
+                    continue
+
+                number = content.get("number")
+                if not number:
+                    continue
+
+                if number in seen_numbers:
+                    continue
+                seen_numbers.add(number)
+
+                # Extract labels
+                labels = item.get("labels", [])
+                # Sometimes labels are strings, sometimes dicts
+                label_names = []
+                for label in labels:
+                    if isinstance(label, dict):
+                        label_names.append(label.get("name", ""))
+                    else:
+                        label_names.append(str(label))
+
+                repo = item["content"].get("repository", "").split("/", maxsplit=1)
+                owner, repo_name = "", ""
+                if len(repo) == 2:
+                    owner, repo_name = repo[0], repo[1]
+                issue = GitHubIssue(
+                    number=number,
+                    title=content.get("title", ""),
+                    state=state,
+                    labels=label_names,
+                    assignee=user,
+                    url=content.get("url", ""),
+                    status=status,
+                    project_name=p_key,
+                    repo_name=repo_name,
+                    owner=owner,
+                )
+                issues.append(issue)
+
+        return sorted(issues, key=lambda x: x.number, reverse=True)
 
     def get_recent_comments(self, hours: int = 24) -> List[GitHubComment]:
         """Fetch recent comments on issues assigned to the current user.
