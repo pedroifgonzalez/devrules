@@ -504,6 +504,7 @@ def push_branch(branch: str) -> tuple[bool, str]:
         subprocess.run(
             ["git", "push", "-u", "origin", branch],
             check=True,
+            text=False,
         )
         return True, f"Pushed branch '{branch}'"
     except subprocess.CalledProcessError as e:

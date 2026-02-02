@@ -281,6 +281,7 @@ def _perform_commit(message: str, config: Config, doc_contexts: list[Documentati
             if not success:
                 prompter.error(message)
                 raise prompter.exit(code=1)
+            spinner.ok("Auto pushed commit")
 
     # Show documentation context after commit
     if doc_contexts:
