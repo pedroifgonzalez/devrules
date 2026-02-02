@@ -22,6 +22,7 @@ from devrules.core.git_service import (
 )
 from devrules.messages import commit as msg
 from devrules.utils.decorators import emit_events, ensure_git_repo
+from devrules.utils.spinner_ctx import set_spinner
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.commit import validate_commit
 from devrules.validators.documentation import (
@@ -274,11 +275,12 @@ def _perform_commit(message: str, config: Config, doc_contexts: list[Documentati
     prompter.success(msg.COMMITTED_CHANGES)
 
     if config.commit.auto_push:
-        prompter.info("Auto pushing commit...")
-        success, message = push_branch(get_current_branch())
-        if not success:
-            prompter.error(message)
-            raise prompter.exit(code=1)
+        with yaspin(text="Auto pushing commit...") as spinner:
+            set_spinner(spinner)
+            success, message = push_branch(get_current_branch())
+            if not success:
+                prompter.error(message)
+                raise prompter.exit(code=1)
 
     # Show documentation context after commit
     if doc_contexts:

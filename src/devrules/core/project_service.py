@@ -12,6 +12,7 @@ from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.config import load_config
 from devrules.dtos.github import ProjectItem
 from devrules.utils.project_cache import get_project_cache_manager
+from devrules.utils.spinner_ctx import update_spinner_text
 
 VIDEO_EXTENSIONS = (".mp4", ".webm", ".gif")
 
@@ -183,7 +184,7 @@ def select_single_item_for_issue(items, issue: int):
 
 def find_project_item_for_issue(owner: str, project_number: str, issue: int) -> ProjectItem:
     """Wrapper around gh project item-list to find item by issue number."""
-
+    update_spinner_text("Finding project item for issue...")
     cmd = [
         "gh",
         "project",
@@ -723,7 +724,7 @@ def update_issue_status(owner: str, project_number: str, item_id: str, status: s
     project_id = get_project_id(owner, project_number)
     status_field_id = get_status_field_id(owner, project_number)
     status_option_id = get_status_option_id(owner, project_number, status)
-
+    update_spinner_text("Updating issue status")
     cmd = [
         "gh",
         "project",

@@ -13,13 +13,15 @@ from devrules.config import Config
 from devrules.dtos.github import ProjectItem
 from devrules.messages import git as msg
 from devrules.utils import gum
+from devrules.utils.spinner_ctx import update_spinner_text
 from devrules.utils.typer import add_typer_block_message
 
 
 def ensure_git_repo() -> None:
     """Ensure we are in a git repository."""
     try:
-        logger.debug("Checking if current directory is a git repository")
+        update_spinner_text("Checking if current directory is a git repository")
+        logger.debug("Running git rev-parse --git-dir")
         subprocess.run(["git", "rev-parse", "--git-dir"], check=True, capture_output=True)
     except subprocess.CalledProcessError:
         typer.secho(msg.NOT_A_GIT_REPOSITORY, fg=typer.colors.RED)
@@ -29,7 +31,8 @@ def ensure_git_repo() -> None:
 def get_current_branch() -> str:
     """Get the name of the current git branch."""
     try:
-        logger.debug("Getting current branch name")
+        update_spinner_text("Getting current branch name")
+        logger.debug("Running git rev-parse --abbrev-ref HEAD")
         result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
             check=True,
@@ -45,6 +48,8 @@ def get_current_branch() -> str:
 def get_existing_branches() -> list[str]:
     """Get list of existing local branches."""
     try:
+        update_spinner_text("Getting existing branches")
+        logger.debug("Running git for-each-ref --format=%(refname:short) refs/heads/")
         result = subprocess.run(
             ["git", "for-each-ref", "--format=%(refname:short)", "refs/heads/"],
             capture_output=True,

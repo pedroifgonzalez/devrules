@@ -8,6 +8,8 @@ from typing import List, Optional
 import requests
 from loguru import logger
 
+from devrules.utils.spinner_ctx import update_spinner_text
+
 
 @dataclass
 class GitHubIssue:
@@ -130,6 +132,7 @@ class GitHubService:
         Returns:
             User login or None if authentication fails
         """
+        update_spinner_text("Fetching user information...")
         if self._auth_user_cache:
             return self._auth_user_cache
 

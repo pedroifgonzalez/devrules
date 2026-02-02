@@ -19,6 +19,7 @@ from devrules.core.project_service import (
 )
 from devrules.tui.services.github_service import GitHubComment, GitHubIssue, GitHubService
 from devrules.utils.decorators import ensure_git_repo
+from devrules.utils.spinner_ctx import set_spinner
 
 
 def _format_issue_for_list(issue: GitHubIssue, config: Config) -> str:
@@ -65,12 +66,13 @@ def _handle_pending_issues(config: Config, project_filter: Optional[str] = None)
 
     issues = []
     if not cached_issues:
-        prompter.info("Fetching actionable issues...")
-        issues = gh.get_my_actionable_issues(
-            excluded_statuses=config.github.excluded_work_statuses,
-            project_filter=project_filter,
-        )
-        cached_issues.extend(issues)
+        with yaspin(text="Fetching actionable issues...") as spinner:
+            set_spinner(spinner)
+            issues = gh.get_my_actionable_issues(
+                excluded_statuses=config.github.excluded_work_statuses,
+                project_filter=project_filter,
+            )
+            cached_issues.extend(issues)
     else:
         issues = cached_issues
 
@@ -131,7 +133,10 @@ def _start_working(issue: GitHubIssue, config: Config):
 
         # Redoing lookup to get item_id if we didn't store it
         # Actually, let's assume we need to find it.
-        with yaspin(text="Updating issue status..."):
+        with yaspin(
+            text=f"Updating issue status (Using {config.github.start_work_status})..."
+        ) as spinner:
+            set_spinner(spinner)
             project_item = find_project_item_for_issue(owner, p_num, issue.number)
             update_issue_status(owner, p_num, project_item.id, config.github.start_work_status)
 
