@@ -378,7 +378,7 @@ def find_config_file() -> Optional[Path]:
     """Search for config file in current directory and parent directories."""
     current = Path.cwd()
 
-    config_names = [".devrules.toml", "devrules.toml", ".devrules"]
+    config_names = [".devrules.toml", "devrules.toml"]
 
     for parent in [current] + list(current.parents):
         for name in config_names:
