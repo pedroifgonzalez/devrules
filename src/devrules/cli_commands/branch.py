@@ -608,9 +608,6 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 prompter.indented_message("4. Complete merge: git commit")
                 prompter.indented_message("5. Continue merging remaining branches manually")
                 prompter.warning(f"Integration branch '{branch_name}' is partially complete.")
-                prompter.info(
-                    f"Remaining branches to merge: {', '.join(branches_to_integrate[branches_to_integrate.index(branch)+1:])}"
-                )
                 raise prompter.exit(code=1)
             prompter.success(f"Merged '{branch}' successfully")
 
