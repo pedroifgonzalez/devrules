@@ -561,7 +561,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         for branch in branches_to_integrate:
             issue = _extract_issue_number(branch_name=branch)
             if issue:
-                suggested_name += f"-{issue}"
+                suggested_name += f"-{issue}" if branch != branches_to_integrate[0] else f"/{issue}"
 
         kwargs = {
             "placeholder": "Type a branch name...",
