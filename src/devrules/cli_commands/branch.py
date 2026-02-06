@@ -39,8 +39,17 @@ from devrules.validators.repo_state import display_repo_state_issues, validate_r
 prompter = get_default_prompter()
 
 
-def checkout_branch_interactive() -> None:
+def checkout_branch_interactive(branch: str | None = None) -> None:
     """Interactively select and checkout a branch."""
+    if branch:
+        result, message = checkout_branch(branch)
+        if result is True:
+            prompter.success(message)
+        else:
+            prompter.error(f"Failed to checkout branch: {message}")
+            raise prompter.exit(code=1)
+        return
+
     current_branch = get_current_branch()
     branches = get_existing_branches()
 
@@ -476,10 +485,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @ensure_git_repo()
     def switch_branch(
         _: Config = Depends(get_config),
+        branch: str = typer.Option("branch", "--branch", "-b", help="Branch name"),
     ):
         """Interactively switch to another branch (alias: sb)."""
         prompter.header("Switch branch")
-        checkout_branch_interactive()
+        checkout_branch_interactive(branch)
 
     return {
         "check_branch": check_branch,
