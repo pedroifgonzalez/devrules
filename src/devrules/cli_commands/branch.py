@@ -451,6 +451,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             options=final_candidates,
             limit=0,
         )
+        if not delete_branches_selection:
+            prompter.warning("No branches selected for deletion.")
+            raise prompter.exit(1)
         assert isinstance(delete_branches_selection, list)
         if not delete_branches_selection:
             prompter.warning("No branches selected for deletion.")
