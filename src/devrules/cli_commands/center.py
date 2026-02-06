@@ -22,6 +22,11 @@ from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.spinner_ctx import set_spinner
 
 
+def _get_issues_statuses_legend(config: Config) -> str:
+    status_emojis = getattr(config.github, "status_emojis", {})
+    return ", ".join(f"{status}: {emoji}" for status, emoji in status_emojis.items())
+
+
 def _format_issue_for_list(issue: GitHubIssue, config: Config) -> str:
     """Format an issue for the prompter list."""
     status_emojis = getattr(config.github, "status_emojis", {})
@@ -90,7 +95,7 @@ def _handle_pending_issues(config: Config, project_filter: Optional[str] = None)
     selected_label = prompter.filter_list(
         list(issue_options.keys()),
         placeholder="Search issues...",
-        header="Select an issue to work on:",
+        header=f"Select an issue to work on:\n{_get_issues_statuses_legend(config)}",
     )
 
     if not selected_label:
