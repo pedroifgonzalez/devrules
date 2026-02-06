@@ -600,9 +600,16 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             # Merge the branch into integration branch
             success, message = merge_branch(branch, branch_name)
             if not success:
-                prompter.error(f"Failed to merge '{branch}': {message}")
-                prompter.error(
-                    "Integration branch created but merge failed. Resolve conflicts manually."
+                prompter.error(f"Merge conflict detected while merging '{branch}'")
+                prompter.info("To resolve conflicts:")
+                prompter.indented_message("1. Check conflicted files: git status")
+                prompter.indented_message("2. Resolve conflicts in your editor")
+                prompter.indented_message("3. Stage resolved files: git add <file>")
+                prompter.indented_message("4. Complete merge: git commit")
+                prompter.indented_message("5. Continue merging remaining branches manually")
+                prompter.warning(f"Integration branch '{branch_name}' is partially complete.")
+                prompter.info(
+                    f"Remaining branches to merge: {', '.join(branches_to_integrate[branches_to_integrate.index(branch)+1:])}"
                 )
                 raise prompter.exit(code=1)
             prompter.success(f"Merged '{branch}' successfully")
