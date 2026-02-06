@@ -525,3 +525,12 @@ def check_not_pushed_changes() -> bool:
         return "[ahead" in result.stdout
     except subprocess.CalledProcessError:
         return True
+
+
+def merge_branch(source_branch: str, target_branch: str) -> tuple[bool, str]:
+    """Merge a branch into the current branch."""
+    try:
+        subprocess.run(["git", "merge", source_branch], check=True)
+        return True, f"Merged '{source_branch}' into '{target_branch}'"
+    except subprocess.CalledProcessError as e:
+        return False, str(e)

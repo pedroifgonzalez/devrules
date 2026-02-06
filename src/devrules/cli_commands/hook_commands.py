@@ -62,7 +62,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         if config.commit.protected_branch_prefixes:
             for prefix in config.commit.protected_branch_prefixes:
-                if current_branch.count(prefix):
+                if current_branch.startswith(prefix):
                     prompter.error(
                         msg.CANNOT_COMMIT_TO_PROTECTED_BRANCH.format(current_branch, prefix),
                     )

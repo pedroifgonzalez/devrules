@@ -19,6 +19,7 @@ from devrules.core.git_service import (
     get_existing_branches,
     get_merged_branches,
     handle_existing_branch,
+    merge_branch,
     resolve_issue_branch,
     sanitize_text,
 )
@@ -29,6 +30,7 @@ from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.dependencies import get_config
 from devrules.utils.issue_mapping import get_issue_mapping_manager
 from devrules.validators.branch import (
+    _extract_issue_number,
     validate_branch,
     validate_cross_repo_card,
     validate_single_branch_per_issue_env,
@@ -39,8 +41,17 @@ from devrules.validators.repo_state import display_repo_state_issues, validate_r
 prompter = get_default_prompter()
 
 
-def checkout_branch_interactive() -> None:
+def checkout_branch_interactive(branch: str | None = None) -> None:
     """Interactively select and checkout a branch."""
+    if branch:
+        result, message = checkout_branch(branch)
+        if result is True:
+            prompter.success(message)
+        else:
+            prompter.error(f"Failed to checkout branch: {message}")
+            raise prompter.exit(code=1)
+        return
+
     current_branch = get_current_branch()
     branches = get_existing_branches()
 
@@ -476,10 +487,134 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @ensure_git_repo()
     def switch_branch(
         _: Config = Depends(get_config),
+        branch: str | None = typer.Option(None, "--branch", "-b", help="Branch name"),
     ):
         """Interactively switch to another branch (alias: sb)."""
         prompter.header("Switch branch")
-        checkout_branch_interactive()
+        checkout_branch_interactive(branch)
+
+    @app.command(name="create-integration-branch")
+    @ensure_git_repo()
+    def create_integration_branch(
+        config: Config = Depends(get_config),
+        prefix: str = typer.Option("custom", "--prefix", "-p", help="Branch name prefix"),
+        skip_checks: bool = typer.Option(
+            False, "--skip-checks", help="Skip repository state validation"
+        ),
+    ):
+        """Create an integration branch by merging multiple branches together."""
+        prompter.header("Create integration branch")
+
+        def at_least_one_validation_repo_state_set():
+            return any((config.validation.check_uncommitted, config.validation.check_behind_remote))
+
+        # Validate repository state before creating branch
+        if not skip_checks and at_least_one_validation_repo_state_set():
+            with yaspin(text="Checking repository state...") as spinner:
+                is_valid, messages = validate_repo_state(
+                    check_uncommitted=config.validation.check_uncommitted,
+                    check_behind=config.validation.check_behind_remote,
+                    warn_only=config.validation.warn_only,
+                )
+                spinner.ok("✔")
+                spinner.stop()
+
+            if not is_valid:
+                display_repo_state_issues(messages, warn_only=False)
+                raise prompter.exit(code=1)
+
+        # Get current branch as base
+        current_branch = get_current_branch()
+        branches = get_existing_branches()
+
+        # Filter out current branch from candidates (it's already the base)
+        candidates = [b for b in branches if b != current_branch]
+
+        if not candidates:
+            prompter.warning("No other branches available to integrate.")
+            raise prompter.exit(code=0)
+
+        # Select branches to integrate
+        branches_to_integrate = prompter.choose(
+            header="Select branches to integrate:",
+            options=candidates,
+            limit=0,
+        )
+
+        # Validate that at least one branch was selected
+        if not branches_to_integrate:
+            prompter.warning("No branches selected. Operation cancelled.")
+            raise prompter.exit(code=0)
+
+        prompter.info(f"Base branch: {current_branch}")
+        prompter.info("Branches to integrate:")
+        for no, branch in enumerate(branches_to_integrate, start=1):
+            prompter.indented_message(f"{no}. {branch}")
+
+        confirm = prompter.confirm("Create integration branch with these branches?")
+        if not confirm:
+            prompter.warning("Branch creation cancelled")
+            raise prompter.exit(code=0)
+
+        # Build suggested branch name from issue numbers
+        suggested_name = prefix
+        for branch in branches_to_integrate:
+            issue = _extract_issue_number(branch_name=branch)
+            if issue:
+                suggested_name += f"-{issue}" if branch != branches_to_integrate[0] else f"/{issue}"
+
+        kwargs = {
+            "placeholder": "Type a branch name...",
+            "header": "Enter branch name:",
+            "default": suggested_name,
+        }
+        branch_name = prompter.write(**kwargs)
+
+        if not branch_name:
+            prompter.error("Branch name cannot be empty")
+            raise prompter.exit(code=1)
+
+        # Validate branch name
+        with yaspin(text=f"Validating branch name: {branch_name}") as spinner:
+            is_valid, message = validate_branch(branch_name, config.branch)
+            spinner.ok("✔")
+
+        if not is_valid:
+            prompter.error(message)
+            raise prompter.exit(code=1)
+
+        # Check if branch already exists
+        handle_existing_branch(branch_name)
+
+        # Create the integration branch from current branch
+        prompter.info(f"Creating integration branch '{branch_name}' from '{current_branch}'...")
+        create_and_checkout_branch(branch_name)
+
+        # Merge each selected branch into the integration branch
+        for branch in branches_to_integrate:
+            prompter.info(f"Fetching and merging '{branch}'...")
+            # Fetch the latest changes for the branch
+            checkout_branch(branch, fetch_first=True)
+            # Return to integration branch
+            checkout_branch(branch_name, fetch_first=False)
+            # Merge the branch into integration branch
+            success, message = merge_branch(branch, branch_name)
+            if not success:
+                prompter.error(f"Merge conflict detected while merging '{branch}'")
+                prompter.info("To resolve conflicts:")
+                prompter.indented_message("1. Check conflicted files: git status")
+                prompter.indented_message("2. Resolve conflicts in your editor")
+                prompter.indented_message("3. Stage resolved files: git add <file>")
+                prompter.indented_message("4. Complete merge: git commit")
+                prompter.indented_message("5. Continue merging remaining branches manually")
+                prompter.warning(f"Integration branch '{branch_name}' is partially complete.")
+                raise prompter.exit(code=1)
+            prompter.success(f"Merged '{branch}' successfully")
+
+        prompter.success(f"Integration branch '{branch_name}' created successfully!")
+        prompter.info("Next steps:")
+        prompter.indented_message("1. Review the integrated changes")
+        prompter.indented_message(f"2. Push: git push -u origin {branch_name}")
 
     return {
         "check_branch": check_branch,
@@ -488,4 +623,5 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         "delete_branch": delete_branch,
         "delete_merged": delete_merged,
         "switch_branch": switch_branch,
+        "create_integration_branch": create_integration_branch,
     }
