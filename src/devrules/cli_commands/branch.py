@@ -485,7 +485,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @ensure_git_repo()
     def switch_branch(
         _: Config = Depends(get_config),
-        branch: str = typer.Option("branch", "--branch", "-b", help="Branch name"),
+        branch: str | None = typer.Option(None, "--branch", "-b", help="Branch name"),
     ):
         """Interactively switch to another branch (alias: sb)."""
         prompter.header("Switch branch")
