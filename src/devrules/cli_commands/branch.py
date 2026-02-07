@@ -41,6 +41,10 @@ from devrules.validators.repo_state import display_repo_state_issues, validate_r
 prompter = get_default_prompter()
 
 
+def at_least_one_validation_repo_state_set(config: Config):
+    return any((config.validation.check_uncommitted, config.validation.check_behind_remote))
+
+
 def checkout_branch_interactive(branch: str | None = None) -> None:
     """Interactively select and checkout a branch."""
     if branch:
@@ -206,11 +210,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         """Create a new Git branch with validation (interactive mode)."""
         prompter.header("Create branch")
 
-        def at_least_one_validation_repo_state_set():
-            return any((config.validation.check_uncommitted, config.validation.check_behind_remote))
-
         # Validate repository state before creating branch
-        if not skip_checks and at_least_one_validation_repo_state_set():
+        if not skip_checks and at_least_one_validation_repo_state_set(config):
             with yaspin(text="Checking repository state...") as spinner:
                 is_valid, messages = validate_repo_state(
                     check_uncommitted=config.validation.check_uncommitted,
@@ -505,11 +506,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         """Create an integration branch by merging multiple branches together."""
         prompter.header("Create integration branch")
 
-        def at_least_one_validation_repo_state_set():
-            return any((config.validation.check_uncommitted, config.validation.check_behind_remote))
-
         # Validate repository state before creating branch
-        if not skip_checks and at_least_one_validation_repo_state_set():
+        if not skip_checks and at_least_one_validation_repo_state_set(config):
             with yaspin(text="Checking repository state...") as spinner:
                 is_valid, messages = validate_repo_state(
                     check_uncommitted=config.validation.check_uncommitted,
