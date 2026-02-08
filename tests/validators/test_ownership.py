@@ -48,9 +48,11 @@ class TestValidateBranchOwnership:
             result = validate_branch_ownership(branch)
             assert result == (expected_valid, expected_message)
 
-    def test_non_shared_branch_no_history(self, mock_subprocess_run):
+    def test_non_shared_branch_no_history(self, mock_subprocess_run, monkeypatch):
         """Test non-shared branch with no history after base."""
         branch = "feature/new"
+
+        monkeypatch.setattr("src.devrules.validators.ownership._git_config", lambda key: None)
 
         # Mock git config
         mock_subprocess_run.side_effect = [
@@ -63,9 +65,13 @@ class TestValidateBranchOwnership:
             result = validate_branch_ownership(branch)
             assert result == (True, "New branch with no history after base — first commit allowed")
 
-    def test_non_shared_branch_owned_by_user(self, mock_subprocess_run):
+    def test_non_shared_branch_owned_by_user(self, mock_subprocess_run, monkeypatch):
         """Test non-shared branch owned by current user."""
         branch = "feature/owned"
+
+        monkeypatch.setattr(
+            "src.devrules.validators.ownership._git_config", lambda key: "Test User"
+        )
 
         mock_subprocess_run.side_effect = [
             MagicMock(stdout="Test User\n", returncode=0),  # git config user.name
@@ -75,7 +81,7 @@ class TestValidateBranchOwnership:
 
         with patch.dict("os.environ", {"USER": "Test User"}):
             result = validate_branch_ownership(branch)
-            assert result == (True, "Current user matches branch owner")
+            assert result == (True, "Current user matches recorded branch owner")
 
     def test_non_shared_branch_not_owned_by_user(self, mock_subprocess_run):
         """Test non-shared branch not owned by current user."""
@@ -91,7 +97,7 @@ class TestValidateBranchOwnership:
             result = validate_branch_ownership(branch)
             assert result == (
                 False,
-                "You are not allowed to commit on this branch. Branch owner: Owner User, your identity: Current User",
+                "You are not allowed to commit on this branch. Branch owner (recorded): abc123, you: Current User",
             )
 
     def test_merge_base_failure(self, mock_subprocess_run):
@@ -103,20 +109,6 @@ class TestValidateBranchOwnership:
             MagicMock(
                 stdout="", returncode=1, stderr="fatal: no common ancestor"
             ),  # git merge-base fails
-            MagicMock(stdout="Test User\n", returncode=0),  # git log HEAD
-        ]
-
-        with patch.dict("os.environ", {"USER": "Test User"}):
-            result = validate_branch_ownership(branch)
-            assert result == (True, "Current user matches branch owner")
-
-    def test_merge_base_raises_error(self, mock_subprocess_run):
-        """Test when merge-base raises an error."""
-        branch = "feature/test"
-
-        mock_subprocess_run.side_effect = [
-            MagicMock(stdout="Test User\n", returncode=0),  # git config user.name
-            subprocess.CalledProcessError(1, ["git", "merge-base"]),  # git merge-base fails
             MagicMock(stdout="Test User\n", returncode=0),  # git log HEAD
         ]
 

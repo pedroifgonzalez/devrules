@@ -53,6 +53,33 @@ class GumPrompter(Prompter):
         """
         return gum.choose(options, header, limit, defaults=defaults)
 
+    def choose_single(self, options: list[str], header: str) -> Optional[str]:
+        """Show a single choice dialog.
+
+        Args:
+            options: List of options to choose from
+            header: Header text to display above choices
+
+        Returns:
+            Selected option as string, or None if cancelled
+        """
+        return gum.choose(options=options, header=header, limit=1)
+
+    def choose_multiple(
+        self, options: list[str], header: str, defaults: Optional[list[str]] = None
+    ) -> Optional[list[str]]:
+        """Show a multiple choice dialog.
+
+        Args:
+            options: List of options to choose from
+            header: Header text to display above choices
+            defaults: List of default options to pre-select
+
+        Returns:
+            List of selected options as strings, or None if cancelled
+        """
+        return gum.choose(options=options, header=header, limit=0, defaults=defaults)
+
     def input_text(
         self,
         placeholder: str = "",

@@ -42,6 +42,7 @@ prompter = get_default_prompter()
 
 
 def check_repo_state(config: Config, skip_checks: bool = False):
+    """Check repository state"""
     if not skip_checks and at_least_one_validation_repo_state_set(config):
         with yaspin(text="Checking repository state...") as spinner:
             is_valid, messages = validate_repo_state(
@@ -58,6 +59,7 @@ def check_repo_state(config: Config, skip_checks: bool = False):
 
 
 def _get_available_branches_to_integrate_with(current_branch: str) -> list[str]:
+    """Get available branches to integrate with"""
     branches = get_existing_branches()
 
     # Filter out current branch from candidates (it's already the base)
@@ -68,10 +70,9 @@ def _get_available_branches_to_integrate_with(current_branch: str) -> list[str]:
         raise prompter.exit(code=0)
 
     # Select branches to integrate
-    branches_to_integrate = prompter.choose(
+    branches_to_integrate = prompter.choose_multiple(
         header="Select branches to integrate:",
         options=candidates,
-        limit=0,
     )
 
     # Validate that at least one branch was selected
@@ -79,11 +80,11 @@ def _get_available_branches_to_integrate_with(current_branch: str) -> list[str]:
         prompter.warning("No branches selected. Operation cancelled.")
         raise prompter.exit(code=0)
 
-    assert isinstance(branches_to_integrate, list)
     return branches_to_integrate
 
 
 def _show_integration_options(current_branch: str, branches_to_integrate: list[str]) -> None:
+    """Show integration options"""
     prompter.info(f"Base branch: {current_branch}")
     prompter.info("Branches to integrate:")
     for no, branch in enumerate(branches_to_integrate, start=1):
@@ -91,6 +92,7 @@ def _show_integration_options(current_branch: str, branches_to_integrate: list[s
 
 
 def _confirm_integration(current_branch: str, branches_to_integrate: list[str]) -> None:
+    """Confirm integration of branches"""
     _show_integration_options(current_branch, branches_to_integrate)
     confirm = prompter.confirm("Create integration branch with these branches?")
     if not confirm:
@@ -101,12 +103,19 @@ def _confirm_integration(current_branch: str, branches_to_integrate: list[str]) 
 def _get_integration_branch_name(
     config: Config, prefix: str, branches_to_integrate: list[str]
 ) -> str:
-    # Build suggested branch name from issue numbers
+    """Build suggested branch name from issue numbers"""
+    if not prefix or not branches_to_integrate:
+        prompter.error("No branches to integrate")
+        raise prompter.exit(code=1)
+
     suggested_name = prefix
-    for branch in branches_to_integrate:
+    for index, branch in enumerate(branches_to_integrate, start=1):
         issue = _extract_issue_number(branch_name=branch)
-        if issue:
-            suggested_name += f"-{issue}" if branch != branches_to_integrate[0] else f"/{issue}"
+        if issue and index > 1:
+            suggested_name += f"-{issue}"
+        elif index == 1:
+            suggested_name += f"/{issue}"
+
     branch_name = prompter.write(
         placeholder="Type a branch name...",
         header="Enter a branch name:",
@@ -124,6 +133,7 @@ def _get_integration_branch_name(
     if not is_valid:
         prompter.error(message)
         raise prompter.exit(code=1)
+
     return branch_name
 
 

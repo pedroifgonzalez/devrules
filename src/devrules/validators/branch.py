@@ -30,14 +30,14 @@ def _extract_issue_number(branch_name: str) -> Optional[str]:
     """Extract the issue number from a branch name, if present.
 
     Assumes branches follow the configured pattern, e.g.:
-    ``feature/123-fix-login`` or ``bugfix/456-something``.
+    ``feature/123-fix-login`` or ``bug-456-something``.
     """
 
-    match = re.match(r"^[^/]+\/(?P<issue>\d+)-.+", branch_name)
-    if not match:
+    numbers = re.findall(r"\d+", branch_name)
+    if not numbers:
         return None
 
-    return match.group("issue")
+    return str(numbers[0])
 
 
 def _get_environment(branch_name: str) -> str:

@@ -40,6 +40,38 @@ class Prompter(ABC):
         pass
 
     @abstractmethod
+    def choose_single(self, options: list[str], header: str) -> Optional[str]:
+        """Show a single choice dialog.
+
+        Args:
+            options: List of options to choose from
+            header: Header text to display above choices
+
+        Returns:
+            Selected option as string, or None if cancelled
+        """
+        pass
+
+    @abstractmethod
+    def choose_multiple(
+        self,
+        options: list[str],
+        header: str,
+        defaults: Optional[list[str]] = None,
+    ) -> Optional[list[str]]:
+        """Show a multiple choice dialog.
+
+        Args:
+            options: List of options to choose from
+            header: Header text to display above choices
+            defaults: List of default options to pre-select
+
+        Returns:
+            List of selected options as strings, or None if cancelled
+        """
+        pass
+
+    @abstractmethod
     def choose(
         self,
         options: list[str],
