@@ -32,6 +32,7 @@ from devrules.notifications import emit
 from devrules.notifications.events import DeployEvent
 from devrules.utils.decorators import emit_events, ensure_git_repo
 from devrules.utils.issue_mapping import get_issue_mapping_manager
+from devrules.validators.ownership import _get_branch_owner
 
 prompter = get_default_prompter()
 
@@ -165,6 +166,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             prompter.error(f"Could not determine deployed branch for '{environment}'")
             raise prompter.exit(1)
         prompter.info(f"Currently deployed: {deployed_branch} on {environment}")
+        prompter.info(f"Author: {_get_branch_owner(deployed_branch)}")
 
         # Step 3: Check deployment readiness
         if not skip_checks:
@@ -325,7 +327,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         # Get deployed branch
         with yaspin(text="Getting deployed branch..."):
             deployed_branch = _get_deployed_branch(environment, config)
+        if not deployed_branch:
+            prompter.error(f"Could not determine deployed branch for '{environment}'")
+            raise prompter.exit(1)
         prompter.info(f"Currently deployed branch on {environment}: {deployed_branch}")
+        prompter.info(f"Author: {_get_branch_owner(deployed_branch)}")
 
     return {
         "deploy": deploy,

@@ -6,6 +6,8 @@ from typing import Optional, Tuple
 
 from loguru import logger
 
+from devrules.core.git_service import get_author
+
 
 def _git_config(key: str) -> Optional[str]:
     result = subprocess.run(
@@ -110,7 +112,7 @@ def _get_merge_base(branch: str, base: str = "develop") -> str:
         return ""
 
 
-def _get_branch_owner(branch: str, current_user: str) -> str:
+def _get_branch_owner(branch: str, current_user: str | None = None) -> str:
     """Determine the owner of a branch using the same logic as validate_branch_ownership.
 
     Returns:
@@ -130,6 +132,7 @@ def _get_branch_owner(branch: str, current_user: str) -> str:
         text=True,
     )
 
+    current_user = current_user or get_author()
     authors = [line.strip() for line in log_result.stdout.splitlines() if line.strip()]
 
     if not authors:
