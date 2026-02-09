@@ -90,7 +90,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @emit_events([DevRulesEvent.PRE_DEPLOY, DevRulesEvent.POST_DEPLOY])
     @ensure_git_repo()
     def deploy(
-        environment: str = typer.Argument(..., help="Target environment (dev, staging, prod)"),
+        environment: Optional[str] = typer.Option(
+            None, "--environment", "-e", help="Target environment (dev, staging, prod)"
+        ),
         branch: Optional[str] = typer.Option(
             None,
             "--branch",
@@ -120,6 +122,16 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         5. Handle failures with rollback option
         """
         prompter.header("Deploy branch")
+
+        available_envs = config.deployment.environments.keys()
+        if not available_envs or not isinstance(available_envs, list):
+            prompter.warning("No environments configured.")
+            raise prompter.exit(code=0)
+
+        if not environment:
+            environment = prompter.choose_single(
+                header="Enter environment:", options=available_envs
+            )
 
         if check_not_pushed_changes():
             prompter.warning("There are unpushed changes.")
