@@ -124,6 +124,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         prompter.header("Deploy branch")
 
         available_envs = config.deployment.environments.keys()
+        available_envs = list(available_envs) if available_envs else []
         if not available_envs or not isinstance(available_envs, list):
             prompter.warning("No environments configured.")
             raise prompter.exit(code=0)

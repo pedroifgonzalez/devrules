@@ -82,14 +82,7 @@ def update_issue_status(item_id: str, status_field_id: str, project_id: str, sta
 
 def link_branch_to_issue(issue: int, branch_name: str) -> tuple[bool, str]:
     """Link a branch to an issue on GitHub."""
-    cmd = [
-        "gh",
-        "issue",
-        "develop",
-        str(issue),
-        "--name",
-        branch_name,
-    ]
+    cmd = ["gh", "issue", "develop", "-b", "develop", str(issue), "--name", branch_name, "-c"]
     try:
         with yaspin(text="Linking branch to issue...", color="green"):
             subprocess.run(
@@ -98,9 +91,18 @@ def link_branch_to_issue(issue: int, branch_name: str) -> tuple[bool, str]:
                 capture_output=True,
                 text=True,
             )
+            user = subprocess.run(
+                ["git", "config", "user.name"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
+
             subprocess.run(
-                ["git", "config", f"branch.{branch_name}.owner", "$(git config user.name)"]
+                ["git", "config", f"branch.{branch_name}.owner", user],
+                check=True,
             )
+            subprocess.run(["git", "reset", "--hard", "origin/develop"])
     except subprocess.CalledProcessError as e:
         prompter.error(
             f"Failed to link branch to issue: {e}",

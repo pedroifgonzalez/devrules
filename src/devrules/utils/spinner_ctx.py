@@ -24,3 +24,11 @@ def update_spinner_text(text: str) -> None:
     if spinner:
         spinner.text = text
     return
+
+
+def stop_spinner():
+    """Stop the spinner"""
+    spinner = get_spinner()
+    if spinner:
+        spinner.stop()
+    return

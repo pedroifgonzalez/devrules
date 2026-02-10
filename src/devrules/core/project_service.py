@@ -12,7 +12,7 @@ from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.config import load_config
 from devrules.dtos.github import ProjectItem
 from devrules.utils.project_cache import get_project_cache_manager
-from devrules.utils.spinner_ctx import update_spinner_text
+from devrules.utils.spinner_ctx import stop_spinner, update_spinner_text
 
 VIDEO_EXTENSIONS = (".mp4", ".webm", ".gif")
 
@@ -157,6 +157,7 @@ def select_single_item_for_issue(items, issue: int):
         raise typer.Exit(code=1)
 
     if len(matches) > 1:
+        # TODO: use generic prompter
         typer.secho(
             f"⚠ Multiple project items match issue number #{issue}. Please select one:",
             fg=typer.colors.YELLOW,
@@ -214,6 +215,7 @@ def find_project_item_for_issue(owner: str, project_number: str, issue: int) -> 
             typer.echo(e.stderr)
         raise typer.Exit(code=1)
 
+    stop_spinner()
     items = parse_project_items(result.stdout)
     item = select_single_item_for_issue(items, issue)
 

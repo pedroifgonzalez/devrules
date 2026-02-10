@@ -23,12 +23,14 @@ from devrules.core.git_service import (
     resolve_issue_branch,
     sanitize_text,
 )
+from devrules.core.github_service import link_branch_to_issue
 from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
 from devrules.messages import branch as msg
 from devrules.messages import git as git_msg
 from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.dependencies import get_config
 from devrules.utils.issue_mapping import get_issue_mapping_manager
+from devrules.utils.spinner_ctx import set_spinner
 from devrules.validators.branch import (
     _extract_issue_number,
     validate_branch,
@@ -385,7 +387,8 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 selected_issue = int(issue_data.get("issue", 0))
                 issue = selected_issue
 
-            with yaspin(text="Extracting information from issue"):
+            with yaspin(text="Extracting information from issue") as spinner:
+                set_spinner(spinner)
                 assert isinstance(selected_issue, int)
                 gh_project_item = find_project_item_for_issue(
                     owner=owner, project_number=project_number, issue=int(selected_issue)
@@ -443,13 +446,10 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             mapping_manager = get_issue_mapping_manager()
             mapping_manager.add_mapping(int(issue), final_branch_name, project_number)
 
-        # Create and checkout branch
-        # TODO: complete branch linking
-        # if issue:
-        #     link_branch_to_issue(issue, final_branch_name)
-        #     checkout_branch(final_branch_name)
-        # else:
-        create_and_checkout_branch(final_branch_name)
+        if issue:
+            link_branch_to_issue(issue, final_branch_name)
+        else:
+            create_and_checkout_branch(final_branch_name)
 
     @app.command()
     @ensure_git_repo()
