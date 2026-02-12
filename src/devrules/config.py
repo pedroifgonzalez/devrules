@@ -85,6 +85,8 @@ class GitHubConfig:
     excluded_work_statuses: list = field(default_factory=lambda: ["Blocked", "Waiting Integration"])
     start_work_status: str = "In Progress"
     recent_comments_hours: int = 24
+    priorities_hierarchy: list = field(default_factory=lambda: ["High", "Medium", "Low"])
+    labels_priorities_hierarchy: list = field(default_factory=lambda: ["P1", "P2", "P3"])
 
     def _validate(self):
         """Validate the configuration."""

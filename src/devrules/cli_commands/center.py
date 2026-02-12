@@ -22,22 +22,72 @@ from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.spinner_ctx import set_spinner
 
 
-def _get_issues_statuses_legend(config: Config) -> str:
+def _get_issues_statuses_legend(config: Config, status_issues: dict) -> str:
     status_emojis = getattr(config.github, "status_emojis", {})
-    return ", ".join(f"{status}: {emoji}" for status, emoji in status_emojis.items())
+    present_status_emojis = []
+    for status, _ in status_issues.items():
+        emoji = status_emojis.get(status.strip().lower().replace(" ", "_"))
+        if emoji:
+            present_status_emojis.append((status, emoji))
+    return ", ".join(f"{emoji}: {status}" for status, emoji in present_status_emojis)
 
 
-def _format_issue_for_list(issue: GitHubIssue, config: Config) -> str:
-    """Format an issue for the prompter list."""
+def _format_issues_for_list(
+    issues: list[GitHubIssue], config: Config, use_emojis: bool = False
+) -> list[str]:
+    """Format issues for the prompter list with aligned columns."""
     status_emojis = getattr(config.github, "status_emojis", {})
-    # Simple normalization for emoji lookup
-    emoji = (
-        status_emojis.get(issue.status.strip().lower().replace(" ", "_"), "•")
-        if issue.status
-        else "•"
-    )
-    project_part = f"[{issue.project_name}]" if issue.project_name else ""
-    return f"#{issue.number} {emoji} [{issue.repo_name}] {issue.title} {project_part}"
+
+    rows = []
+    for issue in issues:
+        # Simple normalization for emoji lookup
+        emoji_or_status = (
+            status_emojis.get(issue.status.strip().lower().replace(" ", "_"), "•")
+            if issue.status and use_emojis
+            else issue.status
+        )
+        project_section = (
+            f"({config.github.projects.get(issue.project_name)})" if config.github.projects else ""
+        )
+        priority_section = (
+            "!"
+            * (
+                len(config.github.priorities_hierarchy)
+                - config.github.priorities_hierarchy.index(issue.priority)
+            )
+            if issue.priority and issue.priority in config.github.priorities_hierarchy
+            else ""
+        )
+        title_section = issue.title[:80] + "..." if len(issue.title) > 80 else issue.title
+        repo_section = f"«{issue.repo_name.split('-')[-1]}»" if issue.repo_name else ""
+        rows.append(
+            (
+                str(issue.number),
+                emoji_or_status or "",
+                priority_section,
+                title_section,
+                repo_section,
+                project_section,
+            )
+        )
+
+    # Compute max widths per column
+    col_widths = [0] * 6
+    for row in rows:
+        for i, val in enumerate(row):
+            col_widths[i] = max(col_widths[i], len(val))
+
+    formatted = []
+    for row in rows:
+        num, status, priority, title, repo, project = row
+        line = (
+            f"{num:>{col_widths[0]}} {status:<{col_widths[1]}}   "
+            f"{priority:<{col_widths[2]}} {title:<{col_widths[3]}}   "
+            f"{repo:<{col_widths[4]}} {project}"
+        )
+        formatted.append(line)
+
+    return formatted
 
 
 def _format_comment_for_list(comment: GitHubComment) -> str:
@@ -91,11 +141,23 @@ def _handle_pending_issues(config: Config, project_filter: Optional[str] = None)
     for _, iss in status_issues.items():
         sorted_issues.extend(iss)
 
-    issue_options = {_format_issue_for_list(issue, config): issue for issue in sorted_issues}
+    # sort by priority (already normalized to priorities_hierarchy values at fetch time)
+    if config.github.priorities_hierarchy:
+        hierarchy = config.github.priorities_hierarchy
+        fallback = len(hierarchy)
+        sorted_issues.sort(
+            key=lambda x: (
+                hierarchy.index(x.priority) if x.priority and x.priority in hierarchy else fallback
+            )
+        )
+
+    use_emojis = False
+    formatted_labels = _format_issues_for_list(sorted_issues, config, use_emojis)
+    issue_options = dict(zip(formatted_labels, sorted_issues))
     selected_label = prompter.filter_list(
         list(issue_options.keys()),
         placeholder="Search issues...",
-        header=f"Select an issue to work on:\n{_get_issues_statuses_legend(config)}",
+        header=f"Select an issue:\n{_get_issues_statuses_legend(config=config, status_issues=status_issues) if use_emojis else ''}\n",
     )
 
     if not selected_label:

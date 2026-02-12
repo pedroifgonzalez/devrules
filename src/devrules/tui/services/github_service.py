@@ -27,6 +27,7 @@ class GitHubIssue:
     project_name: Optional[str] = None
     repo_name: Optional[str] = None
     owner: Optional[str] = None
+    priority: Optional[str] = None
 
 
 @dataclass
@@ -244,6 +245,18 @@ class GitHubService:
                     else:
                         label_names.append(str(label))
 
+                # Extract priority: native from project item, fallback from labels
+                priority = item.get("priority")
+                if not priority:
+                    labels_hierarchy = config.github.labels_priorities_hierarchy
+                    priorities_hierarchy = config.github.priorities_hierarchy
+                    for label in label_names:
+                        if label in labels_hierarchy:
+                            idx = labels_hierarchy.index(label)
+                            if idx < len(priorities_hierarchy):
+                                priority = priorities_hierarchy[idx]
+                            break
+
                 repo = item["content"].get("repository", "").split("/", maxsplit=1)
                 owner, repo_name = "", ""
                 if len(repo) == 2:
@@ -259,6 +272,7 @@ class GitHubService:
                     project_name=p_key,
                     repo_name=repo_name,
                     owner=owner,
+                    priority=priority,
                 )
                 issues.append(issue)
 
