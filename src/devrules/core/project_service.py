@@ -41,6 +41,7 @@ def resolve_project_number(project: str) -> Tuple[str, str]:
     Logic is copied from cli._resolve_project_number to keep behavior
     identical, only centralized here.
     """
+    update_spinner_text("Resolving project number...")
 
     config = load_config(None)
     owner = getattr(config.github, "owner", None)
@@ -499,6 +500,7 @@ def list_project_items(
     Returns:
         List of project items with their details
     """
+
     cmd = [
         "gh",
         "project",

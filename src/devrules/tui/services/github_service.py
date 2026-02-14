@@ -189,6 +189,7 @@ class GitHubService:
         seen_numbers = set()
 
         for p_key in projects_to_check:
+            update_spinner_text(f"Checking project {p_key}...")
             try:
                 owner, p_num = resolve_project_number(p_key)
                 items = list_project_items(owner, p_num)

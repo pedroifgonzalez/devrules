@@ -58,8 +58,8 @@ def _format_issues_for_list(
             if issue.priority and issue.priority in config.github.priorities_hierarchy
             else ""
         )
-        title_section = issue.title[:80] + "..." if len(issue.title) > 80 else issue.title
-        repo_section = f"«{issue.repo_name.split('-')[-1]}»" if issue.repo_name else ""
+        title_section = issue.title[:50] + "..." if len(issue.title) > 50 else issue.title
+        repo_section = f"#{issue.repo_name.split('-')[-1]}" if issue.repo_name else ""
         rows.append(
             (
                 str(issue.number),
