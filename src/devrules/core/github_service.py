@@ -6,6 +6,7 @@ import subprocess
 
 import requests
 import typer
+from loguru import logger
 from yaspin import yaspin
 
 from devrules.adapters.prompters.factory import get_default_prompter
@@ -82,6 +83,7 @@ def update_issue_status(item_id: str, status_field_id: str, project_id: str, sta
 
 def link_branch_to_issue(issue: int, branch_name: str) -> tuple[bool, str]:
     """Link a branch to an issue on GitHub."""
+    logger.info(f"Linking branch {branch_name} to issue {issue}...")
     cmd = ["gh", "issue", "develop", "-b", "develop", str(issue), "--name", branch_name, "-c"]
     try:
         with yaspin(text="Linking branch to issue...", color="green"):
