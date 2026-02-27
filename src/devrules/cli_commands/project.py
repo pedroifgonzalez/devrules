@@ -584,8 +584,121 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
 
         prompter.indented_message(result.stdout)
 
+    @app.command()
+    def create_issue(
+        title: str = typer.Option(
+            None,
+            "--title",
+            "-t",
+            help="Title of the issue",
+        ),
+        body: Optional[str] = typer.Option(
+            None,
+            "--body",
+            "-b",
+            help="Body/description of the issue",
+        ),
+        repo: Optional[str] = typer.Option(
+            None,
+            "--repo",
+            "-r",
+            help="Repository in format owner/repo (defaults to config)",
+        ),
+        project: Optional[str] = typer.Option(
+            None,
+            "--project",
+            "-p",
+            help="GitHub Project (v2) number to add the issue to",
+        ),
+    ):
+        """Create a new GitHub issue and optionally add it to a Project."""
+        prompter.header("Create issue")
+        ensure_gh_installed()
+
+        config = load_config(None)
+
+        if not title:
+            input_title = prompter.input_text("Issue title")
+            if not input_title:
+                prompter.error("Issue title must be provided via --title.")
+                raise prompter.exit(code=1)
+            title = input_title
+
+        if not project:
+            available_projects = [(k, name) for k, name in config.github.projects.items()]
+            if available_projects:
+                project = prompter.choose_single(
+                    header="Select a project", options=[name for _, name in available_projects]
+                )
+                if project:
+                    parentehses_start = project.index("(")
+                    project = project[:parentehses_start]
+                    project = project.strip()
+
+            else:
+                prompter.error("No projects configured.")
+                raise prompter.exit(code=1)
+
+        if not body:
+            input_body = prompter.write("Issue body")
+            body = input_body.strip() if input_body else None
+            if not body:
+                prompter.error("Issue body must be provided via --body.")
+                raise prompter.exit(code=1)
+
+        # Determine repository
+        if repo:
+            repo_arg = repo
+        else:
+            github_owner = getattr(config.github, "owner", None)
+            github_repo = getattr(config.github, "repo", None)
+            if github_owner and github_repo:
+                repo_arg = f"{github_owner}/{github_repo}"
+            else:
+                prompter.error(
+                    "Repository must be provided via --repo or configured in the config file under [github] section."
+                )
+                raise prompter.exit(code=1)
+
+        if project is None:
+            prompter.error("Project must be provided.")
+            raise prompter.exit(code=1)
+
+        # Create issue
+        create_cmd = [
+            "gh",
+            "issue",
+            "create",
+            "-a",
+            "@me",
+            "--repo",
+            repo_arg,
+            "-p",
+            project,
+            "--title",
+            title,
+        ]
+
+        if body:
+            create_cmd.extend(["--body", body])
+
+        try:
+            with yaspin(text="Creating issue..."):
+                subprocess.run(
+                    create_cmd,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+        except subprocess.CalledProcessError as e:
+            prompter.error(f"Failed to create issue: {e.stderr or e}")
+            raise prompter.exit(code=1)
+
+        prompter.success("Issue created successfully!")
+
     return {
         "update_issue_status": update_issue_status,
         "list_issues": list_issues,
         "describe_issue": describe_issue,
+        "create_issue": create_issue,
     }
