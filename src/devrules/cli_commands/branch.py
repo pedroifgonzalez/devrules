@@ -190,15 +190,17 @@ def checkout_branch_interactive(branch: str | None = None) -> None:
 
     # Filter out current branch from candidates
     candidates = [b for b in branches if b != current_branch]
+    manager = BranchUsageManager()
+    sorted_candidates = manager.get_branches(candidates)
 
-    if not candidates:
+    if not sorted_candidates:
         prompter.warning("No other branches found to switch to.")
         raise prompter.exit(code=0)
 
     selected_branch = None
     # Use filter so user can search
     selected_branch = prompter.filter_list(
-        candidates, placeholder="Select branch to checkout...", header="Branches"
+        sorted_candidates, placeholder="Select branch to checkout...", header="Branches"
     )
     if not selected_branch:
         prompter.error("Cancelled.")
@@ -206,7 +208,6 @@ def checkout_branch_interactive(branch: str | None = None) -> None:
 
     result, message = checkout_branch(selected_branch)
     if result is True:
-        manager = BranchUsageManager()
         manager.register_usage(selected_branch)
         prompter.success(message)
     else:
