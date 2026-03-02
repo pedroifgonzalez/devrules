@@ -27,6 +27,7 @@ from devrules.core.github_service import link_branch_to_issue
 from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
 from devrules.messages import branch as msg
 from devrules.messages import git as git_msg
+from devrules.utils.branches_usage import BranchUsageManager
 from devrules.utils.decorators import ensure_git_repo
 from devrules.utils.dependencies import get_config
 from devrules.utils.issue_mapping import get_issue_mapping_manager
@@ -205,6 +206,8 @@ def checkout_branch_interactive(branch: str | None = None) -> None:
 
     result, message = checkout_branch(selected_branch)
     if result is True:
+        manager = BranchUsageManager()
+        manager.register_usage(selected_branch)
         prompter.success(message)
     else:
         prompter.error(f"Failed to checkout branch: {message}")
