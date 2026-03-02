@@ -295,7 +295,7 @@ def get_merged_branches(base_branch: str = "develop") -> list[str]:
 
 
 def delete_branch_local_and_remote(
-    branch: str, remote: str = "origin", force: bool = False, ignore_remote_error: bool = False
+    branch: str, remote: str = "origin", force: bool = True, ignore_remote_error: bool = False
 ) -> None:
     """Delete a branch locally and on the remote."""
     # Delete local branch
