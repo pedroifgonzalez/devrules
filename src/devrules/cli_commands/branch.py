@@ -544,7 +544,11 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 raise prompter.exit(0)
 
             for selected_branch in branches:
-                delete_branch_local_and_remote(selected_branch, remote, force)
+                try:
+                    delete_branch_local_and_remote(selected_branch, remote)
+                except Exception as e:
+                    prompter.error(f"Failed to delete branch {selected_branch}: {e}")
+                    continue
         else:
             prompter.error(msg.NO_SELECTED_BRANCHES_TO_DELETE)
 
@@ -612,7 +616,7 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             raise prompter.exit(code=0)
 
         for b in delete_branches_selection:
-            delete_branch_local_and_remote(b, remote, force=False, ignore_remote_error=True)
+            delete_branch_local_and_remote(b, remote, ignore_remote_error=True)
 
     @app.command(name="switch-branch")
     @ensure_git_repo()

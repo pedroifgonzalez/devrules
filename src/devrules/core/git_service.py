@@ -295,14 +295,13 @@ def get_merged_branches(base_branch: str = "develop") -> list[str]:
 
 
 def delete_branch_local_and_remote(
-    branch: str, remote: str = "origin", force: bool = True, ignore_remote_error: bool = False
+    branch: str, remote: str = "origin", ignore_remote_error: bool = False
 ) -> None:
     """Delete a branch locally and on the remote."""
     # Delete local branch
-    delete_flag = "-D" if force else "-d"
     try:
         with yaspin(text=f"Deleting local branch '{branch}'"):
-            subprocess.run(["git", "branch", delete_flag, branch], check=True, capture_output=True)
+            subprocess.run(["git", "branch", "-D", branch], check=True, capture_output=True)
         typer.secho(f"✔ Deleted local branch '{branch}'", fg=typer.colors.GREEN)
     except subprocess.CalledProcessError as e:
         typer.secho(
