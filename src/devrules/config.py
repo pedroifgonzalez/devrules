@@ -113,6 +113,38 @@ class GitHubConfig:
 
 
 @dataclass
+class JiraConfig:
+    """Jira API configuration."""
+
+    url: str = ""
+    email: Optional[str] = None
+    api_token: Optional[str] = None
+    default_project: Optional[str] = None
+    timeout: int = 30
+
+    def is_configured(self) -> bool:
+        """Return whether Jira credentials are configured."""
+        return bool(self.url and self.email and self.api_token)
+
+    def _validate(self) -> None:
+        """Validate Jira configuration required for Jira commands."""
+        missing_fields = []
+        if not self.url:
+            missing_fields.append("jira.url")
+        if not self.email:
+            missing_fields.append("jira.email")
+        if not self.api_token:
+            missing_fields.append("jira.api_token")
+
+        if missing_fields:
+            typer.secho(
+                "✘ Jira is not fully configured. Missing: " + ", ".join(missing_fields),
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(code=1)
+
+
+@dataclass
 class EnvironmentConfig:
     """Configuration for a deployment environment."""
 
@@ -248,6 +280,7 @@ class Config:
     commit: CommitConfig
     pr: PRConfig
     github: GitHubConfig = field(default_factory=GitHubConfig)
+    jira: JiraConfig = field(default_factory=JiraConfig)
     deployment: DeploymentConfig = field(default_factory=DeploymentConfig)
     validation: ValidationConfig = field(default_factory=ValidationConfig)
     documentation: DocumentationConfig = field(default_factory=DocumentationConfig)
@@ -334,6 +367,13 @@ DEFAULT_CONFIG = {
         "excluded_work_statuses": ["Blocked", "Waiting Integration"],
         "start_work_status": "In Progress",
         "recent_comments_hours": 24,
+    },
+    "jira": {
+        "url": "",
+        "email": None,
+        "api_token": None,
+        "default_project": None,
+        "timeout": 30,
     },
     "deployment": {
         "jenkins_url": "",
@@ -520,6 +560,7 @@ def load_config(config_path: Optional[Path] = None) -> Config:
     # validated configs
     validated_github_config = GitHubConfig(**config_data.get("github", {}))
     validated_github_config._validate()
+    validated_jira_config = JiraConfig(**config_data.get("jira", {}))
 
     # Parse channel / notification config
     channel_data = config_data.get("channel", {})
@@ -570,6 +611,7 @@ def load_config(config_path: Optional[Path] = None) -> Config:
         commit=CommitConfig(**{**config_data["commit"], "pattern": commit_pattern}),
         pr=PRConfig(**{**config_data["pr"], "title_pattern": pr_pattern}),
         github=validated_github_config,
+        jira=validated_jira_config,
         deployment=deployment_config,
         validation=ValidationConfig(**config_data.get("validation", {})),
         documentation=documentation_config,
