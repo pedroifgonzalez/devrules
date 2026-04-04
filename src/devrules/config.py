@@ -3,7 +3,7 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 import toml
 import typer
@@ -12,6 +12,7 @@ from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.notifications import configure
 from devrules.notifications.channels.slack import SlackChannel, resolve_slack_channel
 from devrules.notifications.dispatcher import NotificationDispatcher
+from devrules.utils.commit_template import build_commit_pattern
 
 prompter = get_default_prompter()
 
@@ -35,6 +36,8 @@ class CommitConfig:
 
     tags: list
     pattern: str
+    template: str = "[{tag}] {message}"
+    context_template: str = "({context})"
     min_length: int = 10
     max_length: int = 100
     restrict_branch_to_owner: bool = False
@@ -323,6 +326,8 @@ DEFAULT_CONFIG = {
             "DOCS",
         ],
         "pattern": r"^\[({tags})\].+",
+        "template": "[{tag}] {message}",
+        "context_template": "({context})",
         "min_length": 10,
         "max_length": 100,
         "append_issue_number": True,
@@ -508,7 +513,33 @@ def load_config(config_path: Optional[Path] = None) -> Config:
     tags_str = "|".join(tags_list)
 
     commit_pattern_base = str(config_data["commit"]["pattern"])
-    commit_pattern = commit_pattern_base.replace("{tags}", tags_str)
+    commit_template = str(config_data["commit"].get("template", "[{tag}] {message}"))
+    context_template = str(config_data["commit"].get("context_template", "({context})"))
+
+    commit_template_overridden = False
+    for source_data in (user_config_data, enterprise_config_data):
+        commit_section = (source_data or {}).get("commit", {})
+        if isinstance(commit_section, dict) and (
+            "template" in commit_section or "context_template" in commit_section
+        ):
+            commit_template_overridden = True
+            break
+
+    default_commit_config = cast(Dict[str, Any], DEFAULT_CONFIG.get("commit", {}))
+    default_commit_pattern = str(default_commit_config.get("pattern", ""))
+
+    if commit_template_overridden or commit_pattern_base == default_commit_pattern:
+        try:
+            commit_pattern = build_commit_pattern(
+                tags=tags_list,
+                template=commit_template,
+                context_template=context_template,
+            )
+        except ValueError as e:
+            prompter.error(f"Invalid commit template configuration:\n{e}")
+            prompter.exit(code=1)
+    else:
+        commit_pattern = commit_pattern_base.replace("{tags}", tags_str)
 
     pr_pattern_base = str(config_data["pr"]["title_pattern"])
     pr_pattern = pr_pattern_base.replace("{tags}", tags_str)
