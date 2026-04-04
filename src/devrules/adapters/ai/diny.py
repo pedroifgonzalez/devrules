@@ -30,7 +30,7 @@ def generate_commit_message(timeout: int = DEFAULT_TIMEOUT) -> Optional[str]:
 
     try:
         result = subprocess.run(
-            ["diny", "commit", "--print"],
+            ["diny", "commit"],
             capture_output=True,
             text=True,
             timeout=timeout,

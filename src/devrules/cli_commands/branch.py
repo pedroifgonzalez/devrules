@@ -415,6 +415,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         else:
             final_branch_name = _get_branch_name_interactive(config)
 
+        if len(final_branch_name) > 140:
+            prompter.info(f"Branch name is too long ({len(final_branch_name)} characters)")
+            final_branch_name = prompter.input_text(header="Enter a shorter branch name:")
+            if not final_branch_name:
+                raise prompter.exit(1)
+
         # Validate branch name
         with yaspin(text=f"Validating branch name: {final_branch_name}") as spinner:
             is_valid, message = validate_branch(final_branch_name, config.branch)
