@@ -21,6 +21,7 @@ from devrules.cli_commands import (
     deploy,
     group,
     hook_commands,
+    jira_cmd,
     pr,
     project,
     rules,
@@ -44,6 +45,7 @@ namespace.update(deploy.register(app))
 namespace.update(group.register(app))
 namespace.update(rules.register(app))
 namespace.update(center.register(app))
+namespace.update(jira_cmd.register(app))
 
 
 register_command_aliases(app, namespace)

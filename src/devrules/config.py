@@ -3,7 +3,7 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 import toml
 import typer
@@ -12,6 +12,7 @@ from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.notifications import configure
 from devrules.notifications.channels.slack import SlackChannel, resolve_slack_channel
 from devrules.notifications.dispatcher import NotificationDispatcher
+from devrules.utils.commit_template import build_commit_pattern
 
 prompter = get_default_prompter()
 
@@ -35,6 +36,8 @@ class CommitConfig:
 
     tags: list
     pattern: str
+    template: str = "[{tag}] {message}"
+    context_template: str = "({context})"
     min_length: int = 10
     max_length: int = 100
     restrict_branch_to_owner: bool = False
@@ -107,6 +110,38 @@ class GitHubConfig:
         ):
             typer.secho(
                 f"Invalid evidence status: {self.require_evidence_status}",
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(code=1)
+
+
+@dataclass
+class JiraConfig:
+    """Jira API configuration."""
+
+    url: str = ""
+    email: Optional[str] = None
+    api_token: Optional[str] = None
+    default_project: Optional[str] = None
+    timeout: int = 30
+
+    def is_configured(self) -> bool:
+        """Return whether Jira credentials are configured."""
+        return bool(self.url and self.email and self.api_token)
+
+    def _validate(self) -> None:
+        """Validate Jira configuration required for Jira commands."""
+        missing_fields = []
+        if not self.url:
+            missing_fields.append("jira.url")
+        if not self.email:
+            missing_fields.append("jira.email")
+        if not self.api_token:
+            missing_fields.append("jira.api_token")
+
+        if missing_fields:
+            typer.secho(
+                "✘ Jira is not fully configured. Missing: " + ", ".join(missing_fields),
                 fg=typer.colors.RED,
             )
             raise typer.Exit(code=1)
@@ -248,6 +283,7 @@ class Config:
     commit: CommitConfig
     pr: PRConfig
     github: GitHubConfig = field(default_factory=GitHubConfig)
+    jira: JiraConfig = field(default_factory=JiraConfig)
     deployment: DeploymentConfig = field(default_factory=DeploymentConfig)
     validation: ValidationConfig = field(default_factory=ValidationConfig)
     documentation: DocumentationConfig = field(default_factory=DocumentationConfig)
@@ -290,6 +326,8 @@ DEFAULT_CONFIG = {
             "DOCS",
         ],
         "pattern": r"^\[({tags})\].+",
+        "template": "[{tag}] {message}",
+        "context_template": "({context})",
         "min_length": 10,
         "max_length": 100,
         "append_issue_number": True,
@@ -334,6 +372,13 @@ DEFAULT_CONFIG = {
         "excluded_work_statuses": ["Blocked", "Waiting Integration"],
         "start_work_status": "In Progress",
         "recent_comments_hours": 24,
+    },
+    "jira": {
+        "url": "",
+        "email": None,
+        "api_token": None,
+        "default_project": None,
+        "timeout": 30,
     },
     "deployment": {
         "jenkins_url": "",
@@ -468,7 +513,33 @@ def load_config(config_path: Optional[Path] = None) -> Config:
     tags_str = "|".join(tags_list)
 
     commit_pattern_base = str(config_data["commit"]["pattern"])
-    commit_pattern = commit_pattern_base.replace("{tags}", tags_str)
+    commit_template = str(config_data["commit"].get("template", "[{tag}] {message}"))
+    context_template = str(config_data["commit"].get("context_template", "({context})"))
+
+    commit_template_overridden = False
+    for source_data in (user_config_data, enterprise_config_data):
+        commit_section = (source_data or {}).get("commit", {})
+        if isinstance(commit_section, dict) and (
+            "template" in commit_section or "context_template" in commit_section
+        ):
+            commit_template_overridden = True
+            break
+
+    default_commit_config = cast(Dict[str, Any], DEFAULT_CONFIG.get("commit", {}))
+    default_commit_pattern = str(default_commit_config.get("pattern", ""))
+
+    if commit_template_overridden or commit_pattern_base == default_commit_pattern:
+        try:
+            commit_pattern = build_commit_pattern(
+                tags=tags_list,
+                template=commit_template,
+                context_template=context_template,
+            )
+        except ValueError as e:
+            prompter.error(f"Invalid commit template configuration:\n{e}")
+            prompter.exit(code=1)
+    else:
+        commit_pattern = commit_pattern_base.replace("{tags}", tags_str)
 
     pr_pattern_base = str(config_data["pr"]["title_pattern"])
     pr_pattern = pr_pattern_base.replace("{tags}", tags_str)
@@ -520,6 +591,7 @@ def load_config(config_path: Optional[Path] = None) -> Config:
     # validated configs
     validated_github_config = GitHubConfig(**config_data.get("github", {}))
     validated_github_config._validate()
+    validated_jira_config = JiraConfig(**config_data.get("jira", {}))
 
     # Parse channel / notification config
     channel_data = config_data.get("channel", {})
@@ -570,6 +642,7 @@ def load_config(config_path: Optional[Path] = None) -> Config:
         commit=CommitConfig(**{**config_data["commit"], "pattern": commit_pattern}),
         pr=PRConfig(**{**config_data["pr"], "title_pattern": pr_pattern}),
         github=validated_github_config,
+        jira=validated_jira_config,
         deployment=deployment_config,
         validation=ValidationConfig(**config_data.get("validation", {})),
         documentation=documentation_config,

@@ -197,7 +197,12 @@ documentation = "docs"
 
 [commit]
 tags = ["WIP", "FTR", "FIX", "DOCS", "TST", "REF"]
+template = "[{{tag}}] {{message}}"
+context_template = "({{context}})"
 pattern = "^\\\[({tags})\\\].+"
+# Example conventional format:
+# template = "{{prefix}}{{context_block}}: {{message}}"
+# context_template = "({{context}})"
 min_length = 10
 max_length = 100
 restrict_branch_to_owner = true

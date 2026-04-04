@@ -21,6 +21,13 @@ from devrules.core.git_service import (
     stage_files,
 )
 from devrules.messages import commit as msg
+from devrules.utils.commit_template import (
+    DEFAULT_COMMIT_TEMPLATE,
+    DEFAULT_CONTEXT_TEMPLATE,
+    format_commit_message,
+    requires_context,
+    uses_context,
+)
 from devrules.utils.decorators import emit_events, ensure_git_repo
 from devrules.utils.typer import add_typer_block_message
 from devrules.validators.commit import validate_commit
@@ -66,22 +73,42 @@ def build_commit_message_interactive(config: Config, tags: list[str], prompter: 
         prompter.error(msg.NO_TAG_SELECTED)
         raise prompter.exit(code=0)
 
+    template = config.commit.template or DEFAULT_COMMIT_TEMPLATE
+    context_template = config.commit.context_template or DEFAULT_CONTEXT_TEMPLATE
+    context = ""
+    if uses_context(template):
+        context = (
+            prompter.input_text(
+                placeholder="Enter context/scope or leave empty to skip",
+                header="Commit context:",
+                default="",
+            )
+            or ""
+        )
+        if requires_context(template) and not context.strip():
+            prompter.error("Commit context is required by the configured template.")
+            raise prompter.exit(code=1)
+
     kwargs = {
         "placeholder": "Describe your changes...",
-        "header": f"[{tag}] Commit message:",
+        "header": "Commit message:",
     }
     if default_message:
         kwargs["default"] = default_message
 
-    message = prompter.write(**kwargs)
+    commit_body = prompter.write(**kwargs)
 
-    if not message:
+    if not commit_body:
         prompter.warning(f"{msg.COMMIT_CANCELLED}")
         raise prompter.exit(code=0)
 
-    message = f"[{tag}] {message}"
-
-    return message
+    return format_commit_message(
+        template=template,
+        tag=tag,
+        message=commit_body,
+        context=context,
+        context_template=context_template,
+    )
 
 
 @inject_spinner(Spinners.dots, text="Validating commit message...")

@@ -52,6 +52,7 @@ See [LICENSE](LICENSE) for full details.
 - 🔌 **Git hooks integration** - Automatic validation with pre-commit support
 - 🎨 **Interactive mode with Gum** - Beautiful terminal UI with arrow-key selection and styled prompts
 - 🌐 **GitHub API integration** - Manage issues, projects, and PRs directly
+- 🎫 **Jira integration** - Search issues, create issues, transition statuses, and create branches from Jira issues
 - 📊 **TUI Dashboard** - Interactive terminal dashboard for metrics and issue tracking
 - 🏢 **Enterprise builds** - Create custom packages with embedded corporate configuration
 - 🛠️ **Custom Rules Engine** - Define and run your own validation functions
@@ -97,6 +98,11 @@ devrules init-config
 2. **Create a branch interactively:**
 ```bash
 devrules create-branch
+```
+
+Create a branch from a Jira issue:
+```bash
+devrules create-branch --jira-issue ABC-123
 ```
 
 3. **Validate a branch name:**
@@ -152,6 +158,13 @@ devrules update-issue-status 123 --status "In Progress" --project 6
 devrules commit "[FTR] Add new feature"
 ```
 
+10. **Use Jira commands:**
+```bash
+devrules list-jira-issues --project ABC --status "To Do"
+devrules create-jira-issue --project ABC --summary "Add Jira integration"
+devrules transition-jira-issue ABC-123 --list-transitions
+```
+
 ## ⚙️ Configuration
 
 Create a `.devrules.toml` file in your project root:
@@ -162,6 +175,8 @@ prefixes = ["feature", "bugfix", "hotfix", "release", "docs"]
 
 [commit]
 tags = ["WIP", "FTR", "FIX", "DOCS", "TST"]
+template = "[{tag}] {message}"
+context_template = "({context})"
 pattern = "^\\[({tags})\\].+"
 min_length = 10
 max_length = 100
@@ -177,9 +192,68 @@ require_title_tag = true
 [github]
 owner = "your-org"
 repo = "your-repo"
+
+[jira]
+url = "https://your-domain.atlassian.net"
+email = "you@company.com"
+api_token = "your-jira-api-token"
+default_project = "ABC"
 ```
 
 For a complete configuration example, run `devrules init-config`.
+
+### Commit Message Templates
+
+DevRules can generate and validate commit messages from a template instead of relying only on a raw regex.
+
+Supported placeholders:
+- `{tag}` or `{prefix}`: the selected commit type/tag
+- `{message}`: the commit message body
+- `{context}`: a required context value when used directly in the template
+- `{context_block}`: an optional context wrapper, usually combined with `context_template`
+
+Default format:
+```toml
+[commit]
+tags = ["WIP", "FTR", "FIX", "DOCS", "TST"]
+template = "[{tag}] {message}"
+context_template = "({context})"
+```
+
+Conventional commit style:
+```toml
+[commit]
+tags = ["feat", "fix", "docs", "refactor", "test", "chore"]
+template = "{prefix}{context_block}: {message}"
+context_template = "({context})"
+```
+
+That configuration accepts both:
+- `feat: add jira integration`
+- `feat(jira): add jira integration`
+
+If you already use a custom `pattern`, DevRules keeps supporting it. Template-based pattern generation is used when you configure `template` or `context_template`.
+
+### Jira Integration
+
+Configure Jira in `.devrules.toml` or with `JIRA_EMAIL` and `JIRA_API_TOKEN` environment variables:
+
+```toml
+[jira]
+url = "https://your-domain.atlassian.net"
+email = "you@company.com"
+api_token = "your-jira-api-token"
+default_project = "ABC"
+timeout = 30
+```
+
+Example commands:
+```bash
+devrules list-jira-issues --project ABC
+devrules create-jira-issue --summary "Add search support"
+devrules transition-jira-issue ABC-123 --status "In Progress"
+devrules create-branch --jira-issue ABC-123
+```
 
 ### AI-Powered Commit Messages
 

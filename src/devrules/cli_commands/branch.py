@@ -1,5 +1,6 @@
 """CLI commands for branch management."""
 
+import re
 from typing import Any, Callable, Dict, Optional
 
 import typer
@@ -24,7 +25,9 @@ from devrules.core.git_service import (
     sanitize_text,
 )
 from devrules.core.github_service import link_branch_to_issue
+from devrules.core.jira_service import JiraService
 from devrules.core.project_service import find_project_item_for_issue, resolve_project_number
+from devrules.dtos.github import ProjectItem
 from devrules.messages import branch as msg
 from devrules.messages import git as git_msg
 from devrules.utils.branches_usage import BranchUsageManager
@@ -42,6 +45,41 @@ from devrules.validators.ownership import list_user_owned_branches
 from devrules.validators.repo_state import display_repo_state_issues, validate_repo_state
 
 prompter = get_default_prompter()
+
+
+def _extract_numeric_issue_id(issue_key: str) -> int:
+    """Extract the numeric part of a Jira issue key for branch naming."""
+    match = re.search(r"(\d+)$", issue_key)
+    if not match:
+        prompter.error(f"Could not extract a numeric issue id from Jira key '{issue_key}'.")
+        raise prompter.exit(1)
+    return int(match.group(1))
+
+
+def _build_project_item_from_jira_issue(config: Config, issue_key: str) -> tuple[ProjectItem, int]:
+    """Fetch a Jira issue and adapt it to the existing branch naming flow."""
+    if not config.jira.url:
+        prompter.error("Jira URL is not configured.")
+        raise prompter.exit(1)
+
+    service = JiraService(config.jira)
+
+    try:
+        issues = service.search_issues(f'key = "{issue_key}"', max_results=1)
+    except ValueError as exc:
+        prompter.error(str(exc))
+        raise prompter.exit(1)
+
+    if not issues:
+        prompter.error(f"Jira issue '{issue_key}' was not found.")
+        raise prompter.exit(1)
+
+    jira_issue = issues[0]
+    project_item = ProjectItem(
+        labels=jira_issue.labels,
+        title=jira_issue.summary,
+    )
+    return project_item, _extract_numeric_issue_id(jira_issue.key)
 
 
 def check_repo_state(config: Config, skip_checks: bool = False):
@@ -331,6 +369,9 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         issue: Optional[int] = typer.Option(
             None, "--issue", "-i", help="Issue to extract the information from"
         ),
+        jira_issue: Optional[str] = typer.Option(
+            None, "--jira-issue", help="Jira issue key to extract the information from"
+        ),
         for_staging: bool = typer.Option(
             False, "--for-staging", "-fs", help="Create staging branch based on current branch"
         ),
@@ -365,6 +406,17 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             prompter.info(f"Creating staging branch from: {current_branch}")
         elif branch_name:
             final_branch_name = branch_name
+        elif jira_issue:
+            with yaspin(text="Extracting information from Jira issue") as spinner:
+                set_spinner(spinner)
+                project_item, jira_issue_number = _build_project_item_from_jira_issue(
+                    config=config, issue_key=jira_issue
+                )
+
+            scope = detect_scope(config=config, project_item=project_item)
+            final_branch_name = resolve_issue_branch(
+                scope=scope, project_item=project_item, issue=jira_issue_number
+            )
         elif issue or project:
             selected_project: str | list[str] | None = str(project)
             if not project:
