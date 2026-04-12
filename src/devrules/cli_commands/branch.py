@@ -11,6 +11,7 @@ from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.cli_commands.commons import _fetch_project_items, _get_issue_and_status_interactively
 from devrules.config import Config, load_config
 from devrules.core.git_service import (
+    check_behind,
     checkout_branch,
     create_and_checkout_branch,
     create_staging_branch_name,
@@ -21,6 +22,7 @@ from devrules.core.git_service import (
     get_merged_branches,
     handle_existing_branch,
     merge_branch,
+    pull_remote_changes,
     resolve_issue_branch,
     sanitize_text,
 )
@@ -679,12 +681,17 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     @app.command(name="switch-branch")
     @ensure_git_repo()
     def switch_branch(
-        _: Config = Depends(get_config),
+        config: Config = Depends(get_config),
         branch: str | None = typer.Option(None, "--branch", "-b", help="Branch name"),
     ):
         """Interactively switch to another branch (alias: sb)."""
         prompter.header("Switch branch")
         checkout_branch_interactive(branch)
+        branch_config = config.branch
+        if branch_config.auto_update_from_remote and check_behind():
+            prompter.info("Auto updating branch from remote...")
+            pull_remote_changes()
+            prompter.success("Branch updated from remote")
 
     @app.command(name="create-integration-branch")
     @ensure_git_repo()

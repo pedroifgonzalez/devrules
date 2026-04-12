@@ -28,6 +28,7 @@ class BranchConfig:
     labels_mapping: dict = field(default_factory=dict)
     labels_hierarchy: list = field(default_factory=list)
     forbid_cross_repo_cards: bool = False
+    auto_update_from_remote: bool = False
 
 
 @dataclass

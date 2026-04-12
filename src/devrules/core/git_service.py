@@ -533,3 +533,37 @@ def merge_branch(source_branch: str, target_branch: str) -> tuple[bool, str]:
         return True, f"Merged '{source_branch}' into '{target_branch}'"
     except subprocess.CalledProcessError as e:
         return False, str(e)
+
+
+def check_behind() -> bool:
+    """
+    Return True if the current branch is behind of its upstream.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "status", "-sb"],
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+        return "behind" in result.stdout
+    except subprocess.CalledProcessError:
+        return True
+
+
+def pull_remote_changes(branch: str | None = None) -> bool:
+    """
+    Return True if local branch was updated with remote changes
+    """
+    try:
+        if not branch:
+            branch = get_current_branch()
+        subprocess.run(
+            ["git", "pull", "origin", branch],
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+        return True
+    except subprocess.CalledProcessError:
+        return False
