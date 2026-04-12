@@ -214,7 +214,7 @@ def at_least_one_validation_repo_state_set(config: Config):
     return any((config.validation.check_uncommitted, config.validation.check_behind_remote))
 
 
-def checkout_branch_interactive(branch: str | None = None) -> None:
+def checkout_branch_interactive(branch: str | None = None) -> str | None:
     """Interactively select and checkout a branch."""
     if branch:
         result, message = checkout_branch(branch)
@@ -223,7 +223,7 @@ def checkout_branch_interactive(branch: str | None = None) -> None:
         else:
             prompter.error(f"Failed to checkout branch: {message}")
             raise prompter.exit(code=1)
-        return
+        return None
 
     current_branch = get_current_branch()
     branches = get_existing_branches()
@@ -250,6 +250,7 @@ def checkout_branch_interactive(branch: str | None = None) -> None:
     if result is True:
         manager.register_usage(selected_branch)
         prompter.success(message)
+        return selected_branch
     else:
         prompter.error(f"Failed to checkout branch: {message}")
         raise prompter.exit(code=1)
@@ -686,12 +687,14 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     ):
         """Interactively switch to another branch (alias: sb)."""
         prompter.header("Switch branch")
-        checkout_branch_interactive(branch)
+        selected_branch = checkout_branch_interactive(branch)
+        if not selected_branch:
+            return
         branch_config = config.branch
         if branch_config.auto_update_from_remote and check_behind():
-            prompter.info("Auto updating branch from remote...")
+            prompter.info(f"Auto updating '{selected_branch}' from remote...")
             pull_remote_changes()
-            prompter.success("Branch updated from remote")
+            prompter.success(f"'{selected_branch}' updated from remote")
         elif branch_config.auto_pull_from_base_branch:
             current_branch = get_current_branch()
             base_branch = branch_config.base_branch
@@ -702,17 +705,19 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
                 checked_out_base_branch, _ = checkout_branch(base_branch)
                 prompter.info(f"Checked out base branch: {base_branch}")
                 checked_out_selected_branch = None
-                if checked_out_base_branch:
+                if checked_out_base_branch and check_behind():
                     prompter.info(f"Pulling base branch: {base_branch}...")
                     pull_remote_changes()
                     prompter.success(f"Pulled base branch: {base_branch}")
-                    checked_out_selected_branch, _ = checkout_branch(base_branch)
-                    prompter.info(f"Pulling from base branch: {base_branch}")
+                    checked_out_selected_branch, _ = checkout_branch(selected_branch)
+                    prompter.info(f"Pulling from {base_branch} to {selected_branch}...")
                     pull_remote_changes(branch=base_branch)
-                    prompter.success(f"Pulled from base branch: {base_branch}")
+                    prompter.success(f"Pulled from {base_branch} to {selected_branch}")
 
                 if not checked_out_base_branch or not checked_out_selected_branch:
-                    prompter.error(f"Failed to pulling from base branch: {base_branch}")
+                    prompter.error(
+                        f"Failed to pull from base branch: {base_branch} to {selected_branch}"
+                    )
                     raise prompter.exit(code=1)
 
     @app.command(name="create-integration-branch")
