@@ -2,71 +2,87 @@
 
 import os
 import subprocess
-from typing import Tuple
+from typing import Optional, Tuple
+
+from loguru import logger
+
+from devrules.core.git_service import get_author
+
+
+def _git_config(key: str) -> Optional[str]:
+    result = subprocess.run(
+        ["git", "config", "--get", key],
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip() or None
 
 
 def validate_branch_ownership(current_branch: str) -> Tuple[bool, str]:
-    """Validate that the current user is allowed to commit on the given branch.
+    """
+    Validate that the current user is allowed to commit on the given branch.
 
     Rules:
     - Shared branches (main, master, develop, release/*) are always allowed.
-    - For other branches, the first author in the branch history (git log --reverse)
-      is treated as the branch owner. Only that author may commit.
-    - If there is no history yet, the first commit is allowed.
+    - If a branch owner was explicitly recorded (branch.<name>.owner),
+      that owner is authoritative.
+    - If the branch has no commits of its own (develop..HEAD is empty),
+      the first commit is always allowed.
+    - Otherwise, the first author in the branch history (after diverging
+      from develop) is treated as the branch owner.
     """
 
     # Shared branches are always allowed
     if current_branch in ("main", "master", "develop") or current_branch.startswith("release/"):
         return True, "Shared branch — ownership check skipped"
 
-    # Determine current user from git config, falling back to OS user
-    user_result = subprocess.run(
-        ["git", "config", "user.name"],
-        capture_output=True,
-        text=True,
-    )
-    current_user = user_result.stdout.strip() or os.environ.get("USER", "")
-
+    # Determine current user
+    current_user = _git_config("user.name") or os.environ.get("USER", "")
     if not current_user:
         return (
             False,
-            "Unable to determine current developer identity. Configure it with 'git config --global user.name "
-            '"Your Name"\' or set the USER environment variable.',
+            "Unable to determine current developer identity. "
+            "Configure it with 'git config --global user.name \"Your Name\"'.",
         )
 
-    # Determine the base point with develop and only inspect commits after it
-    try:
-        merge_base_result = subprocess.run(
-            ["git", "merge-base", "develop", "HEAD"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        merge_base = merge_base_result.stdout.strip()
-    except subprocess.CalledProcessError:
-        # If we cannot find a merge-base (e.g., no common ancestor), fall back to full history
-        merge_base = ""
+    # 🔐 1. Explicitly recorded branch owner (authoritative)
+    recorded_owner = _git_config(f"branch.{current_branch}.owner")
+    if recorded_owner:
+        if recorded_owner != current_user:
+            return (
+                False,
+                f"You are not allowed to commit on this branch. "
+                f"Branch owner (recorded): {recorded_owner}, you: {current_user}",
+            )
+        return True, "Current user matches recorded branch owner"
 
-    log_range = f"{merge_base}..HEAD" if merge_base else "HEAD"
+    # 🔑 2. Check if the branch has any unique commits
+    unique_commits = subprocess.run(
+        ["git", "rev-list", "--count", "develop..HEAD"],
+        capture_output=True,
+        text=True,
+    )
 
+    if unique_commits.returncode == 0 and unique_commits.stdout.strip() == "0":
+        return True, "New branch with no unique commits — first commit allowed"
+
+    # 🧾 3. Fallback: infer owner from first unique commit author
     log_result = subprocess.run(
-        ["git", "log", log_range, "--format=%an", "--reverse"],
+        ["git", "log", "develop..HEAD", "--format=%an", "--reverse"],
         capture_output=True,
         text=True,
     )
 
     authors = [line.strip() for line in log_result.stdout.splitlines() if line.strip()]
-
-    # If there is no history yet after the base (new branch), allow the first commit
     if not authors:
-        return True, "New branch with no history after base — first commit allowed"
+        return True, "No author history detected — commit allowed"
 
     branch_owner = authors[0]
-
     if branch_owner != current_user:
         return (
             False,
-            f"You are not allowed to commit on this branch. Branch owner: {branch_owner}, your identity: {current_user}",
+            f"You are not allowed to commit on this branch. "
+            f"Branch owner: {branch_owner}, your identity: {current_user}",
         )
 
     return True, "Current user matches branch owner"
@@ -74,8 +90,9 @@ def validate_branch_ownership(current_branch: str) -> Tuple[bool, str]:
 
 def _get_current_user() -> str:
     """Return the current Git user.name or fall back to OS USER."""
-
-    user_result = subprocess.run(["git", "config", "user.name"], capture_output=True, text=True)
+    cmd = ["git", "config", "user.name"]
+    logger.debug(f"Executing command: {' '.join(cmd)}")
+    user_result = subprocess.run(cmd, capture_output=True, text=True)
     current_user = user_result.stdout.strip() or os.environ.get("USER", "")
     return current_user
 
@@ -95,7 +112,7 @@ def _get_merge_base(branch: str, base: str = "develop") -> str:
         return ""
 
 
-def _get_branch_owner(branch: str, current_user: str) -> str:
+def _get_branch_owner(branch: str, current_user: str | None = None) -> str:
     """Determine the owner of a branch using the same logic as validate_branch_ownership.
 
     Returns:
@@ -115,6 +132,7 @@ def _get_branch_owner(branch: str, current_user: str) -> str:
         text=True,
     )
 
+    current_user = current_user or get_author()
     authors = [line.strip() for line in log_result.stdout.splitlines() if line.strip()]
 
     if not authors:

@@ -6,22 +6,74 @@ from typing import Any, Callable, Dict, Optional
 
 import typer
 from typer_di import Depends
+from yaspin import yaspin
 
-from devrules.config import Config, load_config
-from devrules.core.deployment_service import (
-    check_deployment_readiness,
-    check_migration_conflicts,
-    execute_deployment,
-    get_deployed_branch,
-    rollback_deployment,
+from devrules.adapters.prompters.factory import get_default_prompter
+from devrules.config import Config, EnvironmentConfig, load_config
+from devrules.core.deployment_service import check_deployment_readiness, execute_deployment
+from devrules.core.deployment_service import get_deployed_branch as _get_deployed_branch
+from devrules.core.deployment_service import rollback_deployment
+from devrules.core.enum import DevRulesEvent
+from devrules.core.git_service import (
+    check_not_pushed_changes,
+    get_author,
+    get_current_branch,
+    get_current_repo_name,
 )
-from devrules.core.git_service import get_author, get_current_branch, get_current_repo_name
 from devrules.core.permission_service import can_deploy_to_environment
+from devrules.core.project_service import (
+    get_project_id,
+    get_status_field_id,
+    get_status_option_id,
+    resolve_project_number,
+)
 from devrules.messages import deploy as msg
 from devrules.notifications import emit
 from devrules.notifications.events import DeployEvent
-from devrules.utils.decorators import ensure_git_repo
-from devrules.utils.typer import add_typer_block_message
+from devrules.utils.decorators import emit_events, ensure_git_repo
+from devrules.utils.issue_mapping import get_issue_mapping_manager
+from devrules.validators.ownership import _get_branch_owner
+
+prompter = get_default_prompter()
+
+
+def _update_deploy_issue_status(branch: str, new_status: str):
+    """Update issue using deployment environment status set after deploy"""
+    from devrules.core.github_service import update_issue_status
+
+    mapping_manager = get_issue_mapping_manager()
+    mapping = mapping_manager.get_mapping_by_branch(branch)
+    if not mapping:
+        raise prompter.exit(0)
+
+    issue_id = mapping.get("issue_number")
+    project_key = mapping.get("project_key")
+
+    if not all([issue_id, project_key]):
+        raise prompter.exit(code=1)
+
+    owner, project_number = resolve_project_number(project_key)
+    if not all((issue_id, project_key, owner)):
+        raise prompter.exit(code=1)
+
+    with yaspin(text="Get project id..."):
+        project_id = get_project_id(owner, project_number)
+    with yaspin(text="Get status field id..."):
+        status_field_id = get_status_field_id(owner, project_number)
+    with yaspin(text="Get status option id..."):
+        status_option_id = get_status_option_id(owner, project_number, new_status)
+
+    data = {
+        "issue_id": issue_id,
+        "status_field_id": status_field_id,
+        "status_option_id": status_option_id,
+        "project_id": project_id,
+    }
+    if not all(data.values()):
+        raise prompter.exit(code=1)
+
+    prompter.info(f"Changing issue #{mapping.get('issue_number')} status to {new_status}...")
+    update_issue_status(**data)
 
 
 def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
@@ -35,9 +87,12 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
     """
 
     @app.command()
+    @emit_events([DevRulesEvent.PRE_DEPLOY, DevRulesEvent.POST_DEPLOY])
     @ensure_git_repo()
     def deploy(
-        environment: str = typer.Argument(..., help="Target environment (dev, staging, prod)"),
+        environment: Optional[str] = typer.Option(
+            None, "--environment", "-e", help="Target environment (dev, staging, prod)"
+        ),
         branch: Optional[str] = typer.Option(
             None,
             "--branch",
@@ -66,191 +121,156 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         4. Execute Jenkins deployment job
         5. Handle failures with rollback option
         """
+        prompter.header("Deploy branch")
+
+        available_envs = config.deployment.environments.keys()
+        available_envs = list(available_envs) if available_envs else []
+        if not available_envs or not isinstance(available_envs, list):
+            prompter.warning("No environments configured.")
+            raise prompter.exit(code=0)
+
+        if not environment:
+            environment = prompter.choose_single(
+                header="Enter environment:", options=available_envs
+            )
+
+        if check_not_pushed_changes():
+            prompter.warning("There are unpushed changes.")
+            response = prompter.confirm("Do you want to continue?", default=False)
+            if response is False:
+                raise prompter.exit(code=1)
 
         # Validate environment configuration
         if environment not in config.deployment.environments:
             available = ", ".join(config.deployment.environments.keys())
-            typer.secho(
-                f"✘ Environment '{environment}' not configured",
-                fg=typer.colors.RED,
+            prompter.error(
+                f"Environment '{environment}' not configured",
             )
-            typer.echo(f"Available environments: {available}")
-            raise typer.Exit(code=1)
+            prompter.info(f"Available environments: {available}")
+            raise prompter.exit(code=1)
 
-        env_config = config.deployment.environments[environment]
+        env_config: EnvironmentConfig = config.deployment.environments[environment]
 
         # Permission check for deployment (--force does NOT bypass this)
         is_permitted, permission_msg = can_deploy_to_environment(environment, config)
         if permission_msg and is_permitted:
             # Warning case - allowed but with warning
-            typer.secho(f"⚠ {permission_msg}", fg=typer.colors.YELLOW)
+            prompter.warning(permission_msg)
         elif not is_permitted:
-            typer.secho(f"✘ {permission_msg}", fg=typer.colors.RED)
-            typer.echo(
-                "\n💡 Note: --force flag bypasses readiness checks only, not role-based permissions."
+            prompter.error(permission_msg)
+            prompter.info(
+                "Note: --force flag bypasses readiness checks only, not role-based permissions."
             )
-            raise typer.Exit(code=1)
+            raise prompter.exit(1)
 
         # Determine branch to deploy
         if branch is None:
             branch = get_current_branch()
-            typer.echo(f"📌 Using current branch: {branch}")
+            prompter.info(f"Using current branch: {branch}")
 
         repo_path = str(Path.cwd())
 
         # Step 1: Get currently deployed branch
-        typer.echo(f"\n🔍 Checking currently deployed branch in {environment}...")
-        deployed_branch = get_deployed_branch(environment, config)
+        with yaspin(text=f"Checking currently deployed branch in {environment}...") as spinner:
+            deployed_branch = _get_deployed_branch(environment, config)
+            spinner.stop()
 
-        if deployed_branch:
-            typer.secho(
-                f"✔ Currently deployed: {deployed_branch}",
-                fg=typer.colors.GREEN,
-            )
-        else:
-            typer.secho(
-                f"⚠ Could not determine deployed branch, assuming: {env_config.default_branch}",
-                fg=typer.colors.YELLOW,
-            )
-            deployed_branch = env_config.default_branch
-
-        # Step 2: Check for migration conflicts (unless skipped)
-        if not skip_checks and config.deployment.migration_detection_enabled:
-            typer.echo("\n🔍 Checking for migration conflicts...")
-            has_conflicts, conflicting_files = check_migration_conflicts(
-                repo_path, branch, deployed_branch, config
-            )
-
-            if has_conflicts:
-                typer.secho(
-                    "⚠ Migration conflicts detected!",
-                    fg=typer.colors.YELLOW,
-                    bold=True,
-                )
-                typer.echo("\nConflicting migration files:")
-                for file in conflicting_files:
-                    typer.echo(f"  - {file}")
-
-                typer.echo("\n⚠ Both branches have new migrations. This may cause issues.")
-
-                if not force:
-                    should_continue = typer.confirm(
-                        "\nDo you want to continue anyway?",
-                        default=False,
-                    )
-                    if not should_continue:
-                        typer.echo("Deployment cancelled.")
-                        raise typer.Exit(code=0)
-            elif conflicting_files:
-                typer.secho(
-                    f"✔ Found {len(conflicting_files)} new migration(s), no conflicts",
-                    fg=typer.colors.GREEN,
-                )
-            else:
-                typer.secho(
-                    "✔ No migration changes detected",
-                    fg=typer.colors.GREEN,
-                )
+        if not deployed_branch:
+            prompter.error(f"Could not determine deployed branch for '{environment}'")
+            raise prompter.exit(1)
+        prompter.info(f"Currently deployed: {deployed_branch} on {environment}")
+        prompter.info(f"Author: {_get_branch_owner(deployed_branch)}")
 
         # Step 3: Check deployment readiness
         if not skip_checks:
-            typer.echo("\n🔍 Checking deployment readiness...")
-            is_ready, message = check_deployment_readiness(repo_path, branch, environment, config)
+            with yaspin(text="Checking migration conflicts..."):
+                is_ready, message = check_deployment_readiness(
+                    repo_path=repo_path,
+                    branch=branch,
+                    environment=environment,
+                    config=config,
+                    deployed_branch=deployed_branch,
+                )
 
             if not is_ready:
-                typer.secho(f"✘ Not ready: {message}", fg=typer.colors.RED)
+                prompter.error(f"Not ready: {message}")
                 if not force:
-                    raise typer.Exit(code=1)
+                    raise prompter.exit(code=1)
                 else:
-                    typer.secho(
-                        "⚠ Proceeding anyway due to --force flag",
-                        fg=typer.colors.YELLOW,
+                    prompter.warning(
+                        "Proceeding anyway due to --force flag",
                     )
             else:
-                typer.secho(f"✔ {message}", fg=typer.colors.GREEN)
+                prompter.success(message)
 
         # Step 4: Confirm deployment
         if config.deployment.require_confirmation and not force:
-            add_typer_block_message(
-                header="📋 Deployment Summary",
-                subheader="",
-                messages=[
-                    f"Environment:      {environment}",
-                    f"Branch to deploy: {branch}",
-                    f"Current branch:   {deployed_branch}",
-                    f"Jenkins job:      {env_config.jenkins_job_name}",
-                ],
-            )
-
-            confirmed = typer.confirm(
+            prompter.info(f"Environment:      {environment}")
+            prompter.info(f"Branch to deploy: {branch}")
+            prompter.info(f"Current branch:   {deployed_branch}")
+            prompter.info(f"Jenkins job:      {env_config.jenkins_job_name}")
+            confirmed = prompter.confirm(
                 msg.CONFIRM_DEPLOYMENT.format(branch, environment),
                 default=False,
             )
-
             if not confirmed:
-                typer.echo(msg.DEPLOYMENT_CANCELLED)
-                raise typer.Exit(code=0)
+                prompter.error(msg.DEPLOYMENT_CANCELLED)
+                raise prompter.exit(code=0)
 
         # Step 5: Execute deployment
-        typer.echo(f"\n{msg.DEPLOYING_TO_ENVIRONMENT.format(branch, environment)}")
+        prompter.info(msg.DEPLOYING_TO_ENVIRONMENT.format(branch, environment))
         success, message = execute_deployment(branch, environment, config)
 
         if success:
-            typer.secho(
-                f"\n✔ {message}",
-                fg=typer.colors.GREEN,
-                bold=True,
+            prompter.success(message)
+            with yaspin(text="Emitting deployment event...") as spinner:
+                author = get_author()
+                repo = config.github.repo or get_current_repo_name()
+                spinner.stop()
+                try:
+                    emit(
+                        DeployEvent(
+                            repo=repo, branch=branch, environment=environment, author=author
+                        )
+                    )
+                except RuntimeError as e:
+                    prompter.warning(f"Failed to emit deployment event: {e}")
+                    prompter.warning("Deployment will continue without event emission")
+                else:
+                    prompter.success("Deployment event emitted successfully")
+            prompter.info(
+                f"You can monitor the deployment at: {config.deployment.jenkins_url}/job/{env_config.jenkins_job_name.split('/')[0]}/job/{urllib.parse.quote(branch, safe='')}/"
             )
-            typer.echo()
-            typer.secho("\n💬 Emitting deployment event...", fg=typer.colors.BLUE)
-            author = get_author()
-            repo = config.github.repo or get_current_repo_name()
-
-            try:
-                emit(DeployEvent(repo=repo, branch=branch, environment=environment, author=author))
-            except RuntimeError as e:
-                typer.secho(f"⚠ Failed to emit deployment event: {e}", fg=typer.colors.YELLOW)
-                typer.secho(
-                    "⚠ Deployment will continue without event emission", fg=typer.colors.YELLOW
-                )
-            else:
-                typer.secho("✅ Deployment event emitted successfully", fg=typer.colors.GREEN)
-            typer.echo(
-                f"\n💡 Monitor the deployment at: {config.deployment.jenkins_url}/job/{env_config.jenkins_job_name.split('/')[0]}/job/{urllib.parse.quote(branch, safe='')}/"
-            )
+            if new_status := env_config.transition_status:
+                _update_deploy_issue_status(new_status=new_status, branch=branch)
         else:
-            typer.secho(
-                f"\n✘ Deployment failed: {message}",
-                fg=typer.colors.RED,
-                bold=True,
+            prompter.error(
+                f"Deployment failed: {message}",
             )
 
             # Offer rollback if auto_rollback is enabled
             if config.deployment.auto_rollback_on_failure:
-                should_rollback = typer.confirm(
-                    f"\n¿Desea desplegar la rama '{deployed_branch}' para evitar bloquear el uso en '{environment}'?",
+                should_rollback = prompter.confirm(
+                    f"¿Desea desplegar la rama '{deployed_branch}' para evitar bloquear el uso en '{environment}'?",
                     default=True,
                 )
 
                 if should_rollback:
-                    typer.echo(f"\n🔄 Desplegando {deployed_branch} en {environment}...")
+                    prompter.info(f"🔄 Desplegando {deployed_branch} en {environment}...")
                     rollback_success, rollback_message = rollback_deployment(
                         environment, deployed_branch, config
                     )
-
                     if rollback_success:
-                        typer.secho(
-                            f"✔ Rollback successful: {rollback_message}",
-                            fg=typer.colors.GREEN,
+                        prompter.success(
+                            f"Rollback successful: {rollback_message}",
                         )
                     else:
-                        typer.secho(
-                            f"✘ Rollback failed: {rollback_message}",
-                            fg=typer.colors.RED,
+                        prompter.error(
+                            f"Rollback failed: {rollback_message}",
                         )
-                        raise typer.Exit(code=1)
+                        raise prompter.exit(1)
 
-            raise typer.Exit(code=1)
+            raise prompter.exit(1)
 
     @app.command()
     @ensure_git_repo()
@@ -271,51 +291,63 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
         - Deployment readiness validation
         - Currently deployed branch information
         """
-
-        # Validate environment
-        if environment not in config.deployment.environments:
-            available = ", ".join(config.deployment.environments.keys())
-            typer.secho(
-                f"✘ Environment '{environment}' not configured",
-                fg=typer.colors.RED,
-            )
-            typer.echo(f"Available environments: {available}")
-            raise typer.Exit(code=1)
+        prompter.header("Checking deployment readiness")
 
         # Determine branch
         if branch is None:
             branch = get_current_branch()
 
+        # Validate environment
+        if environment not in config.deployment.environments:
+            available = ", ".join(config.deployment.environments.keys())
+            prompter.error(f"Environment '{environment}' not configured")
+            prompter.info(f"Available environments: {available}")
+            raise prompter.exit(code=1)
+
         repo_path = str(Path.cwd())
 
-        typer.secho(
-            f"\n🔍 Checking deployment readiness for '{branch}' → '{environment}'",
-            fg=typer.colors.CYAN,
-            bold=True,
-        )
-
         # Get deployed branch
-        typer.echo("\n📌 Currently deployed branch:")
-        deployed_branch = get_deployed_branch(environment, config)
+        with yaspin(text="Getting deployed branch..."):
+            deployed_branch = _get_deployed_branch(environment, config)
+
         if deployed_branch:
-            typer.secho(f"   {deployed_branch}", fg=typer.colors.GREEN)
+            prompter.info(f"Currently deployed branch: {deployed_branch}")
         else:
-            typer.secho("   Unknown", fg=typer.colors.YELLOW)
-            deployed_branch = config.deployment.environments[environment].default_branch
+            prompter.error("Could not detect deployed branch")
+            raise prompter.exit(1)
 
         # Check readiness
-        is_ready, message = check_deployment_readiness(repo_path, branch, environment, config)
+        with yaspin(text="Checking migration conflicts..."):
+            is_ready, message = check_deployment_readiness(
+                repo_path, branch, environment, config, deployed_branch=deployed_branch
+            )
 
-        typer.echo("\n📋 Deployment Status:")
         if is_ready:
-            typer.secho(f"   ✔ {message}", fg=typer.colors.GREEN)
-            typer.echo(f"\n✅ Branch '{branch}' is ready for deployment to '{environment}'")
+            prompter.success("No migrations conflicts detected")
+            prompter.success(f"Branch '{branch}' is ready for deployment to '{environment}'")
         else:
-            typer.secho(f"   ✘ {message}", fg=typer.colors.RED)
-            typer.echo(f"\n❌ Branch '{branch}' is NOT ready for deployment")
-            raise typer.Exit(code=1)
+            prompter.error(message)
+            raise prompter.exit(code=1)
+
+    @app.command()
+    @ensure_git_repo()
+    def get_deployed_branch(
+        environment: str = typer.Argument(..., help="Target environment (dev, staging, prod)"),
+        config: Config = Depends(load_config),
+    ):
+        """Get the currently deployed branch for the given environment."""
+        prompter.header("Get deployed branch")
+        # Get deployed branch
+        with yaspin(text="Getting deployed branch..."):
+            deployed_branch = _get_deployed_branch(environment, config)
+        if not deployed_branch:
+            prompter.error(f"Could not determine deployed branch for '{environment}'")
+            raise prompter.exit(1)
+        prompter.info(f"Currently deployed branch on {environment}: {deployed_branch}")
+        prompter.info(f"Author: {_get_branch_owner(deployed_branch)}")
 
     return {
         "deploy": deploy,
         "check_deployment": check_deployment,
+        "get_deployed_branch": get_deployed_branch,
     }

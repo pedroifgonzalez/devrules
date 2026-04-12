@@ -5,6 +5,7 @@ from typing import Callable, TypeVar, cast
 
 from typing_extensions import ParamSpec
 
+from devrules.core.enum import DevRulesEvent
 from devrules.core.events_engine import attach_event
 from devrules.core.git_service import ensure_git_repo as ensure_git_repo_
 from devrules.core.rules_engine import RuleDefinition, execute_rule, prompt_for_rule_arguments
@@ -35,11 +36,11 @@ def ensure_git_repo() -> Callable[[Callable[P, T]], Callable[P, T]]:
     return decorator
 
 
-def emit_event(event: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
+def emit_events(events: list[DevRulesEvent]) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """
     Decorator that emits an event for running custom rules hooked to that event
     """
-    from devrules.cli_commands.prompters.factory import get_default_prompter
+    from devrules.adapters.prompters.factory import get_default_prompter
 
     prompter = get_default_prompter()
 
@@ -49,16 +50,29 @@ def emit_event(event: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             """Decorator that ensures the function is being called from within a Git repository."""
-            custom_rules: list[RuleDefinition] = attach_event(event)
-            for custom_rule in custom_rules:
-                prompter.info(f"Running custom rule: {custom_rule.name}")
-                prompted_kwargs = prompt_for_rule_arguments(custom_rule.name)
-                valid, message = execute_rule(custom_rule.name, **prompted_kwargs)
-                if not valid:
-                    prompter.error(message)
-                    prompter.exit(1)
-                prompter.success(message)
-            return func(*args, **kwargs)
+
+            def _run_events(selected_events: tuple[DevRulesEvent, ...]) -> None:
+                custom_rules: list[RuleDefinition] = []
+                for event in selected_events:
+                    custom_rules.extend(attach_event(event))
+                if custom_rules:
+                    prompter.header("Running custom rules...")
+                for custom_rule in custom_rules:
+                    prompter.info(f"Running custom rule: {custom_rule.name}")
+                    prompted_kwargs = prompt_for_rule_arguments(custom_rule.name)
+                    valid, message = execute_rule(custom_rule.name, **prompted_kwargs)
+                    if not valid:
+                        prompter.error(message)
+                        prompter.exit(1)
+                    prompter.success(message.strip("\n"))
+
+            pre_events = tuple(e for e in events if not e.value.startswith("post_"))
+            post_events = tuple(e for e in events if e.value.startswith("post_"))
+
+            _run_events(pre_events)
+            result = func(*args, **kwargs)
+            _run_events(post_events)
+            return result
 
         return cast(Callable[P, T], wrapper)
 

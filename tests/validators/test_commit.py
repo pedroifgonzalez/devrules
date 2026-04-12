@@ -31,6 +31,7 @@ def test_invalid_commit_messages():
         "No tag here",
         "[INVALID] Wrong tag",
         "[FTR] Short",
+        "[FTR] Message too" + "long" * 100,
     ]
 
     for msg in invalid_messages:

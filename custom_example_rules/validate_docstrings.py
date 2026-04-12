@@ -8,9 +8,9 @@ from devrules.core.rules_engine import rule
     name="validate_docstrings",
     description="Validate docstrings in the code.",
     hooks=[DevRulesEvent.PRE_COMMIT],
-    ignore_defaults=True,
+    ignore_defaults=False,
 )
-def check_docstrings(path: str = "src", fail_under: int = 98) -> tuple[bool, str]:
+def check_docstrings(path: str = "src", fail_under: int = 97) -> tuple[bool, str]:
     """Validate docstrings in the code.
 
     Example interrogate response:

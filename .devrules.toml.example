@@ -55,8 +55,17 @@ api_url = "https://api.github.com"
 timeout = 30
 owner = "pedroifgonzalez"
 repo = "devrules"
-valid_statuses = [ "Backlog", "Ready", "In progress", "Waiting Integration", "In review", "Done",]
+valid_statuses = [ "Backlog", "Ready", "In progress", "Waiting Integration", "Tech Lead Review", "In review", "Done",]
 integration_comment_status = "Waiting Integration"
+require_evidence_status = "Tech Lead Review"
+
+# Work Center Settings
+# List of status names to exclude from the work center view
+excluded_work_statuses = ["Blocked", "Waiting Integration"]
+# The status to set when starting work on an issue
+start_work_status = "In Progress"
+# Number of hours to look back for "new" comments (e.g., 24 for last day)
+recent_comments_hours = 24
 
 [github.status_emojis]
 backlog = "📋"
@@ -164,3 +173,12 @@ prod = "#prod-deploys"
 paths = ["./custom_rules/"]
 # Python packages to import rules from
 packages = ["my_company_rules"]
+
+[logging]
+# Enable debug logging
+enabled = false
+# Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+level = "WARNING"
+# Optional custom format string
+# format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+

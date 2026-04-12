@@ -13,12 +13,15 @@ from typer_di import TyperDI
 from devrules.cli_commands import (
     branch,
     build_cmd,
+    center,
     commit,
     config_cmd,
+    config_edit,
     dashboard,
     deploy,
     group,
     hook_commands,
+    jira_cmd,
     pr,
     project,
     rules,
@@ -34,12 +37,15 @@ namespace.update(commit.register(app))
 namespace.update(pr.register(app))
 namespace.update(project.register(app))
 namespace.update(config_cmd.register(app))
+namespace.update(config_edit.register(app))
 namespace.update(hook_commands.register(app))
 namespace.update(dashboard.register(app))
 namespace.update(build_cmd.register(app))
 namespace.update(deploy.register(app))
 namespace.update(group.register(app))
 namespace.update(rules.register(app))
+namespace.update(center.register(app))
+namespace.update(jira_cmd.register(app))
 
 
 register_command_aliases(app, namespace)

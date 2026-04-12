@@ -1,15 +1,20 @@
 """Configuration management for DevRules."""
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 import toml
 import typer
 
+from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.notifications import configure
 from devrules.notifications.channels.slack import SlackChannel, resolve_slack_channel
 from devrules.notifications.dispatcher import NotificationDispatcher
+from devrules.utils.commit_template import build_commit_pattern
+
+prompter = get_default_prompter()
 
 
 @dataclass
@@ -23,6 +28,10 @@ class BranchConfig:
     labels_mapping: dict = field(default_factory=dict)
     labels_hierarchy: list = field(default_factory=list)
     forbid_cross_repo_cards: bool = False
+    auto_update_from_remote: bool = False
+    auto_pull_from_base_branch: bool = False
+    base_branch: str = "develop"
+    branches_to_exclude_from_pulling: list = field(default_factory=list)
 
 
 @dataclass
@@ -31,6 +40,8 @@ class CommitConfig:
 
     tags: list
     pattern: str
+    template: str = "[{tag}] {message}"
+    context_template: str = "({context})"
     min_length: int = 10
     max_length: int = 100
     restrict_branch_to_owner: bool = False
@@ -42,6 +53,7 @@ class CommitConfig:
     forbidden_paths: list = field(default_factory=list)
     auto_stage: bool = False
     enable_ai_suggestions: bool = False
+    auto_push: bool = False
 
 
 @dataclass
@@ -58,6 +70,7 @@ class PRConfig:
     allowed_targets: list = field(default_factory=list)
     target_rules: list = field(default_factory=list)
     auto_push: bool = False
+    prefixes_tags: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -68,10 +81,19 @@ class GitHubConfig:
     timeout: int = 30
     owner: Optional[str] = None
     repo: Optional[str] = None
+    token: Optional[str] = None
     projects: dict = field(default_factory=dict)
     valid_statuses: list = field(default_factory=list)
     integration_comment_status: str = "Waiting Integration"
+    require_evidence_status: Optional[str] = None
     status_emojis: dict = field(default_factory=dict)
+    project_cache_enabled: bool = False
+    project_cache_path: Optional[str] = None
+    excluded_work_statuses: list = field(default_factory=lambda: ["Blocked", "Waiting Integration"])
+    start_work_status: str = "In Progress"
+    recent_comments_hours: int = 24
+    priorities_hierarchy: list = field(default_factory=lambda: ["High", "Medium", "Low"])
+    labels_priorities_hierarchy: list = field(default_factory=lambda: ["P1", "P2", "P3"])
 
     def _validate(self):
         """Validate the configuration."""
@@ -85,6 +107,48 @@ class GitHubConfig:
                 fg=typer.colors.RED,
             )
             raise typer.Exit(code=1)
+        if (
+            self.require_evidence_status
+            and self.valid_statuses
+            and self.require_evidence_status not in self.valid_statuses
+        ):
+            typer.secho(
+                f"Invalid evidence status: {self.require_evidence_status}",
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(code=1)
+
+
+@dataclass
+class JiraConfig:
+    """Jira API configuration."""
+
+    url: str = ""
+    email: Optional[str] = None
+    api_token: Optional[str] = None
+    default_project: Optional[str] = None
+    timeout: int = 30
+
+    def is_configured(self) -> bool:
+        """Return whether Jira credentials are configured."""
+        return bool(self.url and self.email and self.api_token)
+
+    def _validate(self) -> None:
+        """Validate Jira configuration required for Jira commands."""
+        missing_fields = []
+        if not self.url:
+            missing_fields.append("jira.url")
+        if not self.email:
+            missing_fields.append("jira.email")
+        if not self.api_token:
+            missing_fields.append("jira.api_token")
+
+        if missing_fields:
+            typer.secho(
+                "✘ Jira is not fully configured. Missing: " + ", ".join(missing_fields),
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(code=1)
 
 
 @dataclass
@@ -95,6 +159,9 @@ class EnvironmentConfig:
     default_branch: str
     jenkins_job_name: Optional[str] = None  # If None, uses repo name from github.repo
     pattern: Optional[str] = None
+    transition_status: Optional[str] = (
+        None  # Status to transition the current issue detected by branch
+    )
 
 
 @dataclass
@@ -196,6 +263,15 @@ class PermissionsConfig:
 
 
 @dataclass
+class LoggingConfig:
+    """Logging configuration."""
+
+    enabled: bool = False
+    level: str = "WARNING"
+    format: Optional[str] = None
+
+
+@dataclass
 class CustomRulesConfig:
     """Configuration for custom validation rules."""
 
@@ -211,6 +287,7 @@ class Config:
     commit: CommitConfig
     pr: PRConfig
     github: GitHubConfig = field(default_factory=GitHubConfig)
+    jira: JiraConfig = field(default_factory=JiraConfig)
     deployment: DeploymentConfig = field(default_factory=DeploymentConfig)
     validation: ValidationConfig = field(default_factory=ValidationConfig)
     documentation: DocumentationConfig = field(default_factory=DocumentationConfig)
@@ -218,6 +295,7 @@ class Config:
     channel: ChannelConfig = field(default_factory=ChannelConfig)
     permissions: PermissionsConfig = field(default_factory=PermissionsConfig)
     custom_rules: CustomRulesConfig = field(default_factory=CustomRulesConfig)
+    logging: LoggingConfig = field(default_factory=LoggingConfig)
 
 
 DEFAULT_CONFIG = {
@@ -252,6 +330,8 @@ DEFAULT_CONFIG = {
             "DOCS",
         ],
         "pattern": r"^\[({tags})\].+",
+        "template": "[{tag}] {message}",
+        "context_template": "({context})",
         "min_length": 10,
         "max_length": 100,
         "append_issue_number": True,
@@ -276,12 +356,14 @@ DEFAULT_CONFIG = {
         "repo": None,
         "projects": {},
         "integration_comment_status": "Waiting Integration",
+        "require_evidence_status": "Tech Lead Review",
         "valid_statuses": [
             "Backlog",
             "Blocked",
             "To Do",
             "In Progress",
             "Waiting Integration",
+            "Tech Lead Review",
             "QA Testing",
             "QA In Progress",
             "QA Approved",
@@ -289,6 +371,18 @@ DEFAULT_CONFIG = {
             "Done",
         ],
         "status_emojis": {},
+        "project_cache_enabled": False,
+        "project_cache_path": None,
+        "excluded_work_statuses": ["Blocked", "Waiting Integration"],
+        "start_work_status": "In Progress",
+        "recent_comments_hours": 24,
+    },
+    "jira": {
+        "url": "",
+        "email": None,
+        "api_token": None,
+        "default_project": None,
+        "timeout": 30,
     },
     "deployment": {
         "jenkins_url": "",
@@ -323,6 +417,11 @@ DEFAULT_CONFIG = {
         "paths": [],
         "packages": [],
     },
+    "logging": {
+        "enabled": False,
+        "level": "WARNING",
+        "format": None,
+    },
 }
 
 
@@ -330,7 +429,7 @@ def find_config_file() -> Optional[Path]:
     """Search for config file in current directory and parent directories."""
     current = Path.cwd()
 
-    config_names = [".devrules.toml", "devrules.toml", ".devrules"]
+    config_names = [".devrules.toml", "devrules.toml"]
 
     for parent in [current] + list(current.parents):
         for name in config_names:
@@ -360,20 +459,21 @@ def load_config(config_path: Optional[Path] = None) -> Config:
         if enterprise_mgr.is_enterprise_mode():
             # Verify integrity
             if not verify_enterprise_integrity():
-                print("⚠️  Warning: Enterprise configuration integrity check failed!")
-                print("   The configuration may have been tampered with.")
+                prompter.warning("Enterprise configuration integrity check failed!")
+                prompter.warning("The configuration may have been tampered with.")
 
             # Load enterprise config
             enterprise_config_data = enterprise_mgr.load_enterprise_config()
             is_locked = enterprise_mgr.is_locked()
 
             if enterprise_config_data and is_locked:
-                print("🔒 Enterprise mode: Using locked corporate configuration")
+                prompter.info("Enterprise mode: Using locked corporate configuration")
     except ImportError:
         # Enterprise module not available
         pass
     except Exception as e:
-        print(f"Warning: Error loading enterprise config: {e}")
+        prompter.error(f"Error loading enterprise config: {e}")
+        prompter.exit(code=1)
 
     # Load user configuration
     path: Optional[Path]
@@ -387,10 +487,11 @@ def load_config(config_path: Optional[Path] = None) -> Config:
         try:
             user_config_data = toml.load(path)
         except Exception as e:
-            print(f"Warning: Error loading user config file: {e}")
+            prompter.error(f"Error loading user config file:\n{e}")
+            prompter.exit(code=1)
 
     # Merge configurations with priority
-    config_data: Dict[str, Any] = {**DEFAULT_CONFIG}
+    config_data: Dict[str, Any] = deepcopy(DEFAULT_CONFIG)
 
     # Apply user config if not locked by enterprise
     if user_config_data and not is_locked:
@@ -416,7 +517,33 @@ def load_config(config_path: Optional[Path] = None) -> Config:
     tags_str = "|".join(tags_list)
 
     commit_pattern_base = str(config_data["commit"]["pattern"])
-    commit_pattern = commit_pattern_base.replace("{tags}", tags_str)
+    commit_template = str(config_data["commit"].get("template", "[{tag}] {message}"))
+    context_template = str(config_data["commit"].get("context_template", "({context})"))
+
+    commit_template_overridden = False
+    for source_data in (user_config_data, enterprise_config_data):
+        commit_section = (source_data or {}).get("commit", {})
+        if isinstance(commit_section, dict) and (
+            "template" in commit_section or "context_template" in commit_section
+        ):
+            commit_template_overridden = True
+            break
+
+    default_commit_config = cast(Dict[str, Any], DEFAULT_CONFIG.get("commit", {}))
+    default_commit_pattern = str(default_commit_config.get("pattern", ""))
+
+    if commit_template_overridden or commit_pattern_base == default_commit_pattern:
+        try:
+            commit_pattern = build_commit_pattern(
+                tags=tags_list,
+                template=commit_template,
+                context_template=context_template,
+            )
+        except ValueError as e:
+            prompter.error(f"Invalid commit template configuration:\n{e}")
+            prompter.exit(code=1)
+    else:
+        commit_pattern = commit_pattern_base.replace("{tags}", tags_str)
 
     pr_pattern_base = str(config_data["pr"]["title_pattern"])
     pr_pattern = pr_pattern_base.replace("{tags}", tags_str)
@@ -468,6 +595,7 @@ def load_config(config_path: Optional[Path] = None) -> Config:
     # validated configs
     validated_github_config = GitHubConfig(**config_data.get("github", {}))
     validated_github_config._validate()
+    validated_jira_config = JiraConfig(**config_data.get("jira", {}))
 
     # Parse channel / notification config
     channel_data = config_data.get("channel", {})
@@ -509,11 +637,16 @@ def load_config(config_path: Optional[Path] = None) -> Config:
         packages=custom_rules_data.get("packages", []),
     )
 
+    # Parse logging config
+    logging_data = config_data.get("logging", {})
+    logging_config = LoggingConfig(**logging_data)
+
     return Config(
         branch=BranchConfig(**config_data["branch"]),
         commit=CommitConfig(**{**config_data["commit"], "pattern": commit_pattern}),
         pr=PRConfig(**{**config_data["pr"], "title_pattern": pr_pattern}),
         github=validated_github_config,
+        jira=validated_jira_config,
         deployment=deployment_config,
         validation=ValidationConfig(**config_data.get("validation", {})),
         documentation=documentation_config,
@@ -521,4 +654,5 @@ def load_config(config_path: Optional[Path] = None) -> Config:
         channel=channel_config,
         permissions=permissions_config,
         custom_rules=custom_rules_config,
+        logging=logging_config,
     )

@@ -5,6 +5,7 @@ from collections import OrderedDict
 from typing import Callable, Tuple
 
 import typer
+from loguru import logger
 
 
 def check_uncommitted_changes() -> Tuple[bool, str]:
@@ -36,6 +37,10 @@ def check_uncommitted_changes() -> Tuple[bool, str]:
         has_staged = result_staged.returncode != 0
         has_unstaged = result_unstaged.returncode != 0
         has_untracked = bool(result_untracked.stdout.strip())
+
+        logger.debug(
+            f"Repo state check: staged={has_staged}, unstaged={has_unstaged}, untracked={has_untracked}"
+        )
 
         if any([has_staged, has_unstaged, has_untracked]):
             changes = []
@@ -101,6 +106,7 @@ def check_behind_remote(branch: str = "HEAD") -> Tuple[bool, str]:
         )
 
         commits_behind = int(result.stdout.strip())
+        logger.debug(f"Commits behind remote '{branch}': {commits_behind}")
 
         if commits_behind > 0:
             message = f"Local branch is {commits_behind} commit(s) behind origin/{branch}"
@@ -135,25 +141,21 @@ def validate_repo_state(
 
     MAP_CHECKINGS: dict[str, tuple[bool, Callable]] = OrderedDict(
         {
-            "\n🆕 Checking uncommitted changes": (check_uncommitted, check_uncommitted_changes),
-            "\n🏎️ Checking behind HEAD": (check_behind, check_behind_remote),
+            "Checking uncommitted changes...": (check_uncommitted, check_uncommitted_changes),
+            "Checking behind HEAD...": (check_behind, check_behind_remote),
         }
     )
 
-    for label, (check, func) in MAP_CHECKINGS.items():
+    for _, (check, func) in MAP_CHECKINGS.items():
         if check:
-            typer.echo(label)
             issues, msg = func()
             if issues:
                 has_issues = True
-                messages.append(f"⚠️  {msg}")
+                messages.append(msg)
                 break
 
     if not has_issues:
-        messages.append("✅ Repository state is clean")
-        return True, messages
-
-    if warn_only:
+        messages.append("Repository state is clean")
         return True, messages
 
     return False, messages

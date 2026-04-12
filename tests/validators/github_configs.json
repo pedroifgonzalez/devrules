@@ -1,0 +1,30 @@
+[
+  {
+    "owner": "test-owner",
+    "repo": "test-repo",
+    "projects": {},
+    "valid_statuses": [],
+    "integration_comment_status": "Waiting Integration",
+    "status_emojis": {}
+  },
+  {
+    "owner": "test-owner",
+    "repo": "test-repo",
+    "projects": {
+      "devrules": "DevRules (#8)"
+    },
+    "valid_statuses": [],
+    "integration_comment_status": "Waiting Integration",
+    "status_emojis": {}
+  },
+  {
+    "owner": "test-owner",
+    "repo": "test-repo",
+    "projects": {
+      "devrules": "DevRules (#8)"
+    },
+    "valid_statuses": ["Ready", "In Progress", "Done"],
+    "integration_comment_status": "Waiting Integration",
+    "status_emojis": {}
+  }
+]

@@ -2,12 +2,18 @@
 
 import os
 import shutil
+import subprocess
 
 import requests
 import typer
+from loguru import logger
+from yaspin import yaspin
 
+from devrules.adapters.prompters.factory import get_default_prompter
 from devrules.config import GitHubConfig
 from devrules.dtos.github import PRInfo
+
+prompter = get_default_prompter()
 
 
 def ensure_gh_installed() -> None:
@@ -42,3 +48,67 @@ def fetch_pr_info(owner: str, repo: str, pr_number: int, github_config: GitHubCo
         changed_files=data.get("changed_files", 0),
         title=data.get("title", ""),
     )
+
+
+def update_issue_status(item_id: str, status_field_id: str, project_id: str, status_option_id: str):
+    """Update the status of a project item on GitHub."""
+    cmd = [
+        "gh",
+        "project",
+        "item-edit",
+        "--id",
+        item_id,
+        "--field-id",
+        status_field_id,
+        "--project-id",
+        project_id,
+        "--single-select-option-id",
+        status_option_id,
+    ]
+
+    try:
+        with yaspin(text="Updating status...", color="green"):
+            subprocess.run(
+                cmd,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+    except subprocess.CalledProcessError as e:
+        prompter.error(
+            f"Failed to update project item status: {e}",
+        )
+        raise prompter.exit(1)
+
+
+def link_branch_to_issue(issue: int, branch_name: str) -> tuple[bool, str]:
+    """Link a branch to an issue on GitHub."""
+    logger.info(f"Linking branch {branch_name} to issue {issue}...")
+    cmd = ["gh", "issue", "develop", "-b", "develop", str(issue), "--name", branch_name, "-c"]
+    try:
+        with yaspin(text="Linking branch to issue...", color="green"):
+            subprocess.run(
+                cmd,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            user = subprocess.run(
+                ["git", "config", "user.name"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
+
+            subprocess.run(
+                ["git", "config", f"branch.{branch_name}.owner", user],
+                check=True,
+            )
+            subprocess.run(["git", "reset", "--hard", "origin/develop"])
+    except subprocess.CalledProcessError as e:
+        prompter.error(
+            f"Failed to link branch to issue: {e}",
+        )
+        raise prompter.exit(1)
+
+    return True, "Branch linked to issue successfully."

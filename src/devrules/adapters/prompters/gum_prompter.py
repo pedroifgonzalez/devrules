@@ -4,7 +4,7 @@ from typing import Optional
 
 from typing_extensions import NoReturn
 
-from devrules.cli_commands.prompters import Prompter
+from devrules.adapters.prompters import Prompter
 from devrules.utils import gum
 
 
@@ -38,6 +38,7 @@ class GumPrompter(Prompter):
         options: list[str],
         header: str = "",
         limit: int = 1,
+        defaults: Optional[list[str]] = None,
     ) -> Optional[str | list[str]]:
         """Interactive selection from a list of options using gum.
 
@@ -50,7 +51,34 @@ class GumPrompter(Prompter):
             Selected option(s) as string (if limit=1) or list of strings (if limit>1),
             or None if cancelled
         """
-        return gum.choose(options, header, limit)
+        return gum.choose(options, header, limit, defaults=defaults)
+
+    def choose_single(self, options: list[str], header: str) -> Optional[str]:
+        """Show a single choice dialog.
+
+        Args:
+            options: List of options to choose from
+            header: Header text to display above choices
+
+        Returns:
+            Selected option as string, or None if cancelled
+        """
+        return gum.choose(options=options, header=header, limit=1)
+
+    def choose_multiple(
+        self, options: list[str], header: str, defaults: Optional[list[str]] = None
+    ) -> Optional[list[str]]:
+        """Show a multiple choice dialog.
+
+        Args:
+            options: List of options to choose from
+            header: Header text to display above choices
+            defaults: List of default options to pre-select
+
+        Returns:
+            List of selected options as strings, or None if cancelled
+        """
+        return gum.choose(options=options, header=header, limit=0, defaults=defaults)
 
     def input_text(
         self,
@@ -89,7 +117,7 @@ class GumPrompter(Prompter):
         Returns:
             User input string or None if cancelled
         """
-        return gum.write(placeholder, header, char_limit)
+        return gum.write(placeholder, header, char_limit, default)
 
     def filter_list(
         self,
@@ -191,3 +219,15 @@ class GumPrompter(Prompter):
             code: Exit code
         """
         raise SystemExit(code)
+
+    def header(self, header: str) -> None:
+        print(gum.style(header, foreground=81, bold=True))
+        print(gum.style("=" * 50, foreground=81))
+
+    def indented_message(self, message: str) -> None:
+        """Print an indented message.
+
+        Args:
+            message: Indented message to display
+        """
+        print(gum.style(f"   {message}"))

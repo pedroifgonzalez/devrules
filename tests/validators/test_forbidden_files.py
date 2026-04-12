@@ -1,9 +1,12 @@
 """Tests for forbidden files validation."""
 
+import subprocess
 from unittest.mock import MagicMock, patch
 
 from devrules.validators.forbidden_files import (
     check_forbidden_files,
+    get_changed_files,
+    get_forbidden_file_suggestions,
     get_staged_files,
     matches_pattern,
     validate_no_forbidden_files,
@@ -144,6 +147,40 @@ def test_get_staged_files_empty(mock_run):
     assert len(files) == 0
 
 
+@patch("devrules.validators.forbidden_files.subprocess.run")
+def test_get_staged_files_error(mock_run):
+    """Staged files retrieval should handle git errors gracefully."""
+    mock_run.side_effect = subprocess.CalledProcessError(returncode=1, cmd="git diff")
+
+    files = get_staged_files()
+
+    assert files == []
+
+
+@patch("devrules.validators.forbidden_files.subprocess.run")
+def test_get_changed_files(mock_run):
+    """Test getting changed files compared to base branch."""
+    mock_run.return_value = MagicMock(
+        stdout="src/app.py\nREADME.md\n",
+        returncode=0,
+    )
+
+    files = get_changed_files("origin/main")
+
+    mock_run.assert_called_once()
+    assert files == ["src/app.py", "README.md"]
+
+
+@patch("devrules.validators.forbidden_files.subprocess.run")
+def test_get_changed_files_error(mock_run):
+    """Changed files retrieval should handle git errors gracefully."""
+    mock_run.side_effect = subprocess.CalledProcessError(returncode=1, cmd="git diff")
+
+    files = get_changed_files("origin/main")
+
+    assert files == []
+
+
 @patch("devrules.validators.forbidden_files.get_staged_files")
 @patch("devrules.validators.forbidden_files.check_forbidden_files")
 def test_validate_no_forbidden_files_valid(mock_check, mock_get_files):
@@ -194,6 +231,21 @@ def test_validate_no_forbidden_files_no_files(mock_get_files):
     assert "no files" in message.lower()
 
 
+@patch("devrules.validators.forbidden_files.get_changed_files")
+def test_validate_no_forbidden_files_check_all_changes(mock_get_files):
+    """When checking all changes, context should mention changed files."""
+    mock_get_files.return_value = []
+
+    is_valid, message = validate_no_forbidden_files(
+        forbidden_patterns=["*.log"],
+        forbidden_paths=[],
+        check_staged=False,
+    )
+
+    assert is_valid is True
+    assert "no files changed" in message.lower()
+
+
 def test_validate_no_forbidden_files_no_rules():
     """Test validating when no rules are configured."""
     is_valid, message = validate_no_forbidden_files(
@@ -238,3 +290,12 @@ def test_check_forbidden_files_complex_patterns():
     assert has_forbidden is True
     # SQL files match pattern, backup matches path, vscode matches pattern
     assert len(forbidden_list) == 3
+
+
+def test_get_forbidden_file_suggestions():
+    """Suggestions helper should include common remediation steps."""
+    suggestions = get_forbidden_file_suggestions()
+
+    assert isinstance(suggestions, list)
+    assert any("git reset" in suggestion for suggestion in suggestions)
+    assert any(".gitignore" in suggestion for suggestion in suggestions)

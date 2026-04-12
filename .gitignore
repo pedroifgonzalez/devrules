@@ -29,3 +29,7 @@ wheels/
 
 # Personal notes
 .notes/
+
+# Tests
+coverage.xml
+*.coverage

@@ -1,8 +1,8 @@
 """Factory for creating the appropriate prompter instance."""
 
-from devrules.cli_commands.prompters import Prompter
-from devrules.cli_commands.prompters.gum_prompter import GumPrompter
-from devrules.cli_commands.prompters.typer_prompter import TyperPrompter
+from devrules.adapters.prompters import Prompter
+from devrules.adapters.prompters.gum_prompter import GumPrompter
+from devrules.adapters.prompters.typer_prompter import TyperPrompter
 
 
 def get_prompter() -> Prompter:

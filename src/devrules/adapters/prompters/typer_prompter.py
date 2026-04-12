@@ -5,7 +5,7 @@ from typing import Optional
 import typer
 from typing_extensions import NoReturn
 
-from devrules.cli_commands.prompters import Prompter
+from devrules.adapters.prompters import Prompter
 
 
 class TyperPrompter(Prompter):
@@ -36,6 +36,7 @@ class TyperPrompter(Prompter):
         options: list[str],
         header: str = "",
         limit: int = 1,
+        defaults: Optional[list[str]] = None,
     ) -> Optional[str | list[str]]:
         """Interactive selection from a list of options using typer.
 
@@ -298,3 +299,20 @@ class TyperPrompter(Prompter):
             code: Exit code
         """
         raise typer.Exit(code)
+
+    def header(self, header: str) -> None:
+        """Print a header title
+
+        Args:
+            header (str): header's content
+        """
+        typer.secho(header, fg=typer.colors.BLUE, bold=True)
+        typer.secho("=" * 50, fg=typer.colors.BLUE)
+
+    def indented_message(self, message: str) -> None:
+        """Print an indented message.
+
+        Args:
+            message: Indented message to display
+        """
+        typer.secho(f"   {message}")

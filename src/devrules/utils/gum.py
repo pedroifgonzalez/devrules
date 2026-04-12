@@ -28,9 +28,7 @@ def is_available() -> bool:
 
 
 def choose(
-    options: list[str],
-    header: str = "",
-    limit: int = 1,
+    options: list[str], header: str = "", limit: int = 1, defaults: Optional[list[str]] = None
 ) -> Optional[str | list[str]]:
     """Interactive selection from a list of options.
 
@@ -38,6 +36,7 @@ def choose(
         options: List of options to choose from
         header: Header text to display above choices
         limit: Number of selections allowed (0 for unlimited)
+        defaults: List of default options to pre-select
 
     Returns:
         Selected option(s) or None if cancelled
@@ -45,13 +44,15 @@ def choose(
     if not GUM_AVAILABLE or not options:
         return None
 
-    cmd = ["gum", "choose"]
+    cmd = ["gum", "choose", "--height", "5", "--select-if-one"]
     if header:
         cmd.extend(["--header", header])
     if limit == 0:
         cmd.append("--no-limit")
     elif limit > 1:
         cmd.extend(["--limit", str(limit)])
+    if defaults:
+        cmd.extend(["--selected", ",".join(defaults)])
     cmd.extend(options)
 
     try:
@@ -108,9 +109,7 @@ def input_text(
 
 
 def write(
-    placeholder: str = "",
-    header: str = "",
-    char_limit: int = 0,
+    placeholder: str = "", header: str = "", char_limit: int = 0, default: str = ""
 ) -> Optional[str]:
     """Multi-line text input.
 
@@ -118,6 +117,7 @@ def write(
         placeholder: Placeholder text
         header: Header text
         char_limit: Maximum characters (0 for unlimited)
+        default: Default text
 
     Returns:
         User input or None if cancelled
@@ -132,6 +132,8 @@ def write(
         cmd.extend(["--header", header])
     if char_limit > 0:
         cmd.extend(["--char-limit", str(char_limit)])
+    if default:
+        cmd.extend(["--value", default])
 
     try:
         # Don't capture stderr so user sees the interactive UI

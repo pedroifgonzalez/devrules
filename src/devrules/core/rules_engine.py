@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from loguru import logger
+
 from devrules.config import CustomRulesConfig
 from devrules.core.enum import DevRulesEvent
 
@@ -52,6 +54,7 @@ class RuleRegistry:
                 hooks=hooks,
                 ignore_defaults=ignore_defaults,
             )
+            logger.debug(f"Registered rule: {name}")
             return func
 
         return decorator
@@ -78,8 +81,10 @@ rule = RuleRegistry.register
 
 def discover_rules(config: CustomRulesConfig):
     """Discover rules from configured paths and packages."""
+    logger.debug("Starting rule discovery")
 
     # 1. Load from paths
+
     for path_str in config.paths:
         path = Path(path_str).resolve()
         if not path.exists():
@@ -87,6 +92,7 @@ def discover_rules(config: CustomRulesConfig):
             continue
 
         if path.is_file() and path.suffix == ".py":
+            logger.debug(f"Loading rule file: {path}")
             _load_file(path)
         elif path.is_dir():
             for py_file in path.glob("**/*.py"):
@@ -118,7 +124,9 @@ def _load_file(path: Path):
 
 def execute_rule(name: str, *args, **kwargs) -> Tuple[bool, str]:
     """Execute a specific rule by name."""
+    logger.debug(f"Executing rule: {name}")
     definition = RuleRegistry.get_rule(name)
+
     if not definition:
         return False, f"Rule '{name}' not found."
 
@@ -169,8 +177,8 @@ def execute_rule(name: str, *args, **kwargs) -> Tuple[bool, str]:
 
 def prompt_for_rule_arguments(rule_name: str) -> Dict[str, Any]:
     """Interactively prompt for rule arguments based on the rule's signature."""
-    from devrules.cli_commands.prompters import Prompter
-    from devrules.cli_commands.prompters.factory import get_default_prompter
+    from devrules.adapters.prompters import Prompter
+    from devrules.adapters.prompters.factory import get_default_prompter
 
     prompter: Prompter = get_default_prompter()
 
@@ -196,6 +204,7 @@ def prompt_for_rule_arguments(rule_name: str) -> Dict[str, Any]:
 
         if rule.ignore_defaults and param.default != inspect.Parameter.empty:
             kwargs[param_name] = param.default
+            continue
 
         prompt_text = f"Enter value for '{param_name}' ({param_type}):"
         value = prompter.input_text(

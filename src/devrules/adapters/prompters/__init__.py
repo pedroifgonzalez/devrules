@@ -40,11 +40,44 @@ class Prompter(ABC):
         pass
 
     @abstractmethod
+    def choose_single(self, options: list[str], header: str) -> Optional[str]:
+        """Show a single choice dialog.
+
+        Args:
+            options: List of options to choose from
+            header: Header text to display above choices
+
+        Returns:
+            Selected option as string, or None if cancelled
+        """
+        pass
+
+    @abstractmethod
+    def choose_multiple(
+        self,
+        options: list[str],
+        header: str,
+        defaults: Optional[list[str]] = None,
+    ) -> Optional[list[str]]:
+        """Show a multiple choice dialog.
+
+        Args:
+            options: List of options to choose from
+            header: Header text to display above choices
+            defaults: List of default options to pre-select
+
+        Returns:
+            List of selected options as strings, or None if cancelled
+        """
+        pass
+
+    @abstractmethod
     def choose(
         self,
         options: list[str],
         header: str = "",
         limit: int = 1,
+        defaults: Optional[list[str]] = None,
     ) -> Optional[str | list[str]]:
         """Interactive selection from a list of options.
 
@@ -196,6 +229,15 @@ class Prompter(ABC):
         pass
 
     @abstractmethod
+    def indented_message(self, message: str) -> None:
+        """Print an indented message.
+
+        Args:
+            message: Indented message to display
+        """
+        pass
+
+    @abstractmethod
     def exit(self, code: int) -> NoReturn:
         """Exit the program with the given exit code.
 
@@ -203,6 +245,15 @@ class Prompter(ABC):
             code: Exit code
         """
         raise SystemExit(code)
+
+    @abstractmethod
+    def header(self, header: str) -> None:
+        """Display a header
+
+        Args:
+            header (str): Header content message
+        """
+        pass
 
 
 __all__ = ["Prompter"]
