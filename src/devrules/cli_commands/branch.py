@@ -692,6 +692,28 @@ def register(app: typer.Typer) -> Dict[str, Callable[..., Any]]:
             prompter.info("Auto updating branch from remote...")
             pull_remote_changes()
             prompter.success("Branch updated from remote")
+        elif branch_config.auto_pull_from_base_branch:
+            current_branch = get_current_branch()
+            base_branch = branch_config.base_branch
+            if (
+                current_branch != base_branch
+                and current_branch not in branch_config.branches_to_exclude_from_pulling
+            ):
+                checked_out_base_branch, _ = checkout_branch(base_branch)
+                prompter.info(f"Checked out base branch: {base_branch}")
+                checked_out_selected_branch = None
+                if checked_out_base_branch:
+                    prompter.info(f"Pulling base branch: {base_branch}...")
+                    pull_remote_changes()
+                    prompter.success(f"Pulled base branch: {base_branch}")
+                    checked_out_selected_branch, _ = checkout_branch(base_branch)
+                    prompter.info(f"Pulling from base branch: {base_branch}")
+                    pull_remote_changes(branch=base_branch)
+                    prompter.success(f"Pulled from base branch: {base_branch}")
+
+                if not checked_out_base_branch or not checked_out_selected_branch:
+                    prompter.error(f"Failed to pulling from base branch: {base_branch}")
+                    raise prompter.exit(code=1)
 
     @app.command(name="create-integration-branch")
     @ensure_git_repo()

@@ -29,6 +29,9 @@ class BranchConfig:
     labels_hierarchy: list = field(default_factory=list)
     forbid_cross_repo_cards: bool = False
     auto_update_from_remote: bool = False
+    auto_pull_from_base_branch: bool = False
+    base_branch: str = "develop"
+    branches_to_exclude_from_pulling: list = field(default_factory=list)
 
 
 @dataclass
